@@ -1,6 +1,4 @@
-// Funzione per aggiungere il pulsante "➕" sotto le thumbnail dei video
 function addSaveButtonToVideos() {
-  // Seleziona tutte le thumbnail dei video su YouTube
   const videoElements = document.querySelectorAll('ytd-thumbnail');
 
   videoElements.forEach((thumbnail) => {
@@ -27,16 +25,20 @@ function addSaveButtonToVideos() {
 
     // Aggiungi l’evento click per salvare il video
     button.addEventListener('click', (e) => {
-      e.stopPropagation(); // Previene l'interazione con altri elementi sottostanti
+      e.stopPropagation();
       e.preventDefault();
 
-      // Trova il link del video e il titolo
-      const videoLink = thumbnail.closest('a').href;
-      const videoTitleElement = thumbnail.closest('ytd-grid-video-renderer, ytd-video-renderer').querySelector('#video-title');
+      const videoLinkElement = thumbnail.querySelector('a#thumbnail');
+      if (!videoLinkElement) {
+        alert("Errore: Impossibile trovare il link del video.");
+        return;
+      }
+
+      const videoUrl = videoLinkElement.href;
+      const videoTitleElement = thumbnail.closest('ytd-rich-item-renderer')?.querySelector('#video-title');
       const videoTitle = videoTitleElement ? videoTitleElement.innerText : 'Video senza titolo';
 
-      // Salva il video
-      saveVideo({ title: videoTitle, url: videoLink });
+      saveVideo({ title: videoTitle, url: videoUrl }, button);
     });
 
     // Aggiungi il pulsante alla thumbnail
@@ -44,8 +46,7 @@ function addSaveButtonToVideos() {
   });
 }
 
-// Funzione per salvare il video in chrome.storage
-function saveVideo(video) {
+function saveVideo(video, button) {
   chrome.storage.local.get({ savedVideos: [] }, (data) => {
     const savedVideos = data.savedVideos;
 
@@ -57,7 +58,11 @@ function saveVideo(video) {
 
     savedVideos.push(video);
     chrome.storage.local.set({ savedVideos }, () => {
-      alert(`Video salvato: ${video.title}`);
+      // Modifica il pulsante dopo il salvataggio
+      button.innerText = '✔';
+      button.style.background = 'rgba(0, 200, 0, 0.8)';
+      button.style.cursor = 'default';
+      button.disabled = true;
     });
   });
 }
