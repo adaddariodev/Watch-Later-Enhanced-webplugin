@@ -1,3 +1,23 @@
+function saveVideo(video, button) {
+  chrome.storage.local.get({ savedVideos: [] }, (data) => {
+    const savedVideos = data.savedVideos;
+
+    // Evita di aggiungere duplicati
+    if (savedVideos.some((v) => v.url === video.url)) {
+      alert('Questo video è già stato salvato!');
+      return;
+    }
+
+    savedVideos.push(video);
+    chrome.storage.local.set({ savedVideos }, () => {
+      button.innerText = '✔';
+      button.style.background = 'rgba(0, 200, 0, 0.8)';
+      button.style.cursor = 'default';
+      button.disabled = true;
+    });
+  });
+}
+
 function addSaveButtonToVideos() {
   const videoElements = document.querySelectorAll('ytd-thumbnail');
 
@@ -35,8 +55,6 @@ function addSaveButtonToVideos() {
       }
 
       const videoUrl = videoLinkElement.href;
-
-      // Ricerca più robusta per il titolo del video
       const videoTitleElement = thumbnail.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer')?.querySelector('#video-title, #video-title-link');
       const videoTitle = videoTitleElement ? videoTitleElement.innerText.trim() : 'Video senza titolo';
 
@@ -45,26 +63,34 @@ function addSaveButtonToVideos() {
 
     // Aggiungi il pulsante alla thumbnail
     thumbnail.appendChild(button);
+
+    // Controlla lo stato del pulsante al caricamento
+    updateButtonState(thumbnail, button);
   });
 }
 
-function saveVideo(video, button) {
+// Funzione per aggiornare dinamicamente lo stato del pulsante
+function updateButtonState(thumbnail, button) {
+  const videoLinkElement = thumbnail.querySelector('a#thumbnail');
+  if (!videoLinkElement) return;
+
+  const videoUrl = videoLinkElement.href;
+
   chrome.storage.local.get({ savedVideos: [] }, (data) => {
     const savedVideos = data.savedVideos;
+    const isSaved = savedVideos.some((video) => video.url === videoUrl);
 
-    // Evita di aggiungere duplicati
-    if (savedVideos.some((v) => v.url === video.url)) {
-      alert('Questo video è già stato salvato!');
-      return;
-    }
-
-    savedVideos.push(video);
-    chrome.storage.local.set({ savedVideos }, () => {
+    if (isSaved) {
       button.innerText = '✔';
       button.style.background = 'rgba(0, 200, 0, 0.8)';
       button.style.cursor = 'default';
       button.disabled = true;
-    });
+    } else {
+      button.innerText = '➕';
+      button.style.background = 'rgba(255, 0, 0, 0.8)';
+      button.style.cursor = 'pointer';
+      button.disabled = false;
+    }
   });
 }
 
