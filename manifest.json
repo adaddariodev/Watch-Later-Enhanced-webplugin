@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "YouTube Watch Later Manager",
   "version": "1.0",
-  "description": "Gestisci e visualizza i tuoi video YouTube 'Watch Later' in modo più semplice.",
+  "description": "Take control of your YouTube 'Watch Later' list with ease! Organize, categorize, and manage your saved videos effortlessly.",
   "permissions": ["storage", "tabs"],
   "action": {
     "default_popup": "popup.html",
