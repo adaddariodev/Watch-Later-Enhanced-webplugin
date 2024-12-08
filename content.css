@@ -13,8 +13,8 @@
 }
 
 .save-watchlater-button:hover {
-  background: rgba(0, 200, 0, 0.8) !important; /* Cambia colore al verde */
-  transform: scale(1.1); /* Leggera animazione di ingrandimento */
+  background: rgba(0, 200, 0, 0.8) !important; /* Change color to green */
+  transform: scale(1.1); /* Slight zoom-in animation */
 }
 
 .save-watchlater-button:active {
