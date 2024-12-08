@@ -35,8 +35,10 @@ function addSaveButtonToVideos() {
       }
 
       const videoUrl = videoLinkElement.href;
-      const videoTitleElement = thumbnail.closest('ytd-rich-item-renderer')?.querySelector('#video-title');
-      const videoTitle = videoTitleElement ? videoTitleElement.innerText : 'Video senza titolo';
+
+      // Ricerca più robusta per il titolo del video
+      const videoTitleElement = thumbnail.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer')?.querySelector('#video-title, #video-title-link');
+      const videoTitle = videoTitleElement ? videoTitleElement.innerText.trim() : 'Video senza titolo';
 
       saveVideo({ title: videoTitle, url: videoUrl }, button);
     });
@@ -58,7 +60,6 @@ function saveVideo(video, button) {
 
     savedVideos.push(video);
     chrome.storage.local.set({ savedVideos }, () => {
-      // Modifica il pulsante dopo il salvataggio
       button.innerText = '✔';
       button.style.background = 'rgba(0, 200, 0, 0.8)';
       button.style.cursor = 'default';
