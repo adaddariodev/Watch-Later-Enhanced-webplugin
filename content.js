@@ -94,5 +94,23 @@ function updateButtonState(thumbnail, button) {
   });
 }
 
+// Funzione per aggiornare lo stato di tutti i pulsanti sulla pagina
+function refreshButtons() {
+  const videoElements = document.querySelectorAll('ytd-thumbnail');
+  videoElements.forEach((thumbnail) => {
+    const button = thumbnail.querySelector('.save-watchlater-button');
+    if (button) {
+      updateButtonState(thumbnail, button);
+    }
+  });
+}
+
+// Ascolta i messaggi dal popup per aggiornare i pulsanti
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "updateButtons") {
+    refreshButtons();
+  }
+});
+
 // Esegui la funzione ogni 2 secondi per catturare nuovi video durante lo scroll
 setInterval(addSaveButtonToVideos, 2000);

@@ -68,4 +68,33 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.classList.remove("show");
     }, 3000);
   }
+
+  function deleteVideo(index) {
+    chrome.storage.local.get({ savedVideos: [] }, (data) => {
+      const savedVideos = data.savedVideos;
+      savedVideos.splice(index, 1);
+      chrome.storage.local.set({ savedVideos }, () => {
+        loadSavedVideos();
+        updateAllButtonStates();
+        showMessage("Video eliminato correttamente!");
+      });
+    });
+  }
+    
+  // Funzione per cancellare tutti i video senza il secondo avviso
+  clearButton.addEventListener("click", () => {
+    chrome.storage.local.set({ savedVideos: [] }, () => {
+      loadSavedVideos();
+      updateAllButtonStates();
+      showMessage("Tutti i video sono stati cancellati!");
+    });
+  });
+
+  // Funzione per aggiornare lo stato di tutti i pulsanti sulla pagina YouTube
+  function updateAllButtonStates() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.tabs.sendMessage(tabs[0].id, { action: "updateButtons" });
+    });
+  }
+  
 });
