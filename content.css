@@ -3,14 +3,20 @@
   top: 10px;
   right: 10px;
   padding: 5px;
-  background: rgba(255, 0, 0, 0.9);
+  background: rgba(255, 0, 0, 0.8);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  z-index: 1000; /* Assicurati che il pulsante sia sopra gli altri elementi */
+  z-index: 1000;
+  transition: background 0.3s ease, transform 0.1s ease;
 }
 
 .save-watchlater-button:hover {
-  background: rgba(200, 0, 0, 0.9);
+  background: rgba(0, 200, 0, 0.8) !important; /* Cambia colore al verde */
+  transform: scale(1.1); /* Leggera animazione di ingrandimento */
+}
+
+.save-watchlater-button:active {
+  transform: scale(0.95);
 }
