@@ -4,7 +4,7 @@ function saveVideo(video, button) {
 
     // Evita di aggiungere duplicati
     if (savedVideos.some((v) => v.url === video.url)) {
-      alert('Questo video è già stato salvato!');
+      alert('This video is already saved!');
       return;
     }
 
@@ -50,13 +50,13 @@ function addSaveButtonToVideos() {
 
       const videoLinkElement = thumbnail.querySelector('a#thumbnail');
       if (!videoLinkElement) {
-        alert("Errore: Impossibile trovare il link del video.");
+        alert("Error: Cannot find the URL of the video");
         return;
       }
 
       const videoUrl = videoLinkElement.href;
       const videoTitleElement = thumbnail.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer')?.querySelector('#video-title, #video-title-link');
-      const videoTitle = videoTitleElement ? videoTitleElement.innerText.trim() : 'Video senza titolo';
+      const videoTitle = videoTitleElement ? videoTitleElement.innerText.trim() : 'Video without title.';
 
       saveVideo({ title: videoTitle, url: videoUrl }, button);
     });
