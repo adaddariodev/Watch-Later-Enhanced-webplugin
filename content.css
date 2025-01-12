@@ -1,75 +1,77 @@
+/* Save Button */
 .save-watchlater-button {
   position: absolute;
   top: 10px;
   right: 10px;
-  padding: 5px;
-  background: rgba(255, 0, 0, 0.8);
+  padding: 8px;
+  background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
   cursor: pointer;
-  z-index: 1000;
-  transition: background 0.3s ease, transform 0.1s ease;
+  transition: all 0.3s ease;
 }
 
 .save-watchlater-button:hover {
-  background: rgba(0, 200, 0, 0.8) !important; /* Change color to green */
-  transform: scale(1.1); /* Slight zoom-in animation */
+  background-color: #0056b3;
+  transform: scale(1.05);
 }
 
 .save-watchlater-button:active {
   transform: scale(0.95);
 }
 
+/* Copy URL Button */
 .copy-url-button {
   position: absolute;
   top: 10px;
   right: 50px;
-  padding: 5px;
-  background: rgba(0, 0, 255, 0.8);
+  padding: 8px;
+  background-color: #28a745;
   color: white;
   border: none;
   border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
   cursor: pointer;
-  z-index: 1000;
-  transition: background 0.3s ease, transform 0.1s ease;
+  transition: all 0.3s ease;
 }
 
 .copy-url-button:hover {
-  background: rgba(0, 0, 200, 0.8);
-  transform: scale(1.1);
+  background-color: #1e7e34;
+  transform: scale(1.05);
 }
 
 .copy-url-button:active {
   transform: scale(0.95);
 }
 
-/* Messaggio temporaneo */
+/* Temporary Message */
 .temporary-message {
   position: fixed;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
   padding: 10px 20px;
-  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
   font-size: 14px;
+  border-radius: 6px;
   z-index: 10000;
   opacity: 0;
   animation: fadeInOut 2s ease forwards;
 }
 
-/* Tipi di messaggio */
 .temporary-message.success {
-  background: rgba(0, 200, 0, 0.8);
+  background-color: #28a745;
 }
 
 .temporary-message.error {
-  background: rgba(255, 0, 0, 0.8);
+  background-color: #dc3545;
 }
 
-/* Animazione di comparsa e sparizione */
 @keyframes fadeInOut {
   0% {
     opacity: 0;
