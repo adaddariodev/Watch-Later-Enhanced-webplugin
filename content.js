@@ -4,7 +4,7 @@ function saveVideo(video, button) {
 
     // Evita di aggiungere duplicati
     if (savedVideos.some((v) => v.url === video.url)) {
-      alert('This video is already saved!');
+      showTemporaryMessage("This video is already saved!", "error");
       return;
     }
 
@@ -14,6 +14,7 @@ function saveVideo(video, button) {
       button.style.background = 'rgba(0, 200, 0, 0.8)';
       button.style.cursor = 'default';
       button.disabled = true;
+      showTemporaryMessage("Video added to your list!", "success");
     });
   });
 }
@@ -22,35 +23,34 @@ function addSaveButtonToVideos() {
   const videoElements = document.querySelectorAll('ytd-thumbnail');
 
   videoElements.forEach((thumbnail) => {
-    // Evita di aggiungere il pulsante più volte
-    if (thumbnail.querySelector('.save-watchlater-button')) return;
+    // Evita di aggiungere i pulsanti più volte
+    if (thumbnail.querySelector('.save-watchlater-button') || thumbnail.querySelector('.copy-url-button')) return;
 
-    // Imposta il genitore come relativo per il posizionamento assoluto del pulsante
+    // Imposta il genitore come relativo per il posizionamento assoluto dei pulsanti
     thumbnail.style.position = 'relative';
 
-    // Crea il pulsante
-    const button = document.createElement('button');
-    button.innerText = '➕';
-    button.className = 'save-watchlater-button';
-    button.style.position = 'absolute';
-    button.style.top = '10px';
-    button.style.right = '10px';
-    button.style.padding = '5px';
-    button.style.background = 'rgba(255, 0, 0, 0.8)';
-    button.style.color = 'white';
-    button.style.border = 'none';
-    button.style.borderRadius = '4px';
-    button.style.cursor = 'pointer';
-    button.style.zIndex = '1000';
+    // Crea il pulsante di salvataggio
+    const saveButton = document.createElement('button');
+    saveButton.innerText = '➕';
+    saveButton.className = 'save-watchlater-button';
+    saveButton.style.position = 'absolute';
+    saveButton.style.top = '10px';
+    saveButton.style.right = '10px';
+    saveButton.style.padding = '5px';
+    saveButton.style.background = 'rgba(255, 0, 0, 0.8)';
+    saveButton.style.color = 'white';
+    saveButton.style.border = 'none';
+    saveButton.style.borderRadius = '4px';
+    saveButton.style.cursor = 'pointer';
+    saveButton.style.zIndex = '1000';
 
-    // Aggiungi l’evento click per salvare il video
-    button.addEventListener('click', (e) => {
+    saveButton.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
 
       const videoLinkElement = thumbnail.querySelector('a#thumbnail');
       if (!videoLinkElement) {
-        alert("Error: Cannot find the URL of the video");
+        showTemporaryMessage("Error: Cannot find the URL of the video", "error");
         return;
       }
 
@@ -58,14 +58,51 @@ function addSaveButtonToVideos() {
       const videoTitleElement = thumbnail.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer')?.querySelector('#video-title, #video-title-link');
       const videoTitle = videoTitleElement ? videoTitleElement.innerText.trim() : 'Video without title.';
 
-      saveVideo({ title: videoTitle, url: videoUrl }, button);
+      saveVideo({ title: videoTitle, url: videoUrl }, saveButton);
     });
 
-    // Aggiungi il pulsante alla thumbnail
-    thumbnail.appendChild(button);
+    thumbnail.appendChild(saveButton);
 
-    // Controlla lo stato del pulsante al caricamento
-    updateButtonState(thumbnail, button);
+    // Crea il pulsante per copiare la URL
+    const copyButton = document.createElement('button');
+    copyButton.innerText = '📋';
+    copyButton.className = 'copy-url-button';
+    copyButton.style.position = 'absolute';
+    copyButton.style.top = '10px';
+    copyButton.style.right = '50px';
+    copyButton.style.padding = '5px';
+    copyButton.style.background = 'rgba(0, 0, 255, 0.8)';
+    copyButton.style.color = 'white';
+    copyButton.style.border = 'none';
+    copyButton.style.borderRadius = '4px';
+    copyButton.style.cursor = 'pointer';
+    copyButton.style.zIndex = '1000';
+
+    copyButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const videoLinkElement = thumbnail.querySelector('a#thumbnail');
+      if (!videoLinkElement) {
+        showTemporaryMessage("Error: Cannot find the video URL", "error");
+        return;
+      }
+
+      const videoUrl = videoLinkElement.href;
+
+      // Copia la URL nella clipboard
+      navigator.clipboard.writeText(videoUrl).then(() => {
+        showTemporaryMessage("Video URL copied to clipboard!", "success");
+      }).catch((err) => {
+        console.error('Failed to copy URL: ', err);
+        showTemporaryMessage("Failed to copy the video URL", "error");
+      });
+    });
+
+    thumbnail.appendChild(copyButton);
+
+    // Controlla lo stato del pulsante di salvataggio al caricamento
+    updateButtonState(thumbnail, saveButton);
   });
 }
 
@@ -94,23 +131,36 @@ function updateButtonState(thumbnail, button) {
   });
 }
 
+// Funzione per mostrare un messaggio temporaneo
+function showTemporaryMessage(message, type) {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `temporary-message ${type}`;
+  messageDiv.innerText = message;
+
+  // Aggiungi il messaggio al corpo della pagina
+  document.body.appendChild(messageDiv);
+
+  // Rimuovi il messaggio dopo 2 secondi
+  setTimeout(() => {
+    messageDiv.remove();
+  }, 2000);
+}
+
 // Funzione per aggiornare lo stato di tutti i pulsanti sulla pagina
 function refreshButtons() {
   const videoElements = document.querySelectorAll('ytd-thumbnail');
   videoElements.forEach((thumbnail) => {
-    const button = thumbnail.querySelector('.save-watchlater-button');
-    if (button) {
-      updateButtonState(thumbnail, button);
+    const saveButton = thumbnail.querySelector('.save-watchlater-button');
+    if (saveButton) {
+      updateButtonState(thumbnail, saveButton);
     }
   });
 }
 
-// Ascolta i messaggi dal popup per aggiornare i pulsanti
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "updateButtons") {
     refreshButtons();
   }
 });
 
-// Esegui la funzione ogni 2 secondi per catturare nuovi video durante lo scroll
 setInterval(addSaveButtonToVideos, 2000);
