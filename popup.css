@@ -51,7 +51,7 @@ button {
 }
 
 .btn-clear:hover {
-  background-color: #f91a0e;
+  background-color: #ff9900;
 }
 
 /* Video List */
@@ -73,7 +73,7 @@ button {
 }
 
 .video-list li a {
-  color: #ffc500;
+  color: #000000;
   text-decoration: none;
   font-weight: 500;
 }
@@ -95,5 +95,40 @@ button {
 @media (min-width: 800px) {
   .container {
     width: 800px; /* Aumentata la larghezza massima */
+  }
+}
+
+/* Temporary Message */
+#message {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  z-index: 10000;
+}
+
+#message.show {
+  display: block;
+  animation: fadeInOut 2s ease forwards;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
   }
 }
