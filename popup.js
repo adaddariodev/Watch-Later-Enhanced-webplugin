@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
       chrome.storage.local.set({ savedVideos }, () => {
         loadSavedVideos();
         updateAllButtonStates();
-        showMessage("Video deleted successfully!");
+        showMessage("Video deleted successfully!", "success");
       });
     });
   }
@@ -53,20 +53,20 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.local.set({ savedVideos: [] }, () => {
       loadSavedVideos();
       updateAllButtonStates();
-      showMessage("All videos have been cleared!");
+      showMessage("All videos have been cleared!", "success");
     });
   });
 
   // Function to show a temporary message
-  function showMessage(text) {
+  function showMessage(text, type) {
     const messageDiv = document.getElementById("message");
     messageDiv.textContent = text;
-    messageDiv.classList.add("show");
+    messageDiv.className = `show ${type}`;
 
-    // Hide the message after 3 seconds
+    // Hide the message after 2 seconds
     setTimeout(() => {
-      messageDiv.classList.remove("show");
-    }, 3000);
+      messageDiv.className = "hidden";
+    }, 2000);
   }
 
   // Function to update the state of all buttons on the YouTube page
