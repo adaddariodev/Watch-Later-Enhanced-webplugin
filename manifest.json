@@ -3,11 +3,15 @@
   "name": "Watch Later Enhancer",
   "version": "1.0",
   "description": "Take control of your YouTube 'Watch Later' list with ease! Enhance your experience and your saved videos list effortlessly.",
+  "icons": {
+    "48": "icons/48px.png",
+    "128": "icons/128px.png"
+  },
   "permissions": ["storage", "tabs"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "128": "icon.png"
+      "128": "icons/128px.png"
     }
   },
   "content_scripts": [
