@@ -163,4 +163,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-setInterval(addSaveButtonToVideos, 2000);
+// Utilizziamo un MutationObserver per monitorare i cambiamenti nella pagina
+// e aggiungere i pulsanti ai nuovi video caricati dinamicamente
+
+// Creazione Observer
+const observer = new MutationObserver((mutations) => {
+  let hasNewNodes = false;
+  
+  // Controlliamo se ci sono effettivamente nuovi elementi aggiunti alla pagina
+  for (const mutation of mutations) {
+    if (mutation.addedNodes.length > 0) {
+      hasNewNodes = true;
+      break; 
+    }
+  }
+
+  // Se la pagina ha caricato nuovi elementi, controlliamo se ci sono nuovi video
+  if (hasNewNodes) {
+    addSaveButtonToVideos();
+  }
+});
+
+// 2. Diciamo all'osservatore di guardare l'intero body della pagina
+observer.observe(document.body, {
+  childList: true, // Guarda i figli diretti
+  subtree: true    // Guarda anche tutti i sotto-elementi nidificati
+});
+
+// 3. Facciamo una prima esecuzione manuale per i video già presenti al caricamento
+addSaveButtonToVideos();
