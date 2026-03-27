@@ -80,28 +80,26 @@ function extractTitleGodMode(target, link, container) {
  * Save logic with Sound and Visual Feedback
  */
 function saveVideo(video, thumbNode) {
-  chrome.storage.local.get({ savedVideos: [] }, (data) => {
+  chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
     const savedVideos = data.savedVideos;
+    const isSoundEnabled = data.soundEnabled;
 
-    if (savedVideos.some(v => v.url === video.url)) {
-      showHud("Already in your list! ⚠️", "error");
-      return;
-    }
+    if (savedVideos.some(v => v.url === video.url)) return;
 
     savedVideos.push(video);
     chrome.storage.local.set({ savedVideos }, () => {
-      // 1. Play Audio
-      successAudio.currentTime = 0;
-      successAudio.play().catch(err => console.log("Audio play blocked", err));
+      
+      if (isSoundEnabled) {
+        successAudio.currentTime = 0;
+        successAudio.play().catch(err => console.log("Audio blocked", err));
+      }
 
-      // 2. Visual Glow Effect on Thumbnail
       if (thumbNode) {
         thumbNode.classList.add('wle-success-glow');
         setTimeout(() => thumbNode.classList.remove('wle-success-glow'), 800);
       }
 
-      // 3. Show Minimal HUD
-      showHud(video.title, "success");
+      showHud(video.title);
     });
   });
 }

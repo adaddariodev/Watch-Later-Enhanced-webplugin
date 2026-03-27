@@ -1,6 +1,25 @@
-const clickAudio = new Audio('sounds/click.wav');
+const soundBtn = document.getElementById('toggle-sound');
+let soundEnabled = true;
+
+chrome.storage.local.get({ soundEnabled: true }, (data) => {
+  soundEnabled = data.soundEnabled;
+  updateSoundIcon();
+});
+
+function updateSoundIcon() {
+  soundBtn.innerText = soundEnabled ? '🔊' : '🔇';
+  soundBtn.classList.toggle('muted', !soundEnabled);
+}
+
+soundBtn.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  chrome.storage.local.set({ soundEnabled: soundEnabled });
+  updateSoundIcon();
+  if (soundEnabled) playClick();
+});
 
 function playClick() {
+  if (!soundEnabled) return;
   clickAudio.currentTime = 0;
   clickAudio.play().catch(e => console.log("Audio play blocked:", e));
 }
