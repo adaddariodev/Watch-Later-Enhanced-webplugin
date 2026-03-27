@@ -1,9 +1,3 @@
-/**
- * @filecontent Watch Later Enhancer - Content Script
- * @version 8.0 (Final Stable - Aggressive Extraction + Premium UX)
- */
-
-// Path for the success sound (inside sounds folder)
 const successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
 
 /**
@@ -12,23 +6,18 @@ const successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
 document.addEventListener('click', (event) => {
   if (!event.altKey) return;
 
-  // Identify the closest video link
   const videoLink = event.target.closest('a[href*="/watch?v="]');
 
   if (videoLink) {
     event.preventDefault();
     event.stopPropagation();
 
-    // 1. Identify container and thumbnail for visual feedback
     const container = event.target.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-grid-media, ytd-grid-video-renderer');
     const thumbNode = container ? container.querySelector('ytd-thumbnail, .yt-lockup-view-model-wiz__thumbnail, #thumbnail') : null;
 
-    // 2. AGGRESSIVE TITLE EXTRACTION
     let videoTitle = extractTitleGodMode(event.target, videoLink, container);
 
-    // 3. CLEANUP: Remove timestamps and "minutes" strings
-    // Matches patterns like [10:30], (5:22), 15 minuti, 10 min, etc.
-    const cleanTitle = videoTitle.replace(/\d+\s*(minuti|minutes|min)|[\[\(\d]*:\d+[\]\)\s]*/gi, '').trim();
+    const cleanTitle = videoTitle.replace(/\s*(?:e|and|,)?\s*\d+\s*(?:minuti|minutes|min|secondi|seconds|sec)\b|[\[\(\d]*:\d+[\]\)\s]*/gi, '').trim();
 
     saveVideo({ title: cleanTitle, url: videoLink.href }, thumbNode);
   }
@@ -118,7 +107,6 @@ function showHud(message, type) {
   const statusText = type === "success" ? `<span class="wle-hud-title">Saved to List</span>` : "";
   hud.innerHTML = `${statusText}${message}`;
   
-  // Trigger animation via CSS class
   requestAnimationFrame(() => {
     hud.classList.add('visible');
   });
