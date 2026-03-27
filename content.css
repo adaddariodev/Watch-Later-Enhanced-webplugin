@@ -1,88 +1,48 @@
-/* Save Button */
-.save-watchlater-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 8px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.save-watchlater-button:hover {
-  background-color: #0056b3;
-  transform: scale(1.05);
-}
-
-.save-watchlater-button:active {
-  transform: scale(0.95);
-}
-
-/* Copy URL Button */
-.copy-url-button {
-  position: absolute;
-  top: 10px;
-  right: 50px;
-  padding: 8px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.copy-url-button:hover {
-  background-color: #1e7e34;
-  transform: scale(1.05);
-}
-
-.copy-url-button:active {
-  transform: scale(0.95);
-}
-
-/* Temporary Message */
-.temporary-message {
+/* HUD: Modern, Minimal & Centered (Glassmorphism) */
+.wle-hud {
   position: fixed;
-  bottom: 20px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 20px;
-  background-color: rgba(0, 0, 0, 0.8);
+  transform: translate(-50%, -50%) scale(0.9);
+  padding: 24px 48px;
+  background: rgba(18, 18, 18, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: white;
-  font-size: 14px;
-  border-radius: 6px;
-  z-index: 10000;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 2147483647;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   opacity: 0;
-  animation: fadeInOut 2s ease forwards;
+  pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-.temporary-message.success {
-  background-color: #28a745;
+.wle-hud.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
-.temporary-message.error {
-  background-color: #dc3545;
+.wle-hud-title {
+  display: block;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #30d158; /* iOS Success Green */
+  margin-bottom: 8px;
 }
 
-@keyframes fadeInOut {
-  0% {
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+/* THUMBNAIL EFFECT: Elegant Pulse Glow */
+@keyframes wleThumbnailGlow {
+  0% { outline: 0px solid rgba(48, 209, 88, 0); box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+  30% { outline: 4px solid rgba(48, 209, 88, 0.6); box-shadow: 0 0 20px 10px rgba(48, 209, 88, 0.3); }
+  100% { outline: 8px solid rgba(48, 209, 88, 0); box-shadow: 0 0 40px 20px rgba(48, 209, 88, 0); }
+}
+
+.wle-success-glow {
+  animation: wleThumbnailGlow 0.8s ease-out forwards;
+  border-radius: 12px !important;
+  overflow: hidden !important;
 }

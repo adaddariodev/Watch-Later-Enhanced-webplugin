@@ -1,24 +1,28 @@
 {
   "manifest_version": 3,
-  "name": "Watch Later Enhancer",
-  "version": "1.0",
-  "description": "Take control of your YouTube 'Watch Later' list with ease! Enhance your experience and your saved videos list effortlessly.",
+  "name": "Watch Later Enhanced",
+  "version": "2.0",
+  "description": "Save YouTube videos to a custom list easily via Alt+Click. Created by github.com/adaddariodev 👨‍💻",
+  "permissions": ["storage", "activeTab"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/128px.png"
+  },
   "icons": {
     "48": "icons/48px.png",
     "128": "icons/128px.png"
-  },
-  "permissions": ["storage", "tabs"],
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "128": "icons/128px.png"
-    }
   },
   "content_scripts": [
     {
       "matches": ["*://www.youtube.com/*"],
       "js": ["content.js"],
       "css": ["content.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["sounds/success.wav", "sounds/click.wav"],
+      "matches": ["*://www.youtube.com/*"]
     }
   ]
 }
