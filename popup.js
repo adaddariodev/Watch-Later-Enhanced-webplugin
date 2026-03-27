@@ -1,6 +1,8 @@
 const soundBtn = document.getElementById('toggle-sound');
 let soundEnabled = true;
 
+const clickAudio = new Audio('sounds/click.wav');
+
 chrome.storage.local.get({ soundEnabled: true }, (data) => {
   soundEnabled = data.soundEnabled;
   updateSoundIcon();
@@ -20,8 +22,11 @@ soundBtn.addEventListener('click', () => {
 
 function playClick() {
   if (!soundEnabled) return;
-  clickAudio.currentTime = 0;
-  clickAudio.play().catch(e => console.log("Audio play blocked:", e));
+
+  if (clickAudio) {
+    clickAudio.currentTime = 0;
+    clickAudio.play().catch(e => console.log("Audio play blocked:", e));
+  }
 }
 
 function displayVideos() {
@@ -60,8 +65,11 @@ function displayVideos() {
       const delBtn = li.querySelector('.delete-btn');
       delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        
+        const videoIndex = parseInt(delBtn.dataset.index, 10);
+        removeVideo(videoIndex);
+        
         playClick();
-        removeVideo(index);
       });
 
       videoList.appendChild(li);
