@@ -23,6 +23,17 @@ header {
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px; /* Spazio tra altoparlante e cestino */
+}
+
+/* Stato quando l'audio è disattivato */
+#toggle-sound.muted {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
 h1 { font-size: 16px; margin: 0; font-weight: 600; }
 
 main {
