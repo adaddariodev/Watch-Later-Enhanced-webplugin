@@ -1,7 +1,7 @@
 const successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
 
 /**
- * Global Listener: Alt + Click logic
+ * Global Listener: Alt Click logic + API data retrieval + Title Extraction
  */
 document.addEventListener('click', (event) => {
   if (!event.altKey) return;
@@ -15,11 +15,40 @@ document.addEventListener('click', (event) => {
     const container = event.target.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-grid-media, ytd-grid-video-renderer');
     const thumbNode = container ? container.querySelector('ytd-thumbnail, .yt-lockup-view-model-wiz__thumbnail, #thumbnail') : null;
 
-    let videoTitle = extractTitleGodMode(event.target, videoLink, container);
+    // Check if the video is already saved to prevent unnecessary API calls and provide instant feedback
+    chrome.storage.local.get({ savedVideos: [] }, async (data) => {
+      const isAlreadySaved = data.savedVideos.some(v => v.url === videoLink.href);
+      
+      if (isAlreadySaved) {
+        // if the video is already saved, we show a warning HUD and a quick glow effect on the thumbnail (if available)
+        showHud("Video already saved!", "warning");
+        if (thumbNode) {
+            thumbNode.classList.add('wle-warning-glow');
+            setTimeout(() => thumbNode.classList.remove('wle-warning-glow'), 800);
+        }
+        return;
+      }
 
-    const cleanTitle = videoTitle.replace(/\s*(?:e|and|,)?\s*\d+\s*(?:minuti|minutes|min|secondi|seconds|sec)\b|[\[\(\d]*:\d+[\]\)\s]*/gi, '').trim();
+      // if the video is not saved, we show a loading HUD and attempt to fetch the title using oEmbed API
+      showHud("Saving video...", "loading");
 
-    saveVideo({ title: cleanTitle, url: videoLink.href }, thumbNode);
+      try {
+        const response = await fetch(`https://www.youtube.com/oembed?url=${videoLink.href}&format=json`);
+        
+        if (!response.ok) throw new Error("Error occurred while fetching oEmbed data");
+
+        const oembedData = await response.json();
+        const cleanTitle = oembedData.title;
+
+        // save the video with the clean title from oEmbed and provide visual feedback
+        saveVideo({ title: cleanTitle, url: videoLink.href }, thumbNode);
+
+      } catch (error) {
+        console.warn("Failed to fetch oEmbed data.", error);
+        let fallbackTitle = extractTitleGodMode(event.target, videoLink, container);
+        saveVideo({ title: fallbackTitle, url: videoLink.href }, thumbNode);
+      }
+    });
   }
 }, true);
 
@@ -27,7 +56,7 @@ document.addEventListener('click', (event) => {
  * Aggressive Title Extraction Strategy
  * Scans multiple layers of the DOM to ensure the title is NEVER "blank" or "Video"
  */
-function extractTitleGodMode(target, link, container) {
+function extractTitle(target, link, container) {
   // Strategy A: Search inside the container for specific title elements (New & Old YT)
   if (container) {
     const titleSelectors = [
@@ -93,26 +122,36 @@ function saveVideo(video, thumbNode) {
   });
 }
 
+
+let hudTimeout; // Global variable to manage HUD timeout
+
 /**
- * Modern HUD UI
+ * Modern HUD UI with State Management
  */
-function showHud(message, type) {
+function showHud(message, state = 'success') {
   let hud = document.querySelector('.wle-hud');
+  
   if (!hud) {
     hud = document.createElement('div');
     hud.className = 'wle-hud';
     document.body.appendChild(hud);
   }
-  
-  const statusText = type === "success" ? `<span class="wle-hud-title">Saved to List</span>` : "";
-  hud.innerHTML = `${statusText}${message}`;
-  
-  requestAnimationFrame(() => {
-    hud.classList.add('visible');
-  });
-  
-  clearTimeout(hud.timer);
-  hud.timer = setTimeout(() => {
-    hud.classList.remove('visible');
-  }, 2500);
+
+  hud.textContent = message;
+  hud.classList.remove('wle-loading', 'wle-success'); // Cleans previous states
+  hud.classList.add(`wle-${state}`);
+  hud.classList.add('visible');
+
+  // Clears any previous timers to prevent the HUD from closing mid-animation
+  if (hudTimeout) {
+    clearTimeout(hudTimeout);
+  }
+
+  // If it's in a loading state, the HUD remains fixed.
+  // If it's in a success (or other) state, the timer starts to hide it.
+  if (state !== 'loading') {
+    hudTimeout = setTimeout(() => {
+      hud.classList.remove('visible');
+    }, 2000); // Hides after 2 seconds
+  }
 }
