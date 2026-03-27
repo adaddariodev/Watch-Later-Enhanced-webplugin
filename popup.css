@@ -1,134 +1,111 @@
-/* Global Styles */
+:root {
+  --bg-color: #0f0f0f;
+  --card-bg: #1e1e1e;
+  --accent: #30d158;
+  --text-main: #ffffff;
+  --text-dim: #aaaaaa;
+}
+
 body {
-  font-family: 'Roboto', sans-serif;
-  width: 450px;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  background-color: #f9f9f9;
-  color: #333;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh; /* Rende il contenuto centrato */
-  box-sizing: border-box;
-}
-
-/* Container */
-.container {
-  width: 80%; 
-  padding: 10px;
-}
-
-/* logo */
-.logo {
-  display: block;
-  margin: 0 auto;
-  width: 70%;
-  margin-bottom: 20px;
-}
-
-/* Buttons */
-button {
-  font-family: inherit;
-  font-size: 14px;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-clear {
-  display: block;
-  width: 100%;
-  background-color: #f91a0e;
-  color: white;
-  font-weight: 500;
-  text-transform: uppercase;
-  text-align: center;
-  margin-bottom: 15px;
-}
-
-.btn-clear:hover {
-  background-color: #ff9900;
-}
-
-/* Video List */
-.video-list {
-  list-style-type: none;
-  padding: 0;
+  width: 360px;
+  background: var(--bg-color);
+  color: var(--text-main);
+  font-family: -apple-system, system-ui, sans-serif;
   margin: 0;
 }
 
-.video-list li {
+header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 15px;
-  margin-bottom: 10px;
-  background-color: #fff;
-  border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  align-items: center;
+  padding: 16px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.video-list li a {
-  color: #000000;
+a.glass-link {
+  text-decoration: none;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 14px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  transition: 0.3s;
+}
+
+a.glass-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #30d158; 
+  box-shadow: 0 0 15px rgba(48, 209, 88, 0.3);
+}
+
+a.minimal-link {
+  color: #30d158;
   text-decoration: none;
   font-weight: 500;
+  transition: all 0.3s ease;
+  opacity: 0.8;
 }
 
-.video-list li a:hover {
-  text-decoration: underline;
+a.minimal-link:hover {
+  opacity: 1;
+  color: #35fb62;
 }
 
-.video-list li button {
-  background-color: #f0f0f0;
-  color: #333;
+h1 { font-size: 16px; margin: 0; font-weight: 600; }
+
+.video-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--card-bg);
+  margin: 8px 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  cursor: pointer;
 }
 
-.video-list li button:hover {
-  background-color: #ddd;
+.video-item:hover {
+  border-color: rgba(255,255,255,0.1);
+  background: #252525;
+  transform: translateY(-2px);
 }
 
-/* Responsive Design */
-@media (min-width: 800px) {
-  .container {
-    width: 800px; /* Aumentata la larghezza massima */
-  }
+.video-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-main);
+  flex: 1;
+  padding-right: 12px;
 }
 
-/* Temporary Message */
-#message {
-  display: none;
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 10px 20px;
+.tutorial-container {
+  padding: 24px;
+  text-align: center;
+}
+
+.tutorial-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px dashed rgba(255,255,255,0.2);
+  padding: 24px;
+  border-radius: 20px;
+}
+
+.key-badge {
+  background: #333;
+  padding: 4px 10px;
   border-radius: 6px;
-  font-size: 14px;
-  z-index: 10000;
+  font-weight: bold;
+  font-size: 12px;
+  box-shadow: 0 3px 0 #000;
 }
 
-#message.show {
-  display: block;
-  animation: fadeInOut 2s ease forwards;
-}
-
-@keyframes fadeInOut {
-  0% {
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+.tutorial-visual {
+  margin-top: 15px;
+  font-size: 24px;
+  opacity: 0.5;
 }
