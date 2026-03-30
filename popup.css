@@ -128,3 +128,95 @@ li.video-item:hover {
   font-size: 24px;
   opacity: 0.5;
 }
+
+/* =========================================
+   MODAL SETTINGS OVERLAY
+   ========================================= */
+.wle-modal {
+  position: fixed; /* Si assicura di coprire l'intero popup */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 15, 15, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.wle-modal.hidden {
+  opacity: 0;
+  pointer-events: none; /* Impedisce di cliccare gli elementi nascosti */
+}
+
+.wle-modal-content {
+  background: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 85%;
+  padding: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+  transform: translateY(0) scale(1);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.wle-modal.hidden .wle-modal-content {
+  transform: translateY(20px) scale(0.95);
+}
+
+.wle-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 12px;
+}
+
+.wle-modal-header h2 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.settings-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.credits-box {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.credits-box p {
+  margin: 8px 0;
+}
+
+.credits-box a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.credits-box a:hover {
+  text-decoration: underline;
+  color: #fff;
+}

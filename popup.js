@@ -93,3 +93,20 @@ document.getElementById('clear-all').addEventListener('click', () => {
 });
 
 displayVideos();
+
+// --- MODAL SETTINGS LOGIC ---
+const settingsModal = document.getElementById('settings-modal');
+const openSettingsBtn = document.getElementById('open-settings');
+const closeSettingsBtn = document.getElementById('close-settings');
+
+// open settings (and play sound)
+openSettingsBtn.addEventListener('click', () => {
+  playClick();
+  settingsModal.classList.remove('hidden');
+});
+
+// close settings (and play sound)
+closeSettingsBtn.addEventListener('click', () => {
+  playClick();
+  settingsModal.classList.add('hidden');
+});
