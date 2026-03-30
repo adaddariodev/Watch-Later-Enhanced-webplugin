@@ -6,15 +6,15 @@
 </head>
 <body>
   <header>
-  <div class="logo-area">
-    <img src="icons/48px.png" alt="logo" class="header-icon">
-    <h1>Watch Later Enhanced</h1>
-  </div>
-  <div class="header-actions">
-    <button id="toggle-sound" class="icon-btn" title="Toggle Sound">🔊</button>
-    <button id="clear-all" class="icon-btn" title="Clear All">🗑️</button>
-  </div>
-</header>
+    <div class="logo-area">
+      <img src="icons/48px.png" alt="logo" class="header-icon">
+      <h1>Watch Later Enhanced</h1>
+    </div>
+    <div class="header-actions">
+      <button id="clear-all" class="icon-btn" title="Clear All">🗑️</button>
+      <button id="open-settings" class="icon-btn" title="Info & Settings">⚙️</button>
+    </div>
+  </header>
 
   <main>
     <ul id="video-list"></ul>
@@ -32,6 +32,32 @@
     </div>
   </main>
   
+  <div id="settings-modal" class="wle-modal hidden">
+    <div class="wle-modal-content">
+      <div class="wle-modal-header">
+        <h2>Info & Settings</h2>
+        <button id="close-settings" class="icon-btn" title="Close">✕</button>
+      </div>
+      <div class="wle-modal-body">
+        
+        <div class="settings-options">
+          <span>Sound Effects</span>
+          <button id="toggle-sound" class="icon-btn" title="Toggle Sound">🔊</button>
+        </div>
+        
+        <p style="text-align: center; margin-top: 24px; margin-bottom: 12px; font-size: 14px;">
+          <b>Watch Later Enhanced</b> v2.0
+        </p>
+        
+        <div class="credits-box">
+          <p>Created with ❤️ by <br><a href="https://github.com/adaddariodev" target="_blank">Antonio D'Addario</a></p>
+          <p><a href="https://github.com/adaddariodev/WATCH-LATER-ENHANCED-WEBPLUGIN" target="_blank">☕ Open Source GitHub Project</a></p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
