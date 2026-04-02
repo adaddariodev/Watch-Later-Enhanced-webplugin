@@ -7,7 +7,8 @@
 }
 
 body {
-  width: 360px;
+  width: 400px;
+  height: 500px;
   background: var(--bg-color);
   color: var(--text-main);
   font-family: -apple-system, system-ui, sans-serif;
@@ -133,12 +134,12 @@ li.video-item:hover {
    MODAL SETTINGS OVERLAY
    ========================================= */
 .wle-modal {
-  position: fixed; /* Si assicura di coprire l'intero popup */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(15, 15, 15, 0.75);
+  background: rgba(15, 15, 15, 0.60);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 100;
@@ -151,7 +152,7 @@ li.video-item:hover {
 
 .wle-modal.hidden {
   opacity: 0;
-  pointer-events: none; /* Impedisce di cliccare gli elementi nascosti */
+  pointer-events: none;
 }
 
 .wle-modal-content {
@@ -189,6 +190,7 @@ li.video-item:hover {
   align-items: center;
   background: rgba(255, 255, 255, 0.03);
   padding: 10px 16px;
+  margin-bottom: 12px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 14px;
