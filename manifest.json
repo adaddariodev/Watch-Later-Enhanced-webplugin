@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Watch Later Enhanced",
-  "version": "2.0.1",
-  "description": "Save YouTube videos to a custom list easily via Alt+Click. Created by github.com/adaddariodev 👨‍💻",
+  "version": "2.1.0",
+  "description": "Save YouTube videos in a custom watch list easily via Alt+Click. Created by github.com/adaddariodev 👨‍💻",
   "permissions": ["storage", "activeTab"],
   "action": {
     "default_popup": "popup.html",
