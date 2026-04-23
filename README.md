@@ -5,7 +5,7 @@
 
   <p>A high-performance, lightweight browser extension engineered to optimize the YouTube "Watch Later" experience through smart event delegation and asynchronous state management.</p>
 
-  <a href="LINK_AL_TUO_CHROME_STORE">
+  <a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb">
     <img src="https://img.shields.io/badge/Available_on-Chrome_Web_Store-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Chrome Web Store" />
   </a>
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="Vanilla JS" />
