@@ -222,3 +222,44 @@ li.video-item:hover {
   text-decoration: underline;
   color: #fff;
 }
+
+/* =========================================
+   DRAG & DROP SORTING FEATURE
+   ========================================= */
+/* The drag handle icon */
+.drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  font-size: 18px;
+  padding-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.drag-handle:hover {
+  color: var(--text-main);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Zoom/relief effect while holding and dragging */
+li.video-item.dragging {
+  opacity: 0.95;
+  transform: scale(1.03); /* The requested zoom effect */
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7); /* Deeper shadow for the relief */
+  border-color: var(--accent); /* Green border to highlight the action */
+  z-index: 10;
+  background-color: #2a2a2a;
+}
+
+/* "Ghost" effect (the area where the video will be dropped) */
+li.video-item.drop-target {
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+  transform: translateY(0); /* Prevents conflicts with native hover */
+}
