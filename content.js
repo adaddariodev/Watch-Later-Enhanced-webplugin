@@ -1,72 +1,103 @@
 const successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
 
 /**
- * Global Listener: Alt Click logic + API data retrieval + Title Extraction
+ * Normalize YouTube Watch URL to avoid duplicates caused by extra params.
+ * Example: https://www.youtube.com/watch?v=VIDEO_ID
  */
-document.addEventListener('click', (event) => {
-  if (!event.altKey) return;
+function normalizeYouTubeWatchUrl(url) {
+  try {
+    const u = new URL(url);
+    const v = u.searchParams.get('v');
+    if (!v) return url;
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(v)}`;
+  } catch {
+    return url;
+  }
+}
 
-  const videoLink = event.target.closest('a[href*="/watch?v="]');
+/**
+ * Serialize storage writes to reduce race conditions on rapid clicks.
+ */
+let saveQueue = Promise.resolve();
+function enqueueSave(fn) {
+  saveQueue = saveQueue.then(fn, fn);
+  return saveQueue;
+}
 
-  if (videoLink) {
+/**
+ * Global Listener: Alt+Click saves videos with oEmbed title when possible.
+ */
+document.addEventListener(
+  'click',
+  (event) => {
+    if (!event.altKey) return;
+
+    const videoLink = event.target.closest('a[href*="/watch?v="]');
+    if (!videoLink) return;
+
     event.preventDefault();
     event.stopPropagation();
 
-    const container = event.target.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-grid-media, ytd-grid-video-renderer');
-    const thumbNode = container ? container.querySelector('ytd-thumbnail, .yt-lockup-view-model-wiz__thumbnail, #thumbnail') : null;
+    const normalizedUrl = normalizeYouTubeWatchUrl(videoLink.href);
 
-    // Check if the video is already saved to prevent unnecessary API calls and provide instant feedback
+    const container = event.target.closest(
+      'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-grid-media, ytd-grid-video-renderer'
+    );
+    const thumbNode = container
+      ? container.querySelector(
+          'ytd-thumbnail, .yt-lockup-view-model-wiz__thumbnail, #thumbnail'
+        )
+      : null;
+
     chrome.storage.local.get({ savedVideos: [] }, async (data) => {
-      const isAlreadySaved = data.savedVideos.some(v => v.url === videoLink.href);
-      
+      const isAlreadySaved = data.savedVideos.some((v) => v.url === normalizedUrl);
+
       if (isAlreadySaved) {
-        // if the video is already saved, we show a warning HUD and a quick glow effect on the thumbnail (if available)
-        showHud("Video already saved!", "warning");
+        showHud('Video already saved!', 'warning');
         if (thumbNode) {
-            thumbNode.classList.add('wle-warning-glow');
-            setTimeout(() => thumbNode.classList.remove('wle-warning-glow'), 800);
+          thumbNode.classList.add('wle-warning-glow');
+          setTimeout(() => thumbNode.classList.remove('wle-warning-glow'), 800);
         }
         return;
       }
 
-      // if the video is not saved, we show a loading HUD and attempt to fetch the title using oEmbed API
-      showHud("Saving video...", "loading");
+      showHud('Saving video...', 'loading');
 
       try {
-        const response = await fetch(`https://www.youtube.com/oembed?url=${videoLink.href}&format=json`);
-        
-        if (!response.ok) throw new Error("Error occurred while fetching oEmbed data");
+        const response = await fetch(
+          `https://www.youtube.com/oembed?url=${encodeURIComponent(normalizedUrl)}&format=json`
+        );
+
+        if (!response.ok) throw new Error('Error occurred while fetching oEmbed data');
 
         const oembedData = await response.json();
-        const cleanTitle = oembedData.title;
+        const cleanTitle = oembedData?.title || 'YouTube Video';
 
-        // save the video with the clean title from oEmbed and provide visual feedback
-        saveVideo({ title: cleanTitle, url: videoLink.href }, thumbNode);
-
+        saveVideo({ title: cleanTitle, url: normalizedUrl }, thumbNode);
       } catch (error) {
-        console.warn("Failed to fetch oEmbed data.", error);
-        let fallbackTitle = extractTitleGodMode(event.target, videoLink, container);
-        saveVideo({ title: fallbackTitle, url: videoLink.href }, thumbNode);
+        console.warn('Failed to fetch oEmbed data.', error);
+        const fallbackTitle = extractTitle(event.target, videoLink, container);
+        saveVideo({ title: fallbackTitle, url: normalizedUrl }, thumbNode);
       }
     });
-  }
-}, true);
+  },
+  true
+);
 
 /**
  * Aggressive Title Extraction Strategy
  * Scans multiple layers of the DOM to ensure the title is NEVER "blank" or "Video"
  */
 function extractTitle(target, link, container) {
-  // Strategy A: Search inside the container for specific title elements (New & Old YT)
   if (container) {
     const titleSelectors = [
-      '#video-title', 
-      '#video-title-link', 
-      '.yt-lockup-metadata-view-model__title', 
+      '#video-title',
+      '#video-title-link',
+      '.yt-lockup-metadata-view-model__title',
       'yt-formatted-string.ytd-video-renderer',
-      'h3'
+      'h3',
     ];
-    
+
     for (const selector of titleSelectors) {
       const el = container.querySelector(selector);
       if (el) {
@@ -76,61 +107,64 @@ function extractTitle(target, link, container) {
     }
   }
 
-  // Strategy B: Parse the link's aria-label (YouTube often stores "Title by Channel duration")
   const ariaLabel = link.getAttribute('aria-label');
   if (ariaLabel) {
-    // Splits by common delimiters to isolate the title
     return ariaLabel.split(' di ')[0].split(' by ')[0].trim();
   }
 
-  // Strategy C: Check the link's own title attribute
   const linkTitle = link.getAttribute('title');
   if (linkTitle && linkTitle.trim().length > 0) return linkTitle.trim();
 
-  // Strategy D: Check image alt text inside the link
   const img = link.querySelector('img');
   if (img && img.alt) return img.alt.trim();
 
-  return "YouTube Video";
+  return 'YouTube Video';
 }
 
 /**
  * Save logic with Sound and Visual Feedback
  */
 function saveVideo(video, thumbNode) {
-  chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
-    const savedVideos = data.savedVideos;
-    const isSoundEnabled = data.soundEnabled;
+  enqueueSave(
+    () =>
+      new Promise((resolve) => {
+        chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
+          const savedVideos = data.savedVideos;
+          const isSoundEnabled = data.soundEnabled;
 
-    if (savedVideos.some(v => v.url === video.url)) return;
+          if (savedVideos.some((v) => v.url === video.url)) {
+            resolve();
+            return;
+          }
 
-    savedVideos.push(video);
-    chrome.storage.local.set({ savedVideos }, () => {
-      
-      if (isSoundEnabled) {
-        successAudio.currentTime = 0;
-        successAudio.play().catch(err => console.log("Audio blocked", err));
-      }
+          savedVideos.push(video);
+          chrome.storage.local.set({ savedVideos }, () => {
+            if (isSoundEnabled) {
+              successAudio.currentTime = 0;
+              successAudio.play().catch((err) => console.log('Audio blocked', err));
+            }
 
-      if (thumbNode) {
-        thumbNode.classList.add('wle-success-glow');
-        setTimeout(() => thumbNode.classList.remove('wle-success-glow'), 800);
-      }
+            if (thumbNode) {
+              thumbNode.classList.add('wle-success-glow');
+              setTimeout(() => thumbNode.classList.remove('wle-success-glow'), 800);
+            }
 
-      showHud(video.title);
-    });
-  });
+            showHud(video.title);
+            resolve();
+          });
+        });
+      })
+  );
 }
 
-
-let hudTimeout; // Global variable to manage HUD timeout
+let hudTimeout;
 
 /**
  * Modern HUD UI with State Management
  */
 function showHud(message, state = 'success') {
   let hud = document.querySelector('.wle-hud');
-  
+
   if (!hud) {
     hud = document.createElement('div');
     hud.className = 'wle-hud';
@@ -138,20 +172,15 @@ function showHud(message, state = 'success') {
   }
 
   hud.textContent = message;
-  hud.classList.remove('wle-loading', 'wle-success'); // Cleans previous states
+  hud.classList.remove('wle-loading', 'wle-success', 'wle-warning');
   hud.classList.add(`wle-${state}`);
   hud.classList.add('visible');
 
-  // Clears any previous timers to prevent the HUD from closing mid-animation
-  if (hudTimeout) {
-    clearTimeout(hudTimeout);
-  }
+  if (hudTimeout) clearTimeout(hudTimeout);
 
-  // If it's in a loading state, the HUD remains fixed.
-  // If it's in a success (or other) state, the timer starts to hide it.
   if (state !== 'loading') {
     hudTimeout = setTimeout(() => {
       hud.classList.remove('visible');
-    }, 2000); // Hides after 2 seconds
+    }, 2000);
   }
 }
