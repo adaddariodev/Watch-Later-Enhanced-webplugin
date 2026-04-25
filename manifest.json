@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Watch Later Enhanced",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "⚡ Alt+Click any YouTube video to save it instantly! Build and sort your custom Watch Later list with zero distractions.",
   "permissions": ["storage"],
   "action": {
