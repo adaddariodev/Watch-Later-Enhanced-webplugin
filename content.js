@@ -1,4 +1,5 @@
 const successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
+successAudio.volume = 0.5;
 successAudio.volume = 0.5; // 50% volume
 
 /**
@@ -74,11 +75,11 @@ document.addEventListener(
         const oembedData = await response.json();
         const cleanTitle = oembedData?.title || 'YouTube Video';
 
-        saveVideo({ title: cleanTitle, url: normalizedUrl }, thumbNode);
+        saveVideo({ title: cleanTitle, url: normalizedUrl, tags: [] }, thumbNode);
       } catch (error) {
         console.warn('Failed to fetch oEmbed data.', error);
         const fallbackTitle = extractTitle(event.target, videoLink, container);
-        saveVideo({ title: fallbackTitle, url: normalizedUrl }, thumbNode);
+        saveVideo({ title: fallbackTitle, url: normalizedUrl, tags: [] }, thumbNode);
       }
     });
   },

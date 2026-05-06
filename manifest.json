@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Watch Later Enhanced",
-  "version": "2.1.5",
+  "version": "2.2.0",
   "description": "⚡ Alt+Click any YouTube video to save it instantly! Build and sort your custom Watch Later list with zero distractions.",
   "permissions": ["storage"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icons/128px.png"
