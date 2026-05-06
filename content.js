@@ -1,4 +1,5 @@
 const successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
+successAudio.volume = 0.5; // 50% volume
 
 /**
  * Normalize YouTube Watch URL to avoid duplicates caused by extra params.
