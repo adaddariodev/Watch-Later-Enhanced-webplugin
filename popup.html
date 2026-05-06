@@ -2,6 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,18 +14,39 @@
       <h1>Watch Later Enhanced</h1>
     </div>
     <div class="header-actions">
-      <button id="clear-all" class="icon-btn" title="Clear All">🗑️</button>
-      <button id="open-settings" class="icon-btn" title="Info & Settings">⚙️</button>
+      <a href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">
+        <button id="ko-fi-button" class="icon-btn" title="Support me on Ko-fi!" aria-label="Support me on Ko-fi!">
+          <img class="btn-icon" src="icons/buttons/donate.svg" alt="" />
+        </button>
+      </a>
+      <button id="clear-all" class="icon-btn" title="Clear list" aria-label="Clear list">
+        <img class="btn-icon" src="icons/buttons/trash-xmark.svg" alt="" />
+      </button>
+      <button id="open-settings" class="icon-btn" title="Settings" aria-label="Settings">
+        <img class="btn-icon" src="icons/buttons/settings.svg" alt="" />
+      </button>
     </div>
   </header>
 
   <main>
+    <div class="searchbar-wrap">
+      <input
+        id="tag-search"
+        class="searchbar"
+        type="search"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Search by tag…"
+        title="Search by tag"
+        aria-label="Search videos by tag"
+      />
+    </div>
     <ul id="video-list"></ul>
     
     <div id="tutorial" class="tutorial-container" style="display: none;">
       <div class="tutorial-card">
-        <h3>How to use</h3>
-        <p>Hold the <b>Alt</b> key and <b>Click</b> on any YouTube video to save it instantly.</p>
+        <h3 id="tutorial-title">How to use</h3>
+        <p id="tutorial-text">Hold the <b>Alt</b> key and <b>Click</b> on any YouTube video to save it instantly.</p>
         <div class="tutorial-visual">
           <span>⌨️ + 🖱️</span>
           <br>
@@ -36,13 +60,17 @@
     <div class="wle-modal-content">
       <div class="wle-modal-header">
         <h2>Info & Settings</h2>
-        <button id="close-settings" class="icon-btn" title="Close">✕</button>
+        <button id="close-settings" class="icon-btn" title="Close settings" aria-label="Close settings">
+          <img class="btn-icon" src="icons/buttons/cross-circle.svg" alt="" />
+        </button>
       </div>
       <div class="wle-modal-body">
         
         <div class="settings-options">
           <span>Sound Effects</span>
-          <button id="toggle-sound" class="icon-btn" title="Toggle Sound">🔊</button>
+          <button id="toggle-sound" class="icon-btn" title="Toggle sound effects" aria-label="Toggle sound effects">
+            <img class="btn-icon" src="icons/buttons/volume.svg" alt="" />
+          </button>
         </div>
         
         <div class="credits-box">
