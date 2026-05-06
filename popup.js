@@ -3,6 +3,8 @@ let soundEnabled = true;
 
 const clickAudio = new Audio('sounds/click.wav');
 
+clickAudio.volume = 0.5; // 50% volume
+
 chrome.storage.local.get({ soundEnabled: true }, (data) => {
   soundEnabled = data.soundEnabled;
   updateSoundIcon();
