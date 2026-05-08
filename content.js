@@ -1,58 +1,165 @@
-const successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
-successAudio.volume = 0.5;
-successAudio.volume = 0.5; // 50% volume
+// ============================================
+// CONSTANTS & CONFIGURATION
+// ============================================
+const CONFIG = {
+  AUDIO_VOLUME: 0.5,
+  HUD_DISPLAY_TIME: 2000,
+  BUTTON_INJECTION_RETRY_INTERVAL: 500,
+  BUTTON_INJECTION_MAX_TIMEOUT: 10000,
+  YOUTUBE_WATCH_PATH: '/watch',
+  YOUTUBE_DOMAIN: 'www.youtube.com'
+};
 
-/**
- * Normalize YouTube Watch URL to avoid duplicates caused by extra params.
- * Example: https://www.youtube.com/watch?v=VIDEO_ID
- */
-function normalizeYouTubeWatchUrl(url) {
-  try {
-    const u = new URL(url);
-    const v = u.searchParams.get('v');
-    if (!v) return url;
-    return `https://www.youtube.com/watch?v=${encodeURIComponent(v)}`;
-  } catch {
-    return url;
+// ============================================
+// AUDIO MANAGEMENT (Singleton)
+// ============================================
+const AudioManager = {
+  successAudio: null,
+  
+  init() {
+    if (!this.successAudio) {
+      this.successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
+      this.successAudio.volume = CONFIG.AUDIO_VOLUME;
+    }
+    return this.successAudio;
+  },
+  
+  play(isSoundEnabled) {
+    if (!isSoundEnabled) return;
+    
+    const audio = this.init();
+    audio.currentTime = 0;
+    audio.play().catch((err) => console.warn('Audio play blocked:', err));
+  },
+  
+  cleanup() {
+    if (this.successAudio) {
+      this.successAudio.pause();
+      this.successAudio.currentTime = 0;
+      this.successAudio = null;
+    }
   }
-}
+};
 
-/**
- * Serialize storage writes to reduce race conditions on rapid clicks.
- */
-let saveQueue = Promise.resolve();
-function enqueueSave(fn) {
-  saveQueue = saveQueue.then(fn, fn);
-  return saveQueue;
-}
+// ============================================
+// URL VALIDATION & NORMALIZATION
+// ============================================
+const URLValidator = {
+  /**
+   * Validate if URL is a proper YouTube watch URL
+   */
+  isValidYouTubeWatchUrl(url) {
+    try {
+      const u = new URL(url);
+      return (
+        u.hostname === CONFIG.YOUTUBE_DOMAIN &&
+        u.pathname === CONFIG.YOUTUBE_WATCH_PATH &&
+        u.searchParams.has('v') &&
+        u.searchParams.get('v').length > 0
+      );
+    } catch {
+      return false;
+    }
+  },
+  
+  /**
+   * Normalize YouTube Watch URL to avoid duplicates
+   * Example: https://www.youtube.com/watch?v=VIDEO_ID
+   */
+  normalizeYouTubeWatchUrl(url) {
+    try {
+      const u = new URL(url);
+      const videoId = u.searchParams.get('v');
+      
+      if (!videoId) {
+        console.warn('Invalid YouTube URL: missing video ID');
+        return url;
+      }
+      
+      return `https://${CONFIG.YOUTUBE_DOMAIN}${CONFIG.YOUTUBE_WATCH_PATH}?v=${encodeURIComponent(videoId)}`;
+    } catch (error) {
+      console.error('URL normalization error:', error);
+      return url;
+    }
+  }
+};
 
-/**
- * Centralized function for video saving (avoids duplicate code)
- */
-function saveVideoToWLE(url, title, thumbNode) {
-  enqueueSave(
+// ============================================
+// STORAGE QUEUE (Prevent Race Conditions)
+// ============================================
+const StorageQueue = {
+  queue: Promise.resolve(),
+  
+  enqueue(fn) {
+    this.queue = this.queue
+      .then(fn)
+      .catch((error) => {
+        console.error('Storage queue error:', error);
+        return fn(); // Retry once on error
+      });
+    return this.queue;
+  }
+};
+
+// ============================================
+// VIDEO SAVING LOGIC (Centralized)
+// ============================================
+async function saveVideoToWLE(url, title, thumbNode) {
+  // Validate URL before saving
+  if (!URLValidator.isValidYouTubeWatchUrl(url)) {
+    console.warn('Invalid YouTube URL, not saving:', url);
+    showHud('Invalid video URL', 'warning');
+    return;
+  }
+  
+  const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(url);
+  
+  return StorageQueue.enqueue(
     () =>
       new Promise((resolve) => {
         chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
-          const savedVideos = data.savedVideos;
-          const isSoundEnabled = data.soundEnabled;
+          if (chrome.runtime.lastError) {
+            console.error('Storage read error:', chrome.runtime.lastError);
+            showHud('Storage error', 'warning');
+            resolve();
+            return;
+          }
+          
+          const savedVideos = data.savedVideos || [];
+          const isSoundEnabled = data.soundEnabled ?? true;
 
-          if (savedVideos.some((v) => v.url === url)) {
-            showHud("Already saved!", "warning"); // Optional: show hud if already saved
+          // Check for duplicates
+          if (savedVideos.some((v) => v.url === normalizedUrl)) {
+            showHud('Already saved!', 'warning');
             resolve();
             return;
           }
 
-          savedVideos.push({ url, title, tags: [] });
+          // Add new video
+          savedVideos.push({ 
+            url: normalizedUrl, 
+            title: title || 'Untitled Video', 
+            tags: [],
+            savedAt: Date.now()
+          });
+          
           chrome.storage.local.set({ savedVideos }, () => {
-            if (isSoundEnabled) {
-              successAudio.currentTime = 0;
-              successAudio.play().catch((err) => console.log('Audio blocked', err));
+            if (chrome.runtime.lastError) {
+              console.error('Storage write error:', chrome.runtime.lastError);
+              showHud('Failed to save', 'warning');
+              resolve();
+              return;
             }
+            
+            // Play success feedback
+            AudioManager.play(isSoundEnabled);
 
+            // Visual feedback on thumbnail
             if (thumbNode) {
               thumbNode.classList.add('wle-success-glow');
-              setTimeout(() => thumbNode.classList.remove('wle-success-glow'), 800);
+              setTimeout(() => {
+                thumbNode.classList.remove('wle-success-glow');
+              }, 800);
             }
 
             showHud(title, 'success');
@@ -63,203 +170,235 @@ function saveVideoToWLE(url, title, thumbNode) {
   );
 }
 
-/**
- * Global Listener updated for Thumbnail and Video Player (capture phase)
- */
-document.addEventListener('click', (event) => {
+// ============================================
+// TITLE EXTRACTION
+// ============================================
+const TitleExtractor = {
+  /**
+   * Extract title from current page
+   */
+  getCurrentPageTitle() {
+    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
+    if (titleEl?.textContent) {
+      return titleEl.textContent.trim();
+    }
+    
+    // Fallback to document title
+    const docTitle = document.title.replace(' - YouTube', '').trim();
+    return docTitle || 'YouTube Video';
+  },
+  
+  /**
+   * Fetch title from oEmbed API
+   */
+  async fetchTitleFromOEmbed(url) {
+    try {
+      const response = await fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+      );
+      
+      if (!response.ok) {
+        throw new Error('oEmbed request failed');
+      }
+      
+      const data = await response.json();
+      return data.title || 'Unknown Title';
+    } catch (error) {
+      console.warn('oEmbed fetch error:', error);
+      return 'Unknown Title';
+    }
+  }
+};
+
+// ============================================
+// GLOBAL CLICK LISTENER (Alt+Click Handler)
+// ============================================
+document.addEventListener('click', async (event) => {
   if (!event.altKey) return;
 
-  // 1. CASE A: Click on a Thumbnail
+  // CASE A: Click on a thumbnail link
   const videoLink = event.target.closest('a[href*="/watch?v="]');
   if (videoLink) {
     event.preventDefault();
     event.stopPropagation();
     
-    const normalizedUrl = normalizeYouTubeWatchUrl(videoLink.href);
+    const url = videoLink.href;
+    if (!URLValidator.isValidYouTubeWatchUrl(url)) {
+      console.warn('Invalid YouTube URL clicked');
+      return;
+    }
+    
+    const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(url);
     const thumbNode = videoLink.querySelector('img') || videoLink;
     
-    // Get the title from oEmbed (like you originally did)
-    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(normalizedUrl)}&format=json`)
-      .then(res => res.json())
-      .then(data => saveVideoToWLE(normalizedUrl, data.title, thumbNode))
-      .catch(() => saveVideoToWLE(normalizedUrl, "Unknown Title", thumbNode));
+    // Fetch title from oEmbed
+    const title = await TitleExtractor.fetchTitleFromOEmbed(normalizedUrl);
+    await saveVideoToWLE(normalizedUrl, title, thumbNode);
     return;
   }
 
-  // 2. CASE B: Click directly on the Video in playback
-  const videoPlayer = event.target.closest('#movie_player') || event.target.closest('.html5-video-player');
-  if (videoPlayer && window.location.pathname === '/watch') {
+  // CASE B: Click directly on the video player
+  const videoPlayer = event.target.closest('#movie_player') || 
+                     event.target.closest('.html5-video-player');
+  
+  if (videoPlayer && window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
     event.preventDefault();
     event.stopPropagation();
     
-    const currentUrl = normalizeYouTubeWatchUrl(window.location.href);
+    const currentUrl = window.location.href;
+    if (!URLValidator.isValidYouTubeWatchUrl(currentUrl)) {
+      console.warn('Invalid YouTube URL on current page');
+      return;
+    }
     
-    // The title is already in the DOM, no need for oEmbed!
-    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
-    const title = titleEl ? titleEl.textContent : document.title.replace(' - YouTube', '');
+    const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(currentUrl);
+    const title = TitleExtractor.getCurrentPageTitle();
     
-    saveVideoToWLE(currentUrl, title, videoPlayer);
+    await saveVideoToWLE(normalizedUrl, title, videoPlayer);
   }
-}, true); // <--- TRUE is important here (capture phase) to "beat" YouTube on time
+}, true); // Capture phase to intercept before YouTube handlers
 
-/**
- * Function to inject the button below the video
- */
-function injectWLEButton() {
-  if (document.getElementById('wle-action-btn')) return; // Bottone già presente
+// ============================================
+// BUTTON INJECTION
+// ============================================
+const ButtonInjector = {
+  injectionInterval: null,
+  
+  /**
+   * Inject "Save to Watch Later Enhanced" button
+   */
+  inject() {
+    // Prevent duplicate injection
+    if (document.getElementById('wle-action-btn')) return;
 
-  // The container of the YouTube actions (Like, Dislike, Share...)
-  const actionMenu = document.querySelector('ytd-menu-renderer #top-level-buttons-computed');
-  if (!actionMenu) return;
+    const actionMenu = document.querySelector('ytd-menu-renderer #top-level-buttons-computed');
+    if (!actionMenu) return;
 
-  const btn = document.createElement('button');
-  btn.id = 'wle-action-btn';
-  btn.className = 'wle-yt-button';
-  btn.title = "Add to Watch Later Enhanced";
+    const btn = document.createElement('button');
+    btn.id = 'wle-action-btn';
+    btn.className = 'wle-yt-button';
+    btn.title = 'Add to Watch Later Enhanced';
 
-  const icon = document.createElement('img');
-  icon.className = 'wle-yt-icon';
-  // Use the path to your icon
-  icon.src = chrome.runtime.getURL('icons/48px.png'); 
+    const icon = document.createElement('img');
+    icon.className = 'wle-yt-icon';
+    icon.src = chrome.runtime.getURL('icons/48px.png');
+    icon.alt = '';
 
-  const text = document.createElement('span');
-  text.innerText = 'Save to Watch Later Enhanced';
+    const text = document.createElement('span');
+    text.textContent = 'Save to Watch Later Enhanced';
 
-  btn.appendChild(icon);
-  btn.appendChild(text);
+    btn.appendChild(icon);
+    btn.appendChild(text);
 
-  // Insert it as the first button in the bar
-  actionMenu.insertBefore(btn, actionMenu.firstChild);
+    // Insert as first button
+    actionMenu.insertBefore(btn, actionMenu.firstChild);
 
-  // Click handler for the button
-  btn.addEventListener('click', () => {
-    const currentUrl = normalizeYouTubeWatchUrl(window.location.href);
-    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
-    const title = titleEl ? titleEl.textContent : document.title.replace(' - YouTube', '');
+    // Attach click handler
+    btn.addEventListener('click', async () => {
+      const currentUrl = window.location.href;
+      
+      if (!URLValidator.isValidYouTubeWatchUrl(currentUrl)) {
+        console.warn('Invalid YouTube URL on current page');
+        showHud('Invalid video URL', 'warning');
+        return;
+      }
+      
+      const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(currentUrl);
+      const title = TitleExtractor.getCurrentPageTitle();
+      
+      // Pass button as thumbNode for visual feedback
+      await saveVideoToWLE(normalizedUrl, title, btn);
+    });
+  },
+  
+  /**
+   * Start injection attempts with retry logic
+   */
+  startInjection() {
+    this.stopInjection(); // Clear any existing interval
     
-    // Pass the button as "thumbNode" to make it glow green!
-    saveVideoToWLE(currentUrl, title, btn);
-  });
-}
-
-/**
- * YouTube Single Page Application handling.
- * YouTube does not reload the page when switching videos; it navigates internally.
- * We wait for navigation to finish before trying to inject the button.
- */
-document.addEventListener('yt-navigate-finish', () => {
-  if (window.location.pathname === '/watch') {
-    // Il DOM di YT potrebbe metterci un attimo a caricare i bottoni
-    const checkInterval = setInterval(() => {
+    this.injectionInterval = setInterval(() => {
       const actionMenu = document.querySelector('ytd-menu-renderer #top-level-buttons-computed');
       if (actionMenu) {
-        clearInterval(checkInterval);
-        injectWLEButton();
+        this.inject();
+        this.stopInjection();
       }
-    }, 500);
+    }, CONFIG.BUTTON_INJECTION_RETRY_INTERVAL);
     
-    // Clear interval after 10 seconds if something goes wrong
-    setTimeout(() => clearInterval(checkInterval), 10000); 
+    // Clear interval after max timeout
+    setTimeout(() => {
+      this.stopInjection();
+    }, CONFIG.BUTTON_INJECTION_MAX_TIMEOUT);
+  },
+  
+  /**
+   * Stop injection attempts
+   */
+  stopInjection() {
+    if (this.injectionInterval) {
+      clearInterval(this.injectionInterval);
+      this.injectionInterval = null;
+    }
+  }
+};
+
+// ============================================
+// YOUTUBE SPA NAVIGATION HANDLER
+// ============================================
+document.addEventListener('yt-navigate-finish', () => {
+  if (window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
+    ButtonInjector.startInjection();
   }
 });
 
-/**
- * Aggressive Title Extraction Strategy
- * Scans multiple layers of the DOM to ensure the title is NEVER "blank" or "Video"
- */
-function extractTitle(target, link, container) {
-  if (container) {
-    const titleSelectors = [
-      '#video-title',
-      '#video-title-link',
-      '.yt-lockup-metadata-view-model__title',
-      'yt-formatted-string.ytd-video-renderer',
-      'h3',
-    ];
-
-    for (const selector of titleSelectors) {
-      const el = container.querySelector(selector);
-      if (el) {
-        const text = el.getAttribute('title') || el.innerText || el.textContent;
-        if (text && text.trim().length > 3) return text.trim();
-      }
-    }
-  }
-
-  const ariaLabel = link.getAttribute('aria-label');
-  if (ariaLabel) {
-    return ariaLabel.split(' di ')[0].split(' by ')[0].trim();
-  }
-
-  const linkTitle = link.getAttribute('title');
-  if (linkTitle && linkTitle.trim().length > 0) return linkTitle.trim();
-
-  const img = link.querySelector('img');
-  if (img && img.alt) return img.alt.trim();
-
-  return 'YouTube Video';
+// Initial injection on page load
+if (window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
+  ButtonInjector.startInjection();
 }
 
-/**
- * Save logic with Sound and Visual Feedback
- */
-function saveVideo(video, thumbNode) {
-  enqueueSave(
-    () =>
-      new Promise((resolve) => {
-        chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
-          const savedVideos = data.savedVideos;
-          const isSoundEnabled = data.soundEnabled;
+// ============================================
+// HUD (Heads-Up Display) MANAGEMENT
+// ============================================
+let hudTimeout = null;
+let hudElement = null;
 
-          if (savedVideos.some((v) => v.url === video.url)) {
-            resolve();
-            return;
-          }
-
-          savedVideos.push(video);
-          chrome.storage.local.set({ savedVideos }, () => {
-            if (isSoundEnabled) {
-              successAudio.currentTime = 0;
-              successAudio.play().catch((err) => console.log('Audio blocked', err));
-            }
-
-            if (thumbNode) {
-              thumbNode.classList.add('wle-success-glow');
-              setTimeout(() => thumbNode.classList.remove('wle-success-glow'), 800);
-            }
-
-            showHud(video.title);
-            resolve();
-          });
-        });
-      })
-  );
-}
-
-let hudTimeout;
-
-/**
- * Modern HUD UI with State Management
- */
 function showHud(message, state = 'success') {
-  let hud = document.querySelector('.wle-hud');
-
-  if (!hud) {
-    hud = document.createElement('div');
-    hud.className = 'wle-hud';
-    document.body.appendChild(hud);
+  if (!hudElement) {
+    hudElement = document.createElement('div');
+    hudElement.className = 'wle-hud';
+    document.body.appendChild(hudElement);
   }
 
-  hud.textContent = message;
-  hud.classList.remove('wle-loading', 'wle-success', 'wle-warning');
-  hud.classList.add(`wle-${state}`);
-  hud.classList.add('visible');
+  // Sanitize message (prevent XSS)
+  const temp = document.createElement('div');
+  temp.textContent = message;
+  hudElement.textContent = temp.textContent;
+
+  hudElement.classList.remove('wle-loading', 'wle-success', 'wle-warning');
+  hudElement.classList.add(`wle-${state}`);
+  hudElement.classList.add('visible');
 
   if (hudTimeout) clearTimeout(hudTimeout);
 
   if (state !== 'loading') {
     hudTimeout = setTimeout(() => {
-      hud.classList.remove('visible');
-    }, 2000);
+      hudElement.classList.remove('visible');
+    }, CONFIG.HUD_DISPLAY_TIME);
   }
 }
+
+// ============================================
+// CLEANUP ON PAGE UNLOAD
+// ============================================
+window.addEventListener('unload', () => {
+  AudioManager.cleanup();
+  ButtonInjector.stopInjection();
+  
+  if (hudTimeout) {
+    clearTimeout(hudTimeout);
+  }
+  
+  if (hudElement && hudElement.parentNode) {
+    hudElement.parentNode.removeChild(hudElement);
+  }
+});
