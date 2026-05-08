@@ -46,3 +46,50 @@
   border-radius: 12px !important;
   overflow: hidden !important;
 }
+
+/* =========================================
+   YOUTUBE INJECTED BUTTON (WLE) - Save to Watch Later Enhanced
+   ========================================= */
+   .wle-yt-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    background-color: var(--yt-spec-badge-chip-background, rgba(255,255,255,0.1)) !important;
+    /* Forza il colore a bianco se la variabile fallisce, ottimo per Dark Mode */
+    color: var(--yt-spec-text-primary, #ffffff) !important; 
+    border: none !important;
+    border-radius: 18px !important;
+    padding: 0 16px !important;
+    height: 36px !important;
+    margin-right: 8px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    font-family: "Roboto", sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    overflow: visible !important; /* Evita che il testo venga tagliato */
+    transition: background-color 0.2s !important;
+  }
+  
+  .wle-yt-button:hover {
+    background-color: var(--yt-spec-button-chip-background-hover, rgba(255,255,255,0.2)) !important;
+  }
+  
+  /* Fix specifico per il testo all'interno dello span */
+  .wle-yt-button span {
+    display: inline !important;
+    color: inherit !important;
+    opacity: 1 !important; /* Forza la visibilità */
+    margin: 0 !important;
+    padding: 0 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+  }
+  
+  .wle-yt-icon {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0 !important; /* Impedisce all'icona di rimpicciolirsi */
+    object-fit: contain !important;
+  }
