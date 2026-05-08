@@ -152,10 +152,24 @@ li.video-item:hover {
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .video-item:hover .video-title {
   font-weight: 700;
+}
+
+/* Show pointer cursor on the entire clickable left area (handle excluded) */
+.video-left {
+  cursor: pointer;
+}
+
+.video-left .drag-handle {
+  cursor: grab;
+}
+
+.video-left .drag-handle:active {
+  cursor: grabbing;
 }
 
 .video-row {

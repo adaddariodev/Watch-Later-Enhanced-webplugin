@@ -1,28 +1,30 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
+  <title>Watch Later Enhanced</title>
 </head>
 <body>
   <header>
     <div class="logo-area">
-      <img src="icons/48px.png" alt="logo" class="header-icon">
+      <img src="icons/48px.png" alt="Watch Later Enhanced logo" class="header-icon">
       <h1>Watch Later Enhanced</h1>
     </div>
     <div class="header-actions">
       <a href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">
-        <button id="ko-fi-button" class="icon-btn" title="Support me on Ko-fi!" aria-label="Support me on Ko-fi!">
+        <button id="ko-fi-button" class="icon-btn" type="button" title="Support me on Ko-fi!" aria-label="Support me on Ko-fi!">
           <img class="btn-icon" src="icons/buttons/donate.svg" alt="" />
         </button>
       </a>
-      <button id="clear-all" class="icon-btn" title="Clear list" aria-label="Clear list">
+      <button id="clear-all" class="icon-btn" type="button" title="Clear list" aria-label="Clear list">
         <img class="btn-icon" src="icons/buttons/trash-xmark.svg" alt="" />
       </button>
-      <button id="open-settings" class="icon-btn" title="Settings" aria-label="Settings">
+      <button id="open-settings" class="icon-btn" type="button" title="Settings" aria-label="Settings">
         <img class="btn-icon" src="icons/buttons/settings.svg" alt="" />
       </button>
     </div>
@@ -60,7 +62,7 @@
     <div class="wle-modal-content">
       <div class="wle-modal-header">
         <h2>Info & Settings</h2>
-        <button id="close-settings" class="icon-btn" title="Close settings" aria-label="Close settings">
+        <button id="close-settings" class="icon-btn" type="button" title="Close settings" aria-label="Close settings">
           <img class="btn-icon" src="icons/buttons/cross-circle.svg" alt="" />
         </button>
       </div>
@@ -68,7 +70,7 @@
         
         <div class="settings-options">
           <span>Sound Effects</span>
-          <button id="toggle-sound" class="icon-btn" title="Toggle sound effects" aria-label="Toggle sound effects">
+          <button id="toggle-sound" class="icon-btn" type="button" title="Toggle sound effects" aria-label="Toggle sound effects">
             <img class="btn-icon" src="icons/buttons/volume.svg" alt="" />
           </button>
         </div>
