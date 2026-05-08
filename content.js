@@ -27,64 +27,141 @@ function enqueueSave(fn) {
 }
 
 /**
- * Global Listener: Alt+Click saves videos with oEmbed title when possible.
+ * Centralized function for video saving (avoids duplicate code)
  */
-document.addEventListener(
-  'click',
-  (event) => {
-    if (!event.altKey) return;
+function saveVideoToWLE(url, title, thumbNode) {
+  enqueueSave(
+    () =>
+      new Promise((resolve) => {
+        chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
+          const savedVideos = data.savedVideos;
+          const isSoundEnabled = data.soundEnabled;
 
-    const videoLink = event.target.closest('a[href*="/watch?v="]');
-    if (!videoLink) return;
+          if (savedVideos.some((v) => v.url === url)) {
+            showHud("Already saved!", "warning"); // Optional: show hud if already saved
+            resolve();
+            return;
+          }
 
+          savedVideos.push({ url, title, tags: [] });
+          chrome.storage.local.set({ savedVideos }, () => {
+            if (isSoundEnabled) {
+              successAudio.currentTime = 0;
+              successAudio.play().catch((err) => console.log('Audio blocked', err));
+            }
+
+            if (thumbNode) {
+              thumbNode.classList.add('wle-success-glow');
+              setTimeout(() => thumbNode.classList.remove('wle-success-glow'), 800);
+            }
+
+            showHud(title, 'success');
+            resolve();
+          });
+        });
+      })
+  );
+}
+
+/**
+ * Global Listener updated for Thumbnail and Video Player (capture phase)
+ */
+document.addEventListener('click', (event) => {
+  if (!event.altKey) return;
+
+  // 1. CASE A: Click on a Thumbnail
+  const videoLink = event.target.closest('a[href*="/watch?v="]');
+  if (videoLink) {
     event.preventDefault();
     event.stopPropagation();
-
+    
     const normalizedUrl = normalizeYouTubeWatchUrl(videoLink.href);
+    const thumbNode = videoLink.querySelector('img') || videoLink;
+    
+    // Get the title from oEmbed (like you originally did)
+    fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(normalizedUrl)}&format=json`)
+      .then(res => res.json())
+      .then(data => saveVideoToWLE(normalizedUrl, data.title, thumbNode))
+      .catch(() => saveVideoToWLE(normalizedUrl, "Unknown Title", thumbNode));
+    return;
+  }
 
-    const container = event.target.closest(
-      'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-grid-media, ytd-grid-video-renderer'
-    );
-    const thumbNode = container
-      ? container.querySelector(
-          'ytd-thumbnail, .yt-lockup-view-model-wiz__thumbnail, #thumbnail'
-        )
-      : null;
+  // 2. CASE B: Click directly on the Video in playback
+  const videoPlayer = event.target.closest('#movie_player') || event.target.closest('.html5-video-player');
+  if (videoPlayer && window.location.pathname === '/watch') {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const currentUrl = normalizeYouTubeWatchUrl(window.location.href);
+    
+    // The title is already in the DOM, no need for oEmbed!
+    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
+    const title = titleEl ? titleEl.textContent : document.title.replace(' - YouTube', '');
+    
+    saveVideoToWLE(currentUrl, title, videoPlayer);
+  }
+}, true); // <--- TRUE is important here (capture phase) to "beat" YouTube on time
 
-    chrome.storage.local.get({ savedVideos: [] }, async (data) => {
-      const isAlreadySaved = data.savedVideos.some((v) => v.url === normalizedUrl);
+/**
+ * Function to inject the button below the video
+ */
+function injectWLEButton() {
+  if (document.getElementById('wle-action-btn')) return; // Bottone già presente
 
-      if (isAlreadySaved) {
-        showHud('Video already saved!', 'warning');
-        if (thumbNode) {
-          thumbNode.classList.add('wle-warning-glow');
-          setTimeout(() => thumbNode.classList.remove('wle-warning-glow'), 800);
-        }
-        return;
+  // The container of the YouTube actions (Like, Dislike, Share...)
+  const actionMenu = document.querySelector('ytd-menu-renderer #top-level-buttons-computed');
+  if (!actionMenu) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'wle-action-btn';
+  btn.className = 'wle-yt-button';
+  btn.title = "Add to Watch Later Enhanced";
+
+  const icon = document.createElement('img');
+  icon.className = 'wle-yt-icon';
+  // Use the path to your icon
+  icon.src = chrome.runtime.getURL('icons/48px.png'); 
+
+  const text = document.createElement('span');
+  text.innerText = 'Save to Watch Later Enhanced';
+
+  btn.appendChild(icon);
+  btn.appendChild(text);
+
+  // Insert it as the first button in the bar
+  actionMenu.insertBefore(btn, actionMenu.firstChild);
+
+  // Click handler for the button
+  btn.addEventListener('click', () => {
+    const currentUrl = normalizeYouTubeWatchUrl(window.location.href);
+    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
+    const title = titleEl ? titleEl.textContent : document.title.replace(' - YouTube', '');
+    
+    // Pass the button as "thumbNode" to make it glow green!
+    saveVideoToWLE(currentUrl, title, btn);
+  });
+}
+
+/**
+ * YouTube Single Page Application handling.
+ * YouTube does not reload the page when switching videos; it navigates internally.
+ * We wait for navigation to finish before trying to inject the button.
+ */
+document.addEventListener('yt-navigate-finish', () => {
+  if (window.location.pathname === '/watch') {
+    // Il DOM di YT potrebbe metterci un attimo a caricare i bottoni
+    const checkInterval = setInterval(() => {
+      const actionMenu = document.querySelector('ytd-menu-renderer #top-level-buttons-computed');
+      if (actionMenu) {
+        clearInterval(checkInterval);
+        injectWLEButton();
       }
-
-      showHud('Saving video...', 'loading');
-
-      try {
-        const response = await fetch(
-          `https://www.youtube.com/oembed?url=${encodeURIComponent(normalizedUrl)}&format=json`
-        );
-
-        if (!response.ok) throw new Error('Error occurred while fetching oEmbed data');
-
-        const oembedData = await response.json();
-        const cleanTitle = oembedData?.title || 'YouTube Video';
-
-        saveVideo({ title: cleanTitle, url: normalizedUrl, tags: [] }, thumbNode);
-      } catch (error) {
-        console.warn('Failed to fetch oEmbed data.', error);
-        const fallbackTitle = extractTitle(event.target, videoLink, container);
-        saveVideo({ title: fallbackTitle, url: normalizedUrl, tags: [] }, thumbNode);
-      }
-    });
-  },
-  true
-);
+    }, 500);
+    
+    // Clear interval after 10 seconds if something goes wrong
+    setTimeout(() => clearInterval(checkInterval), 10000); 
+  }
+});
 
 /**
  * Aggressive Title Extraction Strategy
