@@ -25,28 +25,6 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
-.wle-hud-title {
-  display: block;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: #30d158; /* iOS Success Green */
-  margin-bottom: 8px;
-}
-
-/* THUMBNAIL EFFECT: Elegant Pulse Glow */
-@keyframes wleThumbnailGlow {
-  0% { outline: 0px solid rgba(48, 209, 88, 0); box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
-  30% { outline: 4px solid rgba(48, 209, 88, 0.6); box-shadow: 0 0 20px 10px rgba(48, 209, 88, 0.3); }
-  100% { outline: 8px solid rgba(48, 209, 88, 0); box-shadow: 0 0 40px 20px rgba(48, 209, 88, 0); }
-}
-
-.wle-success-glow {
-  animation: wleThumbnailGlow 0.8s ease-out forwards;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-}
-
 /* =========================================
    YOUTUBE INJECTED BUTTON (WLE) - Save to Watch Later Enhanced
    ========================================= */

@@ -5,7 +5,6 @@ const CONFIG = {
   AUDIO_VOLUME: 0.5,
   TAG_MAX_LENGTH: 22,
   DEBOUNCE_DELAY: 300,
-  MAX_VIDEOS_DISPLAY: 1000,
   STORAGE_KEYS: {
     VIDEOS: 'savedVideos',
     SOUND: 'soundEnabled'
@@ -88,12 +87,6 @@ const AppState = {
 // UTILITY FUNCTIONS
 // ============================================
 const Utils = {
-  sanitizeText(text) {
-    const temp = document.createElement('div');
-    temp.textContent = text;
-    return temp.innerHTML;
-  },
-  
   colorFromTagName(name) {
     const s = String(name || '').trim().toLowerCase();
     let hash = 0;

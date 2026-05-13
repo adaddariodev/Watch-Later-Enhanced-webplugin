@@ -4,17 +4,29 @@
   "version": "2.2.5",
   "description": "⚡ Alt+Click any YouTube video to save it instantly! Build and sort your custom Watch Later list with zero distractions.",
   "permissions": ["storage"],
+  
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "watch-later-enhanced@adaddario.dev",
+      "strict_min_version": "109.0"
+    }
+  },
+  
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;"
   },
+  
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icons/128px.png"
+    "default_icon": "icons/128px.png",
+    "default_area": "menupanel"
   },
+  
   "icons": {
     "48": "icons/48px.png",
     "128": "icons/128px.png"
   },
+  
   "content_scripts": [
     {
       "matches": ["*://www.youtube.com/*"],
@@ -22,9 +34,10 @@
       "css": ["content.css"]
     }
   ],
+  
   "web_accessible_resources": [
     {
-      "resources": ["sounds/success.wav", "sounds/click.wav","icons/*", "sounds/*"],
+      "resources": ["icons/*", "sounds/*"],
       "matches": ["*://www.youtube.com/*"]
     }
   ]
