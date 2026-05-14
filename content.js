@@ -108,7 +108,7 @@ async function saveVideoToWLE(url, title, thumbNode) {
   // Validate URL before saving
   if (!URLValidator.isValidYouTubeWatchUrl(url)) {
     console.warn('Invalid YouTube URL, not saving:', url);
-    showHud('Invalid video URL', 'warning');
+    showHud('Invalid video URL');
     return;
   }
   
@@ -120,7 +120,7 @@ async function saveVideoToWLE(url, title, thumbNode) {
         chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
           if (chrome.runtime.lastError) {
             console.error('Storage read error:', chrome.runtime.lastError);
-            showHud('Storage error', 'warning');
+            showHud('Storage error');
             resolve();
             return;
           }
@@ -130,7 +130,7 @@ async function saveVideoToWLE(url, title, thumbNode) {
 
           // Check for duplicates
           if (savedVideos.some((v) => v.url === normalizedUrl)) {
-            showHud('Already saved!', 'warning');
+            showHud('Already saved!');
             resolve();
             return;
           }
@@ -146,7 +146,7 @@ async function saveVideoToWLE(url, title, thumbNode) {
           chrome.storage.local.set({ savedVideos }, () => {
             if (chrome.runtime.lastError) {
               console.error('Storage write error:', chrome.runtime.lastError);
-              showHud('Failed to save', 'warning');
+              showHud('Failed to save');
               resolve();
               return;
             }
@@ -155,7 +155,7 @@ async function saveVideoToWLE(url, title, thumbNode) {
             AudioManager.play(isSoundEnabled);
 
             // Show success hud
-            showHud(title, 'success');
+            showHud(title);
             resolve();
           });
         });
@@ -164,11 +164,30 @@ async function saveVideoToWLE(url, title, thumbNode) {
 }
 
 // ============================================
-// TITLE EXTRACTION
+// TITLE EXTRACTION (Cascading Strategy)
 // ============================================
 const TitleExtractor = {
   /**
-   * Extract title from current page
+   * Validate if a title string is usable
+   * Guards against null, empty, whitespace-only, HTML residue, and placeholders
+   */
+  isValidTitle(title) {
+    if (!title || typeof title !== 'string') return false;
+
+    const cleaned = title.trim();
+
+    if (cleaned.length < 2 || cleaned.length > 500) return false;
+    if (/^\s*$/.test(cleaned)) return false;
+    if (/<[^>]+>/.test(cleaned)) return false;
+
+    const placeholders = ['undefined', 'null', 'nan', '...', '—'];
+    if (placeholders.includes(cleaned.toLowerCase())) return false;
+
+    return true;
+  },
+
+  /**
+   * Extract title from current watch page DOM
    */
   getCurrentPageTitle() {
     const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
@@ -182,7 +201,63 @@ const TitleExtractor = {
   },
   
   /**
-   * Fetch title from oEmbed API
+   * Extract title from the DOM context around a thumbnail link
+   * Used as fallback when oEmbed fails on CASE A (Alt+Click on thumbnail)
+   */
+  extractTitleFromContext(videoLink) {
+    if (!videoLink) return null;
+
+    try {
+      // Navigate up to the video renderer container
+      const container = videoLink.closest(
+        'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer'
+      );
+      if (!container) return null;
+
+      // Strategy 1: "title" attribute on the title heading or link (cleanest source)
+      const titleLink = container.querySelector('#video-title, #video-title-link, h3 a');
+      if (titleLink) {
+        const attrTitle = titleLink.getAttribute('title');
+        if (this.isValidTitle(attrTitle)) return attrTitle.trim();
+      }
+
+      // Strategy 2: aria-label on the title link (may contain duration suffix)
+      if (titleLink) {
+        const ariaLabel = titleLink.getAttribute('aria-label');
+        if (ariaLabel) {
+          // Remove trailing duration metadata (e.g. "1 ora e 30 minuti", "2 hours, 15 minutes")
+          const cleanedLabel = ariaLabel
+            .replace(/\s+\d+\s*(ora|ore|hour|hours|minut\w*|second\w*|sec|min|hr).*$/i, '')
+            .trim();
+          if (this.isValidTitle(cleanedLabel)) return cleanedLabel;
+        }
+      }
+
+      // Strategy 3: textContent of the title element (last resort, may include extra whitespace)
+      if (titleLink) {
+        const textContent = titleLink.textContent?.trim();
+        if (this.isValidTitle(textContent)) return textContent;
+      }
+
+      // Strategy 4: h3 heading text directly
+      const h3 = container.querySelector('h3');
+      if (h3) {
+        const h3Title = h3.getAttribute('title');
+        if (this.isValidTitle(h3Title)) return h3Title.trim();
+
+        const h3Text = h3.textContent?.trim();
+        if (this.isValidTitle(h3Text)) return h3Text;
+      }
+    } catch (error) {
+      console.warn('DOM title extraction error:', error);
+    }
+
+    return null;
+  },
+
+  /**
+   * Fetch title from oEmbed API (primary source, most reliable)
+   * Returns null on failure instead of a placeholder
    */
   async fetchTitleFromOEmbed(url) {
     try {
@@ -191,15 +266,40 @@ const TitleExtractor = {
       );
       
       if (!response.ok) {
-        throw new Error('oEmbed request failed');
+        throw new Error(`oEmbed request failed with status ${response.status}`);
       }
       
       const data = await response.json();
-      return data.title || 'Unknown Title';
+      return data.title || null;
     } catch (error) {
       console.warn('oEmbed fetch error:', error);
-      return 'Unknown Title';
+      return null;
     }
+  },
+
+  /**
+   * Resolve title with cascading fallback strategy:
+   * 1. oEmbed API (most reliable, correct title guaranteed)
+   * 2. DOM extraction from thumbnail context (best-effort fallback)
+   * 3. "Unknown Title" (last resort)
+   */
+  async resolveTitle(url, videoLink) {
+    // 1. oEmbed — primary source
+    const oEmbedTitle = await this.fetchTitleFromOEmbed(url);
+    if (this.isValidTitle(oEmbedTitle)) {
+      return oEmbedTitle.trim();
+    }
+
+    // 2. DOM fallback — extract from the thumbnail's surrounding context
+    const domTitle = this.extractTitleFromContext(videoLink);
+    if (this.isValidTitle(domTitle)) {
+      console.info('WLE: Title resolved via DOM fallback:', domTitle);
+      return domTitle;
+    }
+
+    // 3. Last resort
+    console.warn('WLE: Both title sources failed for:', url);
+    return 'Unknown Title';
   }
 };
 
@@ -224,8 +324,8 @@ document.addEventListener('click', async (event) => {
     const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(url);
     const thumbNode = videoLink.querySelector('img') || videoLink;
     
-    // Fetch title from oEmbed
-    const title = await TitleExtractor.fetchTitleFromOEmbed(normalizedUrl);
+    // Resolve title with cascading fallback: oEmbed → DOM → Unknown Title
+    const title = await TitleExtractor.resolveTitle(normalizedUrl, videoLink);
     await saveVideoToWLE(normalizedUrl, title, thumbNode);
     return;
   }
@@ -292,7 +392,7 @@ const ButtonInjector = {
       
       if (!URLValidator.isValidYouTubeWatchUrl(currentUrl)) {
         console.warn('Invalid YouTube URL on current page');
-        showHud('Invalid video URL', 'warning');
+        showHud('Invalid video URL');
         return;
       }
       
@@ -355,7 +455,7 @@ if (window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
 let hudTimeout = null;
 let hudElement = null;
 
-function showHud(message, state = 'success') {
+function showHud(message) {
   if (!hudElement) {
     hudElement = document.createElement('div');
     hudElement.className = 'wle-hud';
@@ -367,17 +467,13 @@ function showHud(message, state = 'success') {
   temp.textContent = message;
   hudElement.textContent = temp.textContent;
 
-  hudElement.classList.remove('wle-loading', 'wle-success', 'wle-warning');
-  hudElement.classList.add(`wle-${state}`);
   hudElement.classList.add('visible');
 
   if (hudTimeout) clearTimeout(hudTimeout);
 
-  if (state !== 'loading') {
-    hudTimeout = setTimeout(() => {
-      hudElement.classList.remove('visible');
-    }, CONFIG.HUD_DISPLAY_TIME);
-  }
+  hudTimeout = setTimeout(() => {
+    hudElement.classList.remove('visible');
+  }, CONFIG.HUD_DISPLAY_TIME);
 }
 
 // ============================================
