@@ -154,14 +154,7 @@ async function saveVideoToWLE(url, title, thumbNode) {
             // Play success feedback
             AudioManager.play(isSoundEnabled);
 
-            // Visual feedback on thumbnail
-            if (thumbNode) {
-              thumbNode.classList.add('wle-success-glow');
-              setTimeout(() => {
-                thumbNode.classList.remove('wle-success-glow');
-              }, 800);
-            }
-
+            // Show success hud
             showHud(title, 'success');
             resolve();
           });
