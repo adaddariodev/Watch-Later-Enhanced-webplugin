@@ -5,9 +5,16 @@ const CONFIG = {
   AUDIO_VOLUME: 0.5,
   TAG_MAX_LENGTH: 22,
   DEBOUNCE_DELAY: 300,
+  TRASH_CAP: 50,           // max items kept in the trash (oldest are purged)
+  UNDO_DURATION: 2500,     // how long the undo toast stays up (ms)
+  DONATE_PROMPT_CHANCE: 0.35,                // chance to show the donate callout on open
+  DONATE_PROMPT_COOLDOWN: 3 * 60 * 60 * 1000, // min time between prompts (ms)
   STORAGE_KEYS: {
     VIDEOS: 'savedVideos',
-    SOUND: 'soundEnabled'
+    DELETED: 'deletedVideos',
+    SOUND: 'soundEnabled',
+    SUPPORTER: 'supporter',
+    LAST_PROMPT: 'lastDonatePrompt'
   }
 };
 
@@ -16,7 +23,7 @@ const CONFIG = {
 // ============================================
 const AudioManager = {
   clickAudio: null,
-  
+
   init() {
     if (!this.clickAudio) {
       this.clickAudio = new Audio('sounds/click.wav');
@@ -24,15 +31,15 @@ const AudioManager = {
     }
     return this.clickAudio;
   },
-  
+
   play(soundEnabled) {
     if (!soundEnabled) return;
-    
+
     const audio = this.init();
     audio.currentTime = 0;
     audio.play().catch(e => console.warn("Audio play blocked:", e));
   },
-  
+
   cleanup() {
     if (this.clickAudio) {
       this.clickAudio.pause();
@@ -50,16 +57,28 @@ const DOMCache = {
   tagSearchInput: null,
   videoList: null,
   tutorial: null,
-  clearAllBtn: null,
   settingsModal: null,
-  
+  viewTabs: null,
+  toast: null,
+  trashActions: null,
+  emptyTrashBtn: null,
+  searchWrap: null,
+  donateBtn: null,
+  donateCallout: null,
+
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
     this.tagSearchInput = document.getElementById('tag-search');
     this.videoList = document.getElementById('video-list');
     this.tutorial = document.getElementById('tutorial');
-    this.clearAllBtn = document.getElementById('clear-all');
     this.settingsModal = document.getElementById('settings-modal');
+    this.viewTabs = document.getElementById('view-tabs');
+    this.toast = document.getElementById('wle-toast');
+    this.trashActions = document.getElementById('trash-actions');
+    this.emptyTrashBtn = document.getElementById('empty-trash');
+    this.searchWrap = document.querySelector('.searchbar-wrap');
+    this.donateBtn = document.getElementById('ko-fi-button');
+    this.donateCallout = document.getElementById('donate-callout');
   }
 };
 
@@ -71,15 +90,20 @@ const AppState = {
   tagQuery: '',
   tagQueryMode: 'contains',
   draggedItemIndex: null,
-  
+  view: 'active', // 'active' | 'archive' | 'trash'
+
   setSoundEnabled(value) {
     this.soundEnabled = value;
     chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.SOUND]: value });
   },
-  
+
   setTagQuery(value, mode = 'contains') {
     this.tagQuery = value.trim().toLowerCase();
     this.tagQueryMode = mode;
+  },
+
+  setView(view) {
+    this.view = view;
   }
 };
 
@@ -96,18 +120,19 @@ const Utils = {
     const h = Math.abs(hash) % 360;
     return `hsl(${h} 70% 45%)`;
   },
-  
+
   /**
-   * Normalize video object structure
-   * IMPORTANT: Uses Utils.colorFromTagName (not this.colorFromTagName)
-   * because this method is often used as a .map() callback,
-   * which would lose the 'this' binding.
+   * Normalize video object structure.
+   * IMPORTANT: tag colors are ALWAYS recomputed from the tag name and never
+   * trusted from storage — this keeps imported data safe (a hostile `color`
+   * field such as `url(...)` could otherwise trigger a network request).
+   * Uses Utils.colorFromTagName (not this.) because it runs as a .map() callback.
    */
   normalizeVideo(video) {
     if (!video || typeof video !== 'object') {
       return null;
     }
-    
+
     const tags = Array.isArray(video?.tags) ? video.tags : [];
     const normalizedTags = tags
       .filter((t) => t && typeof t.name === 'string' && t.name.trim().length > 0)
@@ -121,9 +146,13 @@ const Utils = {
       title: video.title || 'Untitled Video',
       url: video.url || '',
       tags: normalizedTags,
+      kind: video.kind === 'short' ? 'short' : 'video',
+      watched: video.watched === true,
+      watchedAt: typeof video.watchedAt === 'number' ? video.watchedAt : null,
+      savedAt: typeof video.savedAt === 'number' ? video.savedAt : null,
     };
   },
-  
+
   debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -135,7 +164,7 @@ const Utils = {
       timeout = setTimeout(later, wait);
     };
   },
-  
+
   createBtnIcon(src, alt = '') {
     const img = document.createElement('img');
     img.className = 'btn-icon';
@@ -159,17 +188,41 @@ const StorageManager = {
           resolve([]);
           return;
         }
-        
-        // Bind explicit per evitare problemi di 'this' in map callback
+
         const videos = (data[CONFIG.STORAGE_KEYS.VIDEOS] || [])
           .map((v) => Utils.normalizeVideo(v))
           .filter(v => v !== null);
-        
+
         resolve(videos);
       });
     });
   },
-  
+
+  async getDeleted() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.DELETED]: [] }, (data) => {
+        if (chrome.runtime.lastError) {
+          console.error('Storage read error:', chrome.runtime.lastError);
+          resolve([]);
+          return;
+        }
+
+        const deleted = (data[CONFIG.STORAGE_KEYS.DELETED] || [])
+          .map((v) => {
+            const norm = Utils.normalizeVideo(v);
+            if (!norm) return null;
+            // Preserve trash-only bookkeeping fields
+            norm.deletedAt = typeof v.deletedAt === 'number' ? v.deletedAt : Date.now();
+            norm._idx = typeof v._idx === 'number' ? v._idx : null;
+            return norm;
+          })
+          .filter(v => v !== null);
+
+        resolve(deleted);
+      });
+    });
+  },
+
   async saveVideos(videos) {
     return new Promise((resolve, reject) => {
       chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.VIDEOS]: videos }, () => {
@@ -182,17 +235,30 @@ const StorageManager = {
       });
     });
   },
-  
+
+  async saveDeleted(deleted) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.DELETED]: deleted }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Storage write error:', chrome.runtime.lastError);
+          reject(chrome.runtime.lastError);
+          return;
+        }
+        resolve();
+      });
+    });
+  },
+
   async updateVideoByUrl(url, updates) {
     try {
       const videos = await this.getVideos();
       const idx = videos.findIndex((v) => v.url === url);
-      
+
       if (idx === -1) {
         console.warn('Video not found for URL:', url);
         return false;
       }
-      
+
       videos[idx] = { ...videos[idx], ...updates };
       await this.saveVideos(videos);
       return true;
@@ -201,25 +267,120 @@ const StorageManager = {
       return false;
     }
   },
-  
-  async removeVideoByUrl(url) {
+
+  /**
+   * Toggle the "watched" flag (moves a video between To Watch and Archive).
+   */
+  async toggleWatched(url) {
     try {
       const videos = await this.getVideos();
-      const filtered = videos.filter((v) => v.url !== url);
-      await this.saveVideos(filtered);
-      return true;
+      const idx = videos.findIndex((v) => v.url === url);
+      if (idx === -1) return false;
+
+      const watched = !videos[idx].watched;
+      videos[idx] = {
+        ...videos[idx],
+        watched,
+        watchedAt: watched ? Date.now() : null
+      };
+      await this.saveVideos(videos);
+      return watched;
     } catch (error) {
-      console.error('Remove video error:', error);
+      console.error('Toggle watched error:', error);
       return false;
     }
   },
-  
-  async clearAllVideos() {
+
+  /**
+   * Soft-delete: move the given URLs from the active list into the trash.
+   * Returns the list of URLs actually moved (for undo).
+   */
+  async softDelete(urls) {
     try {
-      await this.saveVideos([]);
+      const videos = await this.getVideos();
+      const deleted = await this.getDeleted();
+      const urlSet = new Set(urls);
+      const now = Date.now();
+
+      const moved = [];
+      const remaining = [];
+      videos.forEach((v, i) => {
+        if (urlSet.has(v.url)) {
+          moved.push({ ...v, deletedAt: now, _idx: i });
+        } else {
+          remaining.push(v);
+        }
+      });
+
+      if (moved.length === 0) return [];
+
+      const newDeleted = [...moved, ...deleted].slice(0, CONFIG.TRASH_CAP);
+      await this.saveVideos(remaining);
+      await this.saveDeleted(newDeleted);
+      return moved.map((m) => m.url);
+    } catch (error) {
+      console.error('Soft delete error:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Restore the given URLs from the trash back into the active list,
+   * reinserting them at their original position when possible.
+   */
+  async restore(urls) {
+    try {
+      const videos = await this.getVideos();
+      const deleted = await this.getDeleted();
+      const urlSet = new Set(urls);
+
+      const toRestore = deleted.filter((d) => urlSet.has(d.url));
+      const remainingTrash = deleted.filter((d) => !urlSet.has(d.url));
+
+      // Ascending original index so a multi-item restore rebuilds the order
+      toRestore.sort((a, b) => (a._idx ?? Number.MAX_SAFE_INTEGER) - (b._idx ?? Number.MAX_SAFE_INTEGER));
+
+      toRestore.forEach((d) => {
+        const clean = { ...d };
+        delete clean.deletedAt;
+        delete clean._idx;
+        const pos = typeof d._idx === 'number'
+          ? Math.min(Math.max(d._idx, 0), videos.length)
+          : videos.length;
+        videos.splice(pos, 0, clean);
+      });
+
+      await this.saveVideos(videos);
+      await this.saveDeleted(remainingTrash);
       return true;
     } catch (error) {
-      console.error('Clear all error:', error);
+      console.error('Restore error:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Permanently remove the given URLs from the trash.
+   */
+  async permanentDelete(urls) {
+    try {
+      const deleted = await this.getDeleted();
+      const urlSet = new Set(urls);
+      const filtered = deleted.filter((d) => !urlSet.has(d.url));
+      await this.saveDeleted(filtered);
+      return true;
+    } catch (error) {
+      console.error('Permanent delete error:', error);
+      return false;
+    }
+  },
+
+  async emptyTrash() {
+    try {
+      await this.saveDeleted([]);
+      return true;
+    } catch (error) {
+      console.error('Empty trash error:', error);
       return false;
     }
   }
@@ -229,41 +390,68 @@ const StorageManager = {
 // VIDEO ITEM CREATION
 // ============================================
 const VideoItemFactory = {
-  create(video, index) {
+  /**
+   * @param {object} video
+   * @param {number} index  position in the full saved-videos array (for drag reorder)
+   * @param {'active'|'archive'|'trash'} mode
+   */
+  create(video, index, mode = 'active') {
     const li = document.createElement('li');
     li.className = 'video-item';
-    li.draggable = !AppState.tagQuery;
-    if (AppState.tagQuery) li.classList.add('drag-disabled');
-    li.dataset.index = String(index);
     li.dataset.url = video.url;
+    li.dataset.index = String(index);
 
-    const { row, tagAddBtn } = this.createVideoRow(video, index);
-    const tagRow = this.createTagRow(video, li, tagAddBtn);
+    const editable = mode !== 'trash';
+    const canDrag = mode === 'active' && !AppState.tagQuery;
+    li.draggable = canDrag;
+    if (mode === 'active' && AppState.tagQuery) li.classList.add('drag-disabled');
 
-    li.append(row, tagRow);
-    this.attachDragListeners(li);
+    const { row, tagAddBtn } = this.createVideoRow(video, index, mode, canDrag);
+    li.appendChild(row);
+
+    if (editable) {
+      const tagRow = this.createTagRow(video, li, tagAddBtn);
+      li.appendChild(tagRow);
+    } else if (Array.isArray(video.tags) && video.tags.length) {
+      // Read-only tags in the trash view
+      const tagRow = document.createElement('div');
+      tagRow.className = 'tag-row';
+      video.tags.forEach((tag) => tagRow.appendChild(this.createReadonlyPill(tag)));
+      li.appendChild(tagRow);
+    }
+
+    if (canDrag) this.attachDragListeners(li);
 
     return li;
   },
-  
-  createVideoRow(video, index) {
+
+  createVideoRow(video, index, mode, canDrag) {
     const row = document.createElement('div');
     row.className = 'video-row';
 
     const left = document.createElement('div');
     left.className = 'video-left';
 
-    const handle = this.createDragHandle();
-    const title = this.createTitle(video.title);
+    if (canDrag) {
+      left.appendChild(this.createDragHandle());
+    }
 
-    left.append(handle, title);
+    if (video.kind === 'short') {
+      const badge = document.createElement('span');
+      badge.className = 'kind-badge';
+      badge.textContent = 'Short';
+      badge.title = 'YouTube Short';
+      left.appendChild(badge);
+    }
 
-    const { actions, tagAddBtn } = this.createActions(index);
+    left.appendChild(this.createTitle(video.title));
+
+    const { actions, tagAddBtn } = this.createActions(index, mode, video);
     row.append(left, actions);
 
     return { row, tagAddBtn };
   },
-  
+
   createDragHandle() {
     const handle = document.createElement('div');
     handle.className = 'drag-handle';
@@ -271,43 +459,61 @@ const VideoItemFactory = {
     handle.appendChild(Utils.createBtnIcon('icons/buttons/menu-burger.svg', ''));
     return handle;
   },
-  
+
   createTitle(title) {
     const titleEl = document.createElement('span');
     titleEl.className = 'video-title';
     titleEl.textContent = title;
     return titleEl;
   },
-  
-  createActions(index) {
+
+  makeIconButton(className, iconSrc, title) {
+    const btn = document.createElement('button');
+    btn.className = `icon-btn ${className}`;
+    btn.type = 'button';
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.appendChild(Utils.createBtnIcon(iconSrc, ''));
+    return btn;
+  },
+
+  createActions(index, mode, video) {
     const actions = document.createElement('div');
     actions.className = 'video-actions';
+    let tagAddBtn = null;
 
-    const tagAddBtn = document.createElement('button');
-    tagAddBtn.className = 'icon-btn tag-add-btn';
-    tagAddBtn.type = 'button';
-    tagAddBtn.title = 'Add tag';
-    tagAddBtn.setAttribute('aria-label', 'Add tag');
-    tagAddBtn.appendChild(Utils.createBtnIcon('icons/buttons/tags.svg', ''));
+    if (mode === 'trash') {
+      const restoreBtn = this.makeIconButton('restore-btn', 'icons/buttons/rotate-left.svg', 'Restore video');
+      const permaBtn = this.makeIconButton('perma-delete-btn', 'icons/buttons/trash-xmark.svg', 'Delete permanently');
+      actions.append(restoreBtn, permaBtn);
+      return { actions, tagAddBtn };
+    }
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'icon-btn delete-btn';
-    delBtn.type = 'button';
-    delBtn.title = 'Remove video';
-    delBtn.setAttribute('aria-label', 'Remove video');
+    // active / archive
+    if (mode === 'archive') {
+      const unwatchBtn = this.makeIconButton('watch-toggle-btn', 'icons/buttons/rotate-left.svg', 'Move back to To Watch');
+      actions.appendChild(unwatchBtn);
+    } else {
+      const watchedBtn = this.makeIconButton('watch-toggle-btn', 'icons/buttons/check.svg', 'Mark as watched');
+      actions.appendChild(watchedBtn);
+    }
+
+    tagAddBtn = this.makeIconButton('tag-add-btn', 'icons/buttons/tags.svg', 'Add tag');
+    actions.appendChild(tagAddBtn);
+
+    const delBtn = this.makeIconButton('delete-btn', 'icons/buttons/cross-small.svg', 'Remove video');
     delBtn.dataset.index = String(index);
-    delBtn.appendChild(Utils.createBtnIcon('icons/buttons/cross-small.svg', ''));
+    actions.appendChild(delBtn);
 
-    actions.append(tagAddBtn, delBtn);
     return { actions, tagAddBtn };
   },
-  
+
   createTagRow(video, li, tagAddBtn) {
     const tagRow = document.createElement('div');
     tagRow.className = 'tag-row';
 
     const tags = Array.isArray(video.tags) ? video.tags : [];
-    
+
     tags.forEach(tag => {
       const pill = this.createTagPill(tag, li);
       tagRow.appendChild(pill);
@@ -318,7 +524,18 @@ const VideoItemFactory = {
 
     return tagRow;
   },
-  
+
+  createReadonlyPill(tag) {
+    const pill = document.createElement('span');
+    pill.className = 'tag-pill tag-pill-readonly';
+    pill.style.background = tag.color;
+    const pillText = document.createElement('span');
+    pillText.className = 'tag-pill-text';
+    pillText.textContent = tag.name;
+    pill.appendChild(pillText);
+    return pill;
+  },
+
   createTagPill(tag, li) {
     const pill = document.createElement('span');
     pill.className = 'tag-pill';
@@ -341,7 +558,7 @@ const VideoItemFactory = {
       if (e.target?.closest('.tag-pill-remove')) return;
       e.preventDefault();
       e.stopPropagation();
-      
+
       if (DOMCache.tagSearchInput) {
         DOMCache.tagSearchInput.value = tag.name;
       }
@@ -356,7 +573,7 @@ const VideoItemFactory = {
       try {
         const videos = await StorageManager.getVideos();
         const video = videos.find((v) => v.url === li.dataset.url);
-        
+
         if (!video) return;
 
         const nextTags = (video.tags || []).filter(
@@ -372,7 +589,7 @@ const VideoItemFactory = {
 
     return pill;
   },
-  
+
   createTagInput(li, tagAddBtn) {
     const tagInput = document.createElement('input');
     tagInput.className = 'tag-input';
@@ -396,7 +613,7 @@ const VideoItemFactory = {
     }
 
     tagInput.addEventListener('click', (e) => e.stopPropagation());
-    
+
     tagInput.addEventListener('keydown', async (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -422,7 +639,7 @@ const VideoItemFactory = {
       try {
         const videos = await StorageManager.getVideos();
         const video = videos.find((v) => v.url === videoUrl);
-        
+
         if (!video) {
           console.warn('Video not found in storage:', videoUrl);
           return;
@@ -430,22 +647,22 @@ const VideoItemFactory = {
 
         const existing = video.tags || [];
         const exists = existing.some((t) => t.name.toLowerCase() === name.toLowerCase());
-        
+
         if (exists) {
           console.info('Tag already exists:', name);
           tagInput.style.display = 'none';
           return;
         }
 
-        const newTag = { 
-          name, 
-          color: Utils.colorFromTagName(name) 
+        const newTag = {
+          name,
+          color: Utils.colorFromTagName(name)
         };
-        
+
         const success = await StorageManager.updateVideoByUrl(videoUrl, {
           tags: [...existing, newTag]
         });
-        
+
         if (success) {
           displayVideos();
         } else {
@@ -458,7 +675,7 @@ const VideoItemFactory = {
 
     return tagInput;
   },
-  
+
   attachDragListeners(li) {
     li.addEventListener('dragstart', () => {
       if (AppState.tagQuery) return;
@@ -510,31 +727,65 @@ const VideoItemFactory = {
 // ============================================
 async function displayVideos() {
   try {
-    const savedVideos = await StorageManager.getVideos();
-    
-    if (!DOMCache.videoList || !DOMCache.tutorial || !DOMCache.clearAllBtn) {
+    if (!DOMCache.videoList || !DOMCache.tutorial) {
       console.error('Required DOM elements not found');
       return;
     }
 
+    const [savedVideos, deletedVideos] = await Promise.all([
+      StorageManager.getVideos(),
+      StorageManager.getDeleted()
+    ]);
+
+    const activeVideos = savedVideos.filter((v) => !v.watched);
+    const archivedVideos = savedVideos.filter((v) => v.watched);
+
+    updateTabCounts(activeVideos.length, archivedVideos.length, deletedVideos.length);
+
+    // Tag search only applies to active/archive; the "Empty trash" bar only
+    // shows in the trash view (so there is no single control wiping everything).
+    if (DOMCache.searchWrap) DOMCache.searchWrap.style.display = AppState.view === 'trash' ? 'none' : '';
+    if (DOMCache.trashActions) {
+      DOMCache.trashActions.classList.toggle('visible', AppState.view === 'trash' && deletedVideos.length > 0);
+    }
+
     DOMCache.videoList.textContent = '';
 
-    if (savedVideos.length === 0) {
-      DOMCache.clearAllBtn.disabled = true;
-      showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>Click</b> on any YouTube video to save it instantly.');
+    // ---- TRASH VIEW ----
+    if (AppState.view === 'trash') {
+      if (deletedVideos.length === 0) {
+        showTutorial('Trash is empty', 'Deleted videos appear here so you can restore them. Items are removed automatically once the trash is full.');
+        return;
+      }
+      DOMCache.tutorial.style.display = 'none';
+      const frag = document.createDocumentFragment();
+      deletedVideos.forEach((video) => {
+        frag.appendChild(VideoItemFactory.create(video, -1, 'trash'));
+      });
+      DOMCache.videoList.appendChild(frag);
       return;
     }
 
-    DOMCache.clearAllBtn.disabled = false;
+    // ---- ACTIVE / ARCHIVE VIEWS ----
+    const source = AppState.view === 'archive' ? archivedVideos : activeVideos;
+
+    if (source.length === 0) {
+      if (AppState.view === 'archive') {
+        showTutorial('No watched videos yet', 'Mark a video as watched (✓) to move it here.');
+      } else {
+        showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>Click</b> on any YouTube video to save it instantly.');
+      }
+      return;
+    }
 
     const filteredVideos = AppState.tagQuery
-      ? savedVideos.filter((v) =>
+      ? source.filter((v) =>
           (v.tags || []).some((t) => {
             const n = t.name.toLowerCase();
             return AppState.tagQueryMode === 'exact' ? n === AppState.tagQuery : n.includes(AppState.tagQuery);
           })
         )
-      : savedVideos;
+      : source;
 
     if (filteredVideos.length === 0) {
       showTutorial('No results', 'No videos match this tag search.');
@@ -544,10 +795,10 @@ async function displayVideos() {
     DOMCache.tutorial.style.display = 'none';
 
     const frag = document.createDocumentFragment();
-
     filteredVideos.forEach((video) => {
+      // Index into the FULL saved array, so drag reorder stays correct
       const index = savedVideos.findIndex((v) => v.url === video.url);
-      frag.appendChild(VideoItemFactory.create(video, index));
+      frag.appendChild(VideoItemFactory.create(video, index, AppState.view));
     });
 
     DOMCache.videoList.appendChild(frag);
@@ -559,15 +810,68 @@ async function displayVideos() {
 
 function showTutorial(title, message) {
   if (!DOMCache.tutorial) return;
-  
+
   DOMCache.tutorial.style.display = 'block';
-  
+
   const titleEl = document.getElementById('tutorial-title');
   const textEl = document.getElementById('tutorial-text');
-  
+
   if (titleEl) titleEl.textContent = title;
   if (textEl) {
     textEl.innerHTML = message;
+  }
+}
+
+function updateTabCounts(active, archive, trash) {
+  const set = (view, n) => {
+    const el = document.querySelector(`.view-tab-count[data-count-for="${view}"]`);
+    if (el) el.textContent = n > 0 ? String(n) : '';
+  };
+  set('active', active);
+  set('archive', archive);
+  set('trash', trash);
+}
+
+// ============================================
+// TOAST (undo notifications)
+// ============================================
+let toastTimeout = null;
+
+function showToast(message, actionLabel, actionFn) {
+  const el = DOMCache.toast;
+  if (!el) return;
+
+  el.textContent = '';
+
+  const msg = document.createElement('span');
+  msg.className = 'wle-toast-msg';
+  msg.textContent = message;
+  el.appendChild(msg);
+
+  if (actionLabel && typeof actionFn === 'function') {
+    const btn = document.createElement('button');
+    btn.className = 'wle-toast-action';
+    btn.type = 'button';
+    btn.textContent = actionLabel;
+    btn.addEventListener('click', async () => {
+      hideToast();
+      await actionFn();
+    });
+    el.appendChild(btn);
+  }
+
+  el.classList.add('visible');
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(hideToast, CONFIG.UNDO_DURATION);
+}
+
+function hideToast() {
+  const el = DOMCache.toast;
+  if (!el) return;
+  el.classList.remove('visible');
+  if (toastTimeout) {
+    clearTimeout(toastTimeout);
+    toastTimeout = null;
   }
 }
 
@@ -576,18 +880,59 @@ function showTutorial(title, message) {
 // ============================================
 function setupVideoListHandlers() {
   if (!DOMCache.videoList) return;
-  
+
   DOMCache.videoList.addEventListener('click', async (e) => {
     const li = e.target.closest('.video-item');
     if (!li) return;
+    const url = li.dataset.url;
 
+    // Mark watched / move back to To Watch
+    if (e.target.closest('.watch-toggle-btn')) {
+      e.stopPropagation();
+      if (!url) return;
+      AudioManager.play(AppState.soundEnabled);
+      const nowWatched = await StorageManager.toggleWatched(url);
+      displayVideos();
+      showToast(
+        nowWatched ? 'Moved to Archive' : 'Moved to To Watch',
+        'Undo',
+        async () => { await StorageManager.toggleWatched(url); displayVideos(); }
+      );
+      return;
+    }
+
+    // Restore from trash
+    if (e.target.closest('.restore-btn')) {
+      e.stopPropagation();
+      if (!url) return;
+      AudioManager.play(AppState.soundEnabled);
+      await StorageManager.restore([url]);
+      displayVideos();
+      return;
+    }
+
+    // Permanently delete from trash
+    if (e.target.closest('.perma-delete-btn')) {
+      e.stopPropagation();
+      if (!url) return;
+      AudioManager.play(AppState.soundEnabled);
+      await StorageManager.permanentDelete([url]);
+      displayVideos();
+      return;
+    }
+
+    // Soft delete (active/archive) → trash, with undo
     if (e.target.closest('.delete-btn')) {
       e.stopPropagation();
-      const url = li.dataset.url;
-      if (url) {
-        AudioManager.play(AppState.soundEnabled);
-        await StorageManager.removeVideoByUrl(url);
-        displayVideos();
+      if (!url) return;
+      AudioManager.play(AppState.soundEnabled);
+      const moved = await StorageManager.softDelete([url]);
+      displayVideos();
+      if (moved.length) {
+        showToast('Video moved to trash', 'Undo', async () => {
+          await StorageManager.restore(moved);
+          displayVideos();
+        });
       }
       return;
     }
@@ -598,7 +943,6 @@ function setupVideoListHandlers() {
     if (e.target.closest('.drag-handle')) return;
 
     if (e.target.closest('.video-left')) {
-      const url = li.dataset.url;
       if (url) {
         AudioManager.play(AppState.soundEnabled);
         window.open(url, '_blank', 'noopener,noreferrer');
@@ -608,24 +952,49 @@ function setupVideoListHandlers() {
 }
 
 // ============================================
+// VIEW TABS
+// ============================================
+function setupViewTabs() {
+  if (!DOMCache.viewTabs) return;
+
+  DOMCache.viewTabs.addEventListener('click', (e) => {
+    const tab = e.target.closest('.view-tab');
+    if (!tab) return;
+
+    const view = tab.dataset.view;
+    if (!view || view === AppState.view) return;
+
+    AppState.setView(view);
+
+    DOMCache.viewTabs.querySelectorAll('.view-tab').forEach((t) => {
+      t.classList.toggle('active', t === tab);
+      t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+    });
+
+    AudioManager.play(AppState.soundEnabled);
+    displayVideos();
+  });
+}
+
+// ============================================
 // SOUND MANAGEMENT
 // ============================================
 function updateSoundIcon() {
   if (!DOMCache.soundBtn) return;
-  
+
   DOMCache.soundBtn.classList.toggle('muted', !AppState.soundEnabled);
   const icon = DOMCache.soundBtn.querySelector('img.btn-icon');
-  
+
   if (icon) {
-    icon.src = AppState.soundEnabled 
-      ? 'icons/buttons/volume.svg' 
+    icon.src = AppState.soundEnabled
+      ? 'icons/buttons/volume.svg'
       : 'icons/buttons/volume-mute.svg';
   }
 }
 
 function setupSoundToggle() {
   if (!DOMCache.soundBtn) return;
-  
+
   DOMCache.soundBtn.addEventListener('click', () => {
     AppState.setSoundEnabled(!AppState.soundEnabled);
     updateSoundIcon();
@@ -640,12 +1009,12 @@ function setupSoundToggle() {
 // ============================================
 function setupSearch() {
   if (!DOMCache.tagSearchInput) return;
-  
+
   const debouncedSearch = Utils.debounce((value) => {
     AppState.setTagQuery(value, 'contains');
     displayVideos();
   }, CONFIG.DEBOUNCE_DELAY);
-  
+
   DOMCache.tagSearchInput.addEventListener('input', (e) => {
     debouncedSearch(e.target.value || '');
   });
@@ -657,14 +1026,14 @@ function setupSearch() {
 function setupModal() {
   const openBtn = document.getElementById('open-settings');
   const closeBtn = document.getElementById('close-settings');
-  
+
   if (openBtn && DOMCache.settingsModal) {
     openBtn.addEventListener('click', () => {
       AudioManager.play(AppState.soundEnabled);
       DOMCache.settingsModal.classList.remove('hidden');
     });
   }
-  
+
   if (closeBtn && DOMCache.settingsModal) {
     closeBtn.addEventListener('click', () => {
       AudioManager.play(AppState.soundEnabled);
@@ -674,21 +1043,100 @@ function setupModal() {
 }
 
 // ============================================
-// CLEAR ALL HANDLING
+// EMPTY TRASH (trash view only)
 // ============================================
-function setupClearAll() {
-  const clearBtn = document.getElementById('clear-all');
-  
-  if (clearBtn) {
-    clearBtn.addEventListener('click', async () => {
-      AudioManager.play(AppState.soundEnabled);
-      
-      if (confirm("Clear all videos?")) {
-        await StorageManager.clearAllVideos();
-        displayVideos();
-      }
-    });
+function setupTrashActions() {
+  if (!DOMCache.emptyTrashBtn) return;
+
+  DOMCache.emptyTrashBtn.addEventListener('click', async () => {
+    AudioManager.play(AppState.soundEnabled);
+    if (confirm('Permanently empty the trash?')) {
+      await StorageManager.emptyTrash();
+      displayVideos();
+    }
+  });
+}
+
+// ============================================
+// DONATE CALLOUT (honor-system supporter prompt)
+// ============================================
+function markSupporter() {
+  // We cannot verify a Ko-fi donation from the extension (no backend, no login).
+  // This is an honor-system flag: once set, the donate prompt never shows again.
+  chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.SUPPORTER]: true });
+}
+
+function positionDonateCallout() {
+  const btn = DOMCache.donateBtn;
+  const cal = DOMCache.donateCallout;
+  if (!btn || !cal) return;
+
+  const r = btn.getBoundingClientRect();
+  const calWidth = 230;
+  let left = r.left + r.width / 2 - calWidth / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - calWidth - 8));
+  cal.style.width = `${calWidth}px`;
+  cal.style.left = `${left}px`;
+  cal.style.top = `${r.bottom + 10}px`;
+
+  const arrow = cal.querySelector('.donate-callout-arrow');
+  if (arrow) {
+    const arrowLeft = r.left + r.width / 2 - left - 7;
+    arrow.style.left = `${Math.max(12, Math.min(arrowLeft, calWidth - 26))}px`;
   }
+}
+
+function showDonateCallout() {
+  const cal = DOMCache.donateCallout;
+  if (!cal) return;
+
+  positionDonateCallout();
+  requestAnimationFrame(() => {
+    cal.classList.add('visible');
+    if (DOMCache.donateBtn) DOMCache.donateBtn.classList.add('wle-donate-pulse');
+  });
+  chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.LAST_PROMPT]: Date.now() });
+}
+
+function hideDonateCallout() {
+  const cal = DOMCache.donateCallout;
+  if (!cal) return;
+  cal.classList.remove('visible');
+  if (DOMCache.donateBtn) DOMCache.donateBtn.classList.remove('wle-donate-pulse');
+}
+
+function maybeShowDonateCallout() {
+  if (!DOMCache.donateCallout) return;
+
+  chrome.storage.local.get(
+    { [CONFIG.STORAGE_KEYS.SUPPORTER]: false, [CONFIG.STORAGE_KEYS.LAST_PROMPT]: 0 },
+    (data) => {
+      if (data[CONFIG.STORAGE_KEYS.SUPPORTER]) return;
+      const last = data[CONFIG.STORAGE_KEYS.LAST_PROMPT] || 0;
+      if (Date.now() - last < CONFIG.DONATE_PROMPT_COOLDOWN) return;
+      if (Math.random() > CONFIG.DONATE_PROMPT_CHANCE) return;
+      showDonateCallout();
+    }
+  );
+}
+
+function setupDonateCallout() {
+  const closeBtn = document.getElementById('donate-callout-close');
+  const doneBtn = document.getElementById('donate-callout-done');
+  const cta = document.getElementById('donate-callout-cta');
+
+  if (closeBtn) closeBtn.addEventListener('click', hideDonateCallout);
+  if (doneBtn) doneBtn.addEventListener('click', () => { markSupporter(); hideDonateCallout(); });
+  if (cta) cta.addEventListener('click', () => { markSupporter(); hideDonateCallout(); });
+
+  // Clicking the header donate button counts as goodwill → stop nagging.
+  if (DOMCache.donateBtn) DOMCache.donateBtn.addEventListener('click', markSupporter);
+
+  window.addEventListener('resize', () => {
+    if (DOMCache.donateCallout && DOMCache.donateCallout.classList.contains('visible')) {
+      positionDonateCallout();
+    }
+  });
 }
 
 // ============================================
@@ -697,19 +1145,24 @@ function setupClearAll() {
 async function init() {
   try {
     DOMCache.init();
-    
+
     chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.SOUND]: true }, (data) => {
       AppState.soundEnabled = data[CONFIG.STORAGE_KEYS.SOUND];
       updateSoundIcon();
     });
-    
+
     setupSoundToggle();
     setupSearch();
     setupModal();
-    setupClearAll();
+    setupTrashActions();
     setupVideoListHandlers();
-    
+    setupViewTabs();
+    setupDonateCallout();
+
     await displayVideos();
+
+    // Give the layout a moment to settle, then maybe nudge for a donation
+    setTimeout(maybeShowDonateCallout, 600);
   } catch (error) {
     console.error('Initialization error:', error);
   }

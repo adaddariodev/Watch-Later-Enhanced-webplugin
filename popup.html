@@ -21,9 +21,6 @@
           <img class="btn-icon" src="icons/buttons/donate.svg" alt="" />
         </button>
       </a>
-      <button id="clear-all" class="icon-btn" type="button" title="Clear list" aria-label="Clear list">
-        <img class="btn-icon" src="icons/buttons/trash-xmark.svg" alt="" />
-      </button>
       <button id="open-settings" class="icon-btn" type="button" title="Settings" aria-label="Settings">
         <img class="btn-icon" src="icons/buttons/settings.svg" alt="" />
       </button>
@@ -31,6 +28,21 @@
   </header>
 
   <main>
+    <div id="view-tabs" class="view-tabs" role="tablist" aria-label="Video lists">
+      <button class="view-tab active" data-view="active" role="tab" aria-selected="true" type="button">
+        <span class="view-tab-label">To Watch</span>
+        <span class="view-tab-count" data-count-for="active"></span>
+      </button>
+      <button class="view-tab" data-view="archive" role="tab" aria-selected="false" type="button">
+        <span class="view-tab-label">Archive</span>
+        <span class="view-tab-count" data-count-for="archive"></span>
+      </button>
+      <button class="view-tab" data-view="trash" role="tab" aria-selected="false" type="button">
+        <span class="view-tab-label">Trash</span>
+        <span class="view-tab-count" data-count-for="trash"></span>
+      </button>
+    </div>
+
     <div class="searchbar-wrap">
       <input
         id="tag-search"
@@ -43,6 +55,11 @@
         aria-label="Search videos by tag"
       />
     </div>
+
+    <div id="trash-actions" class="trash-actions">
+      <button id="empty-trash" class="text-btn" type="button">Empty trash</button>
+    </div>
+
     <ul id="video-list"></ul>
     
     <div id="tutorial" class="tutorial-container" style="display: none;">
@@ -81,6 +98,19 @@
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <div id="wle-toast" class="wle-toast" role="status" aria-live="polite"></div>
+
+  <div id="donate-callout" class="donate-callout" role="dialog" aria-label="Support the developer">
+    <span class="donate-callout-arrow"></span>
+    <button id="donate-callout-close" class="donate-callout-close" type="button" aria-label="Dismiss">×</button>
+    <p class="donate-callout-title">Enjoying it? ☕</p>
+    <p class="donate-callout-text">Watch Later Enhanced is free, ad-free and private — forever. If it saves you time, a small tip keeps it alive. 💛</p>
+    <div class="donate-callout-actions">
+      <a id="donate-callout-cta" class="donate-callout-btn" href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">Support on Ko-fi</a>
+      <button id="donate-callout-done" class="donate-callout-link" type="button">I already donated</button>
     </div>
   </div>
 

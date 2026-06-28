@@ -43,44 +43,83 @@ const AudioManager = {
 
 // ============================================
 // URL VALIDATION & NORMALIZATION
+// (Supports both standard videos /watch?v=ID and Shorts /shorts/ID)
 // ============================================
 const URLValidator = {
   /**
-   * Validate if URL is a proper YouTube watch URL
+   * True if the hostname is a YouTube host we accept.
    */
-  isValidYouTubeWatchUrl(url) {
+  isYouTubeHost(hostname) {
+    return hostname === CONFIG.YOUTUBE_DOMAIN || hostname === 'youtube.com' || hostname === 'm.youtube.com';
+  },
+
+  /**
+   * Extract the video ID from a watch URL (/watch?v=ID) or a Shorts URL (/shorts/ID).
+   * Returns null when the URL is not a recognizable YouTube video.
+   */
+  extractVideoId(url) {
     try {
       const u = new URL(url);
-      return (
-        u.hostname === CONFIG.YOUTUBE_DOMAIN &&
-        u.pathname === CONFIG.YOUTUBE_WATCH_PATH &&
-        u.searchParams.has('v') &&
-        u.searchParams.get('v').length > 0
-      );
+      if (!this.isYouTubeHost(u.hostname)) return null;
+
+      if (u.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
+        const id = u.searchParams.get('v');
+        return id && id.length > 0 ? id : null;
+      }
+
+      const shortsMatch = u.pathname.match(/^\/shorts\/([^/?#]+)/);
+      if (shortsMatch && shortsMatch[1]) return shortsMatch[1];
+
+      return null;
     } catch {
-      return false;
+      return null;
     }
   },
-  
+
   /**
-   * Normalize YouTube Watch URL to avoid duplicates
-   * Example: https://www.youtube.com/watch?v=VIDEO_ID
+   * 'short' for Shorts URLs, 'video' otherwise.
    */
-  normalizeYouTubeWatchUrl(url) {
+  getKind(url) {
     try {
-      const u = new URL(url);
-      const videoId = u.searchParams.get('v');
-      
-      if (!videoId) {
-        console.warn('Invalid YouTube URL: missing video ID');
-        return url;
-      }
-      
-      return `https://${CONFIG.YOUTUBE_DOMAIN}${CONFIG.YOUTUBE_WATCH_PATH}?v=${encodeURIComponent(videoId)}`;
-    } catch (error) {
-      console.error('URL normalization error:', error);
+      return new URL(url).pathname.startsWith('/shorts/') ? 'short' : 'video';
+    } catch {
+      return 'video';
+    }
+  },
+
+  /**
+   * Validate if URL is a proper YouTube video (standard or Shorts).
+   */
+  isValidYouTubeUrl(url) {
+    return this.extractVideoId(url) !== null;
+  },
+
+  /**
+   * Normalize a YouTube URL to a canonical, dedupe-friendly form.
+   * Shorts keep their /shorts/ID form so they reopen as Shorts.
+   */
+  normalizeUrl(url) {
+    const videoId = this.extractVideoId(url);
+    if (!videoId) {
+      console.warn('Invalid YouTube URL: missing video ID');
       return url;
     }
+
+    const path = this.getKind(url) === 'short'
+      ? `/shorts/${encodeURIComponent(videoId)}`
+      : `${CONFIG.YOUTUBE_WATCH_PATH}?v=${encodeURIComponent(videoId)}`;
+
+    return `https://${CONFIG.YOUTUBE_DOMAIN}${path}`;
+  },
+
+  /**
+   * The /watch?v=ID form for a given URL — used for the oEmbed lookup,
+   * which is most reliable with the canonical watch URL even for Shorts.
+   */
+  toWatchUrl(url) {
+    const videoId = this.extractVideoId(url);
+    if (!videoId) return url;
+    return `https://${CONFIG.YOUTUBE_DOMAIN}${CONFIG.YOUTUBE_WATCH_PATH}?v=${encodeURIComponent(videoId)}`;
   }
 };
 
@@ -104,16 +143,17 @@ const StorageQueue = {
 // ============================================
 // VIDEO SAVING LOGIC (Centralized)
 // ============================================
-async function saveVideoToWLE(url, title, thumbNode) {
+async function saveVideoToWLE(url, title, thumbNode, kind = 'video') {
   // Validate URL before saving
-  if (!URLValidator.isValidYouTubeWatchUrl(url)) {
+  if (!URLValidator.isValidYouTubeUrl(url)) {
     console.warn('Invalid YouTube URL, not saving:', url);
     showHud('Invalid video URL');
     return;
   }
-  
-  const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(url);
-  
+
+  const normalizedUrl = URLValidator.normalizeUrl(url);
+  const videoId = URLValidator.extractVideoId(normalizedUrl);
+
   return StorageQueue.enqueue(
     () =>
       new Promise((resolve) => {
@@ -124,22 +164,26 @@ async function saveVideoToWLE(url, title, thumbNode) {
             resolve();
             return;
           }
-          
+
           const savedVideos = data.savedVideos || [];
           const isSoundEnabled = data.soundEnabled ?? true;
 
-          // Check for duplicates
-          if (savedVideos.some((v) => v.url === normalizedUrl)) {
+          // Check for duplicates by video ID (a video saved from /watch and from
+          // /shorts shares the same ID, so we treat them as the same entry)
+          if (savedVideos.some((v) => URLValidator.extractVideoId(v.url) === videoId)) {
             showHud('Already saved!');
             resolve();
             return;
           }
 
           // Add new video
-          savedVideos.push({ 
-            url: normalizedUrl, 
-            title: title || 'Untitled Video', 
+          savedVideos.push({
+            url: normalizedUrl,
+            title: title || 'Untitled Video',
             tags: [],
+            kind: kind === 'short' ? 'short' : 'video',
+            watched: false,
+            watchedAt: null,
             savedAt: Date.now()
           });
           
@@ -309,45 +353,52 @@ const TitleExtractor = {
 document.addEventListener('click', async (event) => {
   if (!event.altKey) return;
 
-  // CASE A: Click on a thumbnail link
-  const videoLink = event.target.closest('a[href*="/watch?v="]');
+  // CASE A: Click on a thumbnail link (standard video or Shorts)
+  const videoLink = event.target.closest('a[href*="/watch?v="], a[href*="/shorts/"]');
   if (videoLink) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const url = videoLink.href;
-    if (!URLValidator.isValidYouTubeWatchUrl(url)) {
+    if (!URLValidator.isValidYouTubeUrl(url)) {
       console.warn('Invalid YouTube URL clicked');
       return;
     }
-    
-    const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(url);
+
+    const normalizedUrl = URLValidator.normalizeUrl(url);
+    const kind = URLValidator.getKind(normalizedUrl);
     const thumbNode = videoLink.querySelector('img') || videoLink;
-    
-    // Resolve title with cascading fallback: oEmbed → DOM → Unknown Title
-    const title = await TitleExtractor.resolveTitle(normalizedUrl, videoLink);
-    await saveVideoToWLE(normalizedUrl, title, thumbNode);
+
+    // Resolve title with cascading fallback: oEmbed → DOM → Unknown Title.
+    // oEmbed is queried with the /watch form (most reliable, even for Shorts).
+    const title = await TitleExtractor.resolveTitle(URLValidator.toWatchUrl(normalizedUrl), videoLink);
+    await saveVideoToWLE(normalizedUrl, title, thumbNode, kind);
     return;
   }
 
-  // CASE B: Click directly on the video player
-  const videoPlayer = event.target.closest('#movie_player') || 
-                     event.target.closest('.html5-video-player');
-  
-  if (videoPlayer && window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
+  // CASE B: Click directly on the video player (watch page or Shorts page)
+  const videoPlayer = event.target.closest('#movie_player') ||
+                     event.target.closest('.html5-video-player') ||
+                     event.target.closest('ytd-reel-video-renderer');
+
+  const onVideoPage = window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH ||
+                      window.location.pathname.startsWith('/shorts/');
+
+  if (videoPlayer && onVideoPage) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const currentUrl = window.location.href;
-    if (!URLValidator.isValidYouTubeWatchUrl(currentUrl)) {
+    if (!URLValidator.isValidYouTubeUrl(currentUrl)) {
       console.warn('Invalid YouTube URL on current page');
       return;
     }
-    
-    const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(currentUrl);
+
+    const normalizedUrl = URLValidator.normalizeUrl(currentUrl);
+    const kind = URLValidator.getKind(normalizedUrl);
     const title = TitleExtractor.getCurrentPageTitle();
-    
-    await saveVideoToWLE(normalizedUrl, title, videoPlayer);
+
+    await saveVideoToWLE(normalizedUrl, title, videoPlayer, kind);
   }
 }, true); // Capture phase to intercept before YouTube handlers
 
@@ -389,18 +440,19 @@ const ButtonInjector = {
     // Attach click handler
     btn.addEventListener('click', async () => {
       const currentUrl = window.location.href;
-      
-      if (!URLValidator.isValidYouTubeWatchUrl(currentUrl)) {
+
+      if (!URLValidator.isValidYouTubeUrl(currentUrl)) {
         console.warn('Invalid YouTube URL on current page');
         showHud('Invalid video URL');
         return;
       }
-      
-      const normalizedUrl = URLValidator.normalizeYouTubeWatchUrl(currentUrl);
+
+      const normalizedUrl = URLValidator.normalizeUrl(currentUrl);
+      const kind = URLValidator.getKind(normalizedUrl);
       const title = TitleExtractor.getCurrentPageTitle();
-      
+
       // Pass button as thumbNode for visual feedback
-      await saveVideoToWLE(normalizedUrl, title, btn);
+      await saveVideoToWLE(normalizedUrl, title, btn, kind);
     });
   },
   
