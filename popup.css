@@ -592,22 +592,8 @@ li.video-item.drop-target {
 }
 
 /* =========================================
-   KIND BADGE (Shorts) + READONLY TAGS
+   READONLY TAGS (trash view)
    ========================================= */
-.kind-badge {
-  flex-shrink: 0;
-  margin-right: 8px;
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(255, 0, 80, 0.18);
-  border: 1px solid rgba(255, 0, 80, 0.35);
-  color: #ff5c8a;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
 .tag-pill-readonly {
   cursor: default;
 }

@@ -146,7 +146,6 @@ const Utils = {
       title: video.title || 'Untitled Video',
       url: video.url || '',
       tags: normalizedTags,
-      kind: video.kind === 'short' ? 'short' : 'video',
       watched: video.watched === true,
       watchedAt: typeof video.watchedAt === 'number' ? video.watchedAt : null,
       savedAt: typeof video.savedAt === 'number' ? video.savedAt : null,
@@ -434,14 +433,6 @@ const VideoItemFactory = {
 
     if (canDrag) {
       left.appendChild(this.createDragHandle());
-    }
-
-    if (video.kind === 'short') {
-      const badge = document.createElement('span');
-      badge.className = 'kind-badge';
-      badge.textContent = 'Short';
-      badge.title = 'YouTube Short';
-      left.appendChild(badge);
     }
 
     left.appendChild(this.createTitle(video.title));
