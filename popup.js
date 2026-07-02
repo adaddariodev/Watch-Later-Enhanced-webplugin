@@ -764,7 +764,7 @@ async function displayVideos() {
       if (AppState.view === 'archive') {
         showTutorial('No watched videos yet', 'Mark a video as watched (✓) to move it here.');
       } else {
-        showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>Click</b> on any YouTube video to save it instantly.');
+        showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>Click</b> on any YouTube video to save it instantly.', true);
       }
       return;
     }
@@ -799,18 +799,22 @@ async function displayVideos() {
   }
 }
 
-function showTutorial(title, message) {
+function showTutorial(title, message, showHint = false) {
   if (!DOMCache.tutorial) return;
 
   DOMCache.tutorial.style.display = 'block';
 
   const titleEl = document.getElementById('tutorial-title');
   const textEl = document.getElementById('tutorial-text');
+  const visualEl = document.getElementById('tutorial-visual');
 
   if (titleEl) titleEl.textContent = title;
   if (textEl) {
     textEl.innerHTML = message;
   }
+  // The keyboard/mouse "ALT + LEFT CLICK" hint only makes sense on the
+  // "How to use" empty state — hide it for Archive / Trash / no-results.
+  if (visualEl) visualEl.style.display = showHint ? '' : 'none';
 }
 
 function updateTabCounts(active, archive, trash) {
