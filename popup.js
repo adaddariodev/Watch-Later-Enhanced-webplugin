@@ -65,6 +65,7 @@ const DOMCache = {
   searchWrap: null,
   donateBtn: null,
   donateCallout: null,
+  scrollContainer: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -79,6 +80,7 @@ const DOMCache = {
     this.searchWrap = document.querySelector('.searchbar-wrap');
     this.donateBtn = document.getElementById('ko-fi-button');
     this.donateCallout = document.getElementById('donate-callout');
+    this.scrollContainer = document.querySelector('main');
   }
 };
 
@@ -104,6 +106,75 @@ const AppState = {
 
   setView(view) {
     this.view = view;
+  }
+};
+
+// ============================================
+// DRAG AUTO-SCROLL
+// Native HTML5 drag doesn't scroll the list; when the pointer nears the top
+// or bottom edge of the scroll container we nudge it, so items can be dragged
+// beyond the currently visible area.
+// ============================================
+const DragScroller = {
+  raf: null,
+  pointerY: 0,
+  active: false,
+  EDGE: 55,     // px hot-zone at top/bottom
+  SPEED: 14,    // max px scrolled per frame
+
+  start() {
+    if (this.active) return;
+    this.active = true;
+    this.raf = requestAnimationFrame(() => this.tick());
+  },
+
+  update(y) {
+    this.pointerY = y;
+  },
+
+  stop() {
+    this.active = false;
+    if (this.raf) {
+      cancelAnimationFrame(this.raf);
+      this.raf = null;
+    }
+  },
+
+  tick() {
+    if (!this.active) {
+      this.raf = null;
+      return;
+    }
+
+    const c = DOMCache.scrollContainer;
+    if (c) {
+      const rect = c.getBoundingClientRect();
+
+      // The top of the list is overlaid by the sticky tabs + searchbar, so the
+      // real top boundary of the hot-zone is the BOTTOM of that sticky header —
+      // otherwise the upper hot-zone hides behind it and never triggers.
+      let topBound = rect.top;
+      const header = (DOMCache.searchWrap && DOMCache.searchWrap.offsetParent !== null)
+        ? DOMCache.searchWrap
+        : DOMCache.viewTabs;
+      if (header) {
+        topBound = Math.max(topBound, header.getBoundingClientRect().bottom);
+      }
+
+      const top = this.pointerY - topBound;
+      const bottom = rect.bottom - this.pointerY;
+      let dy = 0;
+
+      if (top < this.EDGE) {
+        dy = -Math.ceil(Math.min(1, (this.EDGE - top) / this.EDGE) * this.SPEED);
+      } else if (bottom < this.EDGE) {
+        dy = Math.ceil(Math.min(1, (this.EDGE - bottom) / this.EDGE) * this.SPEED);
+      }
+
+      if (dy) c.scrollTop += dy;
+    }
+
+    this.raf = requestAnimationFrame(() => this.tick());
   }
 };
 
@@ -382,6 +453,22 @@ const StorageManager = {
       console.error('Empty trash error:', error);
       return false;
     }
+  },
+
+  /**
+   * Unique list of every tag name used across all saved videos
+   * (first-seen casing preserved) — powers the tag autocomplete.
+   */
+  async getAllTagNames() {
+    const videos = await this.getVideos();
+    const seen = new Map(); // lowercase -> original casing
+    videos.forEach((v) => {
+      (v.tags || []).forEach((t) => {
+        const key = t.name.toLowerCase();
+        if (!seen.has(key)) seen.set(key, t.name);
+      });
+    });
+    return [...seen.values()];
   }
 };
 
@@ -510,8 +597,8 @@ const VideoItemFactory = {
       tagRow.appendChild(pill);
     });
 
-    const tagInput = this.createTagInput(li, tagAddBtn);
-    tagRow.appendChild(tagInput);
+    const tagEditor = this.createTagInput(li, tagAddBtn, video);
+    tagRow.appendChild(tagEditor);
 
     return tagRow;
   },
@@ -581,100 +668,170 @@ const VideoItemFactory = {
     return pill;
   },
 
-  createTagInput(li, tagAddBtn) {
+  /**
+   * Add a tag (by name) to a video. Returns true on success or if it already
+   * exists. Shared by the Enter key and the autocomplete suggestions.
+   */
+  async addTag(videoUrl, name) {
+    const clean = (name || '').trim();
+    if (!clean || !videoUrl) return false;
+
+    try {
+      const videos = await StorageManager.getVideos();
+      const video = videos.find((v) => v.url === videoUrl);
+      if (!video) return false;
+
+      const existing = video.tags || [];
+      if (existing.some((t) => t.name.toLowerCase() === clean.toLowerCase())) {
+        return true; // already present — treat as success
+      }
+
+      const newTag = { name: clean, color: Utils.colorFromTagName(clean) };
+      return await StorageManager.updateVideoByUrl(videoUrl, {
+        tags: [...existing, newTag]
+      });
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      return false;
+    }
+  },
+
+  createTagInput(li, tagAddBtn, video) {
+    const wrap = document.createElement('span');
+    wrap.className = 'tag-input-wrap';
+    wrap.style.display = 'none';
+
     const tagInput = document.createElement('input');
     tagInput.className = 'tag-input';
     tagInput.type = 'text';
     tagInput.placeholder = 'Tag…';
     tagInput.maxLength = CONFIG.TAG_MAX_LENGTH;
-    tagInput.style.display = 'none';
+
+    const suggestions = document.createElement('div');
+    suggestions.className = 'tag-suggestions';
+    suggestions.hidden = true;
+
+    wrap.append(tagInput, suggestions);
+
+    let tagUniverse = [];
+    const existingLower = () => new Set((video.tags || []).map((t) => t.name.toLowerCase()));
+
+    const closeEditor = () => {
+      wrap.style.display = 'none';
+      tagInput.value = '';
+      suggestions.hidden = true;
+      suggestions.textContent = '';
+    };
+
+    const openEditor = async () => {
+      wrap.style.display = 'inline-flex';
+      tagInput.value = '';
+      suggestions.hidden = true;
+      suggestions.textContent = '';
+      tagInput.focus();
+      tagUniverse = await StorageManager.getAllTagNames();
+    };
+
+    const commit = async (name) => {
+      const clean = (name || '').trim();
+      if (!clean) { closeEditor(); return; }
+      const ok = await VideoItemFactory.addTag(li.dataset.url, clean);
+      if (ok) {
+        displayVideos(); // rebuilds the list (editor closes with it)
+      } else {
+        closeEditor();
+      }
+    };
+
+    const renderSuggestions = (query) => {
+      const q = query.trim().toLowerCase();
+      suggestions.textContent = '';
+      if (!q) { suggestions.hidden = true; return; }
+
+      const exclude = existingLower();
+      const matches = tagUniverse
+        .filter((n) => n.toLowerCase().includes(q) && !exclude.has(n.toLowerCase()))
+        .slice(0, 6);
+
+      if (matches.length === 0) { suggestions.hidden = true; return; }
+
+      matches.forEach((name) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'tag-suggestion';
+
+        const dot = document.createElement('span');
+        dot.className = 'tag-suggestion-dot';
+        dot.style.background = Utils.colorFromTagName(name);
+
+        const label = document.createElement('span');
+        label.className = 'tag-suggestion-label';
+        label.textContent = name;
+
+        item.append(dot, label);
+        // mousedown (not click): fires before the input's blur tears the list down
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          commit(name);
+        });
+        suggestions.appendChild(item);
+      });
+
+      suggestions.hidden = false;
+    };
 
     if (tagAddBtn) {
       tagAddBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (tagInput.style.display === 'none') {
-          tagInput.value = '';
-          tagInput.style.display = 'inline-block';
-          tagInput.focus();
+        if (wrap.style.display === 'none') {
+          openEditor();
         } else {
-          tagInput.style.display = 'none';
+          closeEditor();
         }
       });
     }
 
-    tagInput.addEventListener('click', (e) => e.stopPropagation());
+    wrap.addEventListener('click', (e) => e.stopPropagation());
 
-    tagInput.addEventListener('keydown', async (e) => {
+    tagInput.addEventListener('input', () => renderSuggestions(tagInput.value));
+
+    tagInput.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        tagInput.style.display = 'none';
+        closeEditor();
         return;
       }
-
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      const name = (tagInput.value || '').trim();
-      if (!name) return;
-
-      // Capture URL BEFORE async operations (li might be removed from DOM)
-      const videoUrl = li.dataset.url;
-      if (!videoUrl) {
-        console.warn('No video URL found on li element');
-        return;
-      }
-
-      try {
-        const videos = await StorageManager.getVideos();
-        const video = videos.find((v) => v.url === videoUrl);
-
-        if (!video) {
-          console.warn('Video not found in storage:', videoUrl);
-          return;
-        }
-
-        const existing = video.tags || [];
-        const exists = existing.some((t) => t.name.toLowerCase() === name.toLowerCase());
-
-        if (exists) {
-          console.info('Tag already exists:', name);
-          tagInput.style.display = 'none';
-          return;
-        }
-
-        const newTag = {
-          name,
-          color: Utils.colorFromTagName(name)
-        };
-
-        const success = await StorageManager.updateVideoByUrl(videoUrl, {
-          tags: [...existing, newTag]
-        });
-
-        if (success) {
-          displayVideos();
-        } else {
-          console.error('Failed to update video tags');
-        }
-      } catch (error) {
-        console.error('Error adding tag:', error);
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        commit(tagInput.value);
       }
     });
 
-    return tagInput;
+    // Clicking away (with nothing selected) closes the editor — fix for the
+    // input staying open when left empty. The timeout lets a suggestion's
+    // mousedown run first.
+    tagInput.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (document.activeElement !== tagInput) closeEditor();
+      }, 120);
+    });
+
+    return wrap;
   },
 
   attachDragListeners(li) {
     li.addEventListener('dragstart', () => {
       if (AppState.tagQuery) return;
       AppState.draggedItemIndex = parseInt(li.dataset.index, 10);
+      DragScroller.start();
       setTimeout(() => li.classList.add('dragging'), 0);
     });
 
     li.addEventListener('dragend', () => {
+      DragScroller.stop();
       li.classList.remove('dragging');
       document.querySelectorAll('.video-item').forEach(el => el.classList.remove('drop-target'));
     });
@@ -972,6 +1129,16 @@ function setupViewTabs() {
 }
 
 // ============================================
+// DRAG AUTO-SCROLL WIRING
+// ============================================
+function setupDragAutoScroll() {
+  if (!DOMCache.scrollContainer) return;
+  DOMCache.scrollContainer.addEventListener('dragover', (e) => {
+    if (DragScroller.active) DragScroller.update(e.clientY);
+  });
+}
+
+// ============================================
 // SOUND MANAGEMENT
 // ============================================
 function updateSoundIcon() {
@@ -1152,6 +1319,7 @@ async function init() {
     setupTrashActions();
     setupVideoListHandlers();
     setupViewTabs();
+    setupDragAutoScroll();
     setupDonateCallout();
 
     await displayVideos();

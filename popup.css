@@ -599,6 +599,63 @@ li.video-item.drop-target {
 }
 
 /* =========================================
+   TAG AUTOCOMPLETE SUGGESTIONS
+   ========================================= */
+.tag-input-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tag-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 140px;
+  max-width: 210px;
+  max-height: 172px;
+  overflow-y: auto;
+  background: #262626;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  z-index: 50;
+}
+
+.tag-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tag-suggestion:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tag-suggestion-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.tag-suggestion-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================
    TOAST (undo notifications)
    ========================================= */
 .wle-toast {
