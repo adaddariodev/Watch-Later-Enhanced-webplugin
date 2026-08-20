@@ -6,8 +6,8 @@ const CONFIG = {
   HUD_DISPLAY_TIME: 2000,
   BUTTON_INJECTION_RETRY_INTERVAL: 500,
   BUTTON_INJECTION_MAX_TIMEOUT: 10000,
-  YOUTUBE_WATCH_PATH: '/watch',
-  YOUTUBE_DOMAIN: 'www.youtube.com'
+  REV_KEY: 'wleRev',
+  WRITE_ATTEMPTS: 6
 };
 
 // ============================================
@@ -42,127 +42,107 @@ const AudioManager = {
 };
 
 // ============================================
-// URL VALIDATION & NORMALIZATION
-// ============================================
-const URLValidator = {
-  /**
-   * Validate if URL is a proper YouTube watch URL.
-   */
-  isValidYouTubeUrl(url) {
-    try {
-      const u = new URL(url);
-      return (
-        u.hostname === CONFIG.YOUTUBE_DOMAIN &&
-        u.pathname === CONFIG.YOUTUBE_WATCH_PATH &&
-        u.searchParams.has('v') &&
-        u.searchParams.get('v').length > 0
-      );
-    } catch {
-      return false;
-    }
-  },
-
-  /**
-   * Normalize a YouTube watch URL to a canonical, dedupe-friendly form.
-   * Example: https://www.youtube.com/watch?v=VIDEO_ID
-   */
-  normalizeUrl(url) {
-    try {
-      const u = new URL(url);
-      const videoId = u.searchParams.get('v');
-
-      if (!videoId) {
-        console.warn('Invalid YouTube URL: missing video ID');
-        return url;
-      }
-
-      return `https://${CONFIG.YOUTUBE_DOMAIN}${CONFIG.YOUTUBE_WATCH_PATH}?v=${encodeURIComponent(videoId)}`;
-    } catch (error) {
-      console.error('URL normalization error:', error);
-      return url;
-    }
-  }
-};
-
-// ============================================
-// STORAGE QUEUE (Prevent Race Conditions)
+// STORAGE QUEUE (serialize writes in this tab)
 // ============================================
 const StorageQueue = {
   queue: Promise.resolve(),
-  
+
   enqueue(fn) {
-    this.queue = this.queue
-      .then(fn)
-      .catch((error) => {
-        console.error('Storage queue error:', error);
-        return fn(); // Retry once on error
-      });
+    this.queue = this.queue.then(fn).catch((error) => {
+      console.error('Storage queue error:', error);
+    });
     return this.queue;
   }
 };
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function storageGet(defaults) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(defaults, (data) => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve(data);
+    });
+  });
+}
+
+function storageSet(values) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(values, () => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve();
+    });
+  });
+}
+
 // ============================================
 // VIDEO SAVING LOGIC (Centralized)
 // ============================================
-async function saveVideoToWLE(url, title, thumbNode) {
-  // Validate URL before saving
-  if (!URLValidator.isValidYouTubeUrl(url)) {
+async function saveVideoToWLE(url, title) {
+  const normalizedUrl = WLEUrl.normalizeUrl(url);
+  if (!normalizedUrl) {
     console.warn('Invalid YouTube URL, not saving:', url);
     showHud('Invalid video URL');
     return;
   }
 
-  const normalizedUrl = URLValidator.normalizeUrl(url);
-
-  return StorageQueue.enqueue(
-    () =>
-      new Promise((resolve) => {
-        chrome.storage.local.get({ savedVideos: [], soundEnabled: true }, (data) => {
-          if (chrome.runtime.lastError) {
-            console.error('Storage read error:', chrome.runtime.lastError);
-            showHud('Storage error');
-            resolve();
-            return;
-          }
-
-          const savedVideos = data.savedVideos || [];
-          const isSoundEnabled = data.soundEnabled ?? true;
-
-          // Check for duplicates
-          if (savedVideos.some((v) => v.url === normalizedUrl)) {
-            showHud('Already saved!');
-            resolve();
-            return;
-          }
-
-          // Add new video
-          savedVideos.push({
-            url: normalizedUrl,
-            title: title || 'Untitled Video',
-            tags: [],
-            watched: false,
-            watchedAt: null,
-            savedAt: Date.now()
-          });
-          
-          chrome.storage.local.set({ savedVideos }, () => {
-            if (chrome.runtime.lastError) {
-              console.error('Storage write error:', chrome.runtime.lastError);
-              showHud('Failed to save');
-              resolve();
-              return;
-            }
-            
-            // Play success feedback
-            AudioManager.play(isSoundEnabled);
-
-            // Show success hud
-            showHud(title);
-            resolve();
-          });
+  return StorageQueue.enqueue(async () => {
+    for (let attempt = 0; attempt < CONFIG.WRITE_ATTEMPTS; attempt++) {
+      try {
+        const data = await storageGet({
+          savedVideos: [],
+          soundEnabled: true,
+          [CONFIG.REV_KEY]: 0
         });
-      })
-  );
+        const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
+        const snap = JSON.stringify(savedVideos);
+        const rev = data[CONFIG.REV_KEY] || 0;
+        const isSoundEnabled = data.soundEnabled ?? true;
+
+        if (savedVideos.some((v) => v && v.url === normalizedUrl)) {
+          showHud('Already saved!');
+          return;
+        }
+
+        const latest = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
+        if (
+          JSON.stringify(latest.savedVideos || []) !== snap ||
+          (latest[CONFIG.REV_KEY] || 0) !== rev
+        ) {
+          await sleep(16 * (attempt + 1));
+          continue;
+        }
+
+        savedVideos.push({
+          url: normalizedUrl,
+          title: title || 'Untitled Video',
+          tags: [],
+          watched: false,
+          watchedAt: null,
+          savedAt: Date.now()
+        });
+
+        await storageSet({
+          savedVideos,
+          [CONFIG.REV_KEY]: rev + 1
+        });
+
+        AudioManager.play(isSoundEnabled);
+        showHud(title);
+        return;
+      } catch (error) {
+        console.error('Storage write error:', error);
+        if (attempt === CONFIG.WRITE_ATTEMPTS - 1) {
+          showHud('Failed to save');
+          return;
+        }
+        await sleep(16 * (attempt + 1));
+      }
+    }
+    showHud('Failed to save');
+  });
 }
 
 // ============================================
@@ -212,7 +192,7 @@ const TitleExtractor = {
     try {
       // Navigate up to the video renderer container
       const container = videoLink.closest(
-        'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer'
+        'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-reel-item-renderer, ytd-shorts, ytd-reel-video-renderer'
       );
       if (!container) return null;
 
@@ -312,44 +292,38 @@ document.addEventListener('click', async (event) => {
   if (!event.altKey) return;
 
   // CASE A: Click on a thumbnail link
-  const videoLink = event.target.closest('a[href*="/watch?v="]');
+  const videoLink = event.target.closest('a[href*="/watch?v="], a[href*="/shorts/"]');
   if (videoLink) {
     event.preventDefault();
     event.stopPropagation();
 
     const url = videoLink.href;
-    if (!URLValidator.isValidYouTubeUrl(url)) {
+    const normalizedUrl = WLEUrl.normalizeUrl(url);
+    if (!normalizedUrl) {
       console.warn('Invalid YouTube URL clicked');
       return;
     }
 
-    const normalizedUrl = URLValidator.normalizeUrl(url);
-    const thumbNode = videoLink.querySelector('img') || videoLink;
-
-    // Resolve title with cascading fallback: oEmbed → DOM → Unknown Title
     const title = await TitleExtractor.resolveTitle(normalizedUrl, videoLink);
-    await saveVideoToWLE(normalizedUrl, title, thumbNode);
+    await saveVideoToWLE(normalizedUrl, title);
     return;
   }
 
-  // CASE B: Click directly on the video player
   const videoPlayer = event.target.closest('#movie_player') ||
                      event.target.closest('.html5-video-player');
 
-  if (videoPlayer && window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
+  if (videoPlayer && WLEUrl.isVideoPagePath(window.location.pathname)) {
     event.preventDefault();
     event.stopPropagation();
 
-    const currentUrl = window.location.href;
-    if (!URLValidator.isValidYouTubeUrl(currentUrl)) {
+    const normalizedUrl = WLEUrl.normalizeUrl(window.location.href);
+    if (!normalizedUrl) {
       console.warn('Invalid YouTube URL on current page');
       return;
     }
 
-    const normalizedUrl = URLValidator.normalizeUrl(currentUrl);
     const title = TitleExtractor.getCurrentPageTitle();
-
-    await saveVideoToWLE(normalizedUrl, title, videoPlayer);
+    await saveVideoToWLE(normalizedUrl, title);
   }
 }, true); // Capture phase to intercept before YouTube handlers
 
@@ -358,16 +332,15 @@ document.addEventListener('click', async (event) => {
 // ============================================
 const ButtonInjector = {
   injectionInterval: null,
-  
-  /**
-   * Inject "Save to Watch Later Enhanced" button
-   */
-  inject() {
-    // Prevent duplicate injection
-    if (document.getElementById('wle-action-btn')) return;
+  injectionTimeout: null,
 
+  inject() {
     const actionMenu = document.querySelector('ytd-menu-renderer #top-level-buttons-computed');
     if (!actionMenu) return;
+
+    const existing = document.getElementById('wle-action-btn');
+    if (existing && actionMenu.contains(existing)) return;
+    existing?.remove();
 
     const btn = document.createElement('button');
     btn.id = 'wle-action-btn';
@@ -385,33 +358,24 @@ const ButtonInjector = {
     btn.appendChild(icon);
     btn.appendChild(text);
 
-    // Insert as first button
     actionMenu.insertBefore(btn, actionMenu.firstChild);
 
-    // Attach click handler
     btn.addEventListener('click', async () => {
-      const currentUrl = window.location.href;
-
-      if (!URLValidator.isValidYouTubeUrl(currentUrl)) {
+      const normalizedUrl = WLEUrl.normalizeUrl(window.location.href);
+      if (!normalizedUrl) {
         console.warn('Invalid YouTube URL on current page');
         showHud('Invalid video URL');
         return;
       }
 
-      const normalizedUrl = URLValidator.normalizeUrl(currentUrl);
       const title = TitleExtractor.getCurrentPageTitle();
-
-      // Pass button as thumbNode for visual feedback
-      await saveVideoToWLE(normalizedUrl, title, btn);
+      await saveVideoToWLE(normalizedUrl, title);
     });
   },
-  
-  /**
-   * Start injection attempts with retry logic
-   */
+
   startInjection() {
-    this.stopInjection(); // Clear any existing interval
-    
+    this.stopInjection();
+
     this.injectionInterval = setInterval(() => {
       const actionMenu = document.querySelector('ytd-menu-renderer #top-level-buttons-computed');
       if (actionMenu) {
@@ -419,20 +383,20 @@ const ButtonInjector = {
         this.stopInjection();
       }
     }, CONFIG.BUTTON_INJECTION_RETRY_INTERVAL);
-    
-    // Clear interval after max timeout
-    setTimeout(() => {
+
+    this.injectionTimeout = setTimeout(() => {
       this.stopInjection();
     }, CONFIG.BUTTON_INJECTION_MAX_TIMEOUT);
   },
-  
-  /**
-   * Stop injection attempts
-   */
+
   stopInjection() {
     if (this.injectionInterval) {
       clearInterval(this.injectionInterval);
       this.injectionInterval = null;
+    }
+    if (this.injectionTimeout) {
+      clearTimeout(this.injectionTimeout);
+      this.injectionTimeout = null;
     }
   }
 };
@@ -441,13 +405,12 @@ const ButtonInjector = {
 // YOUTUBE SPA NAVIGATION HANDLER
 // ============================================
 document.addEventListener('yt-navigate-finish', () => {
-  if (window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
+  if (WLEUrl.isVideoPagePath(window.location.pathname)) {
     ButtonInjector.startInjection();
   }
 });
 
-// Initial injection on page load
-if (window.location.pathname === CONFIG.YOUTUBE_WATCH_PATH) {
+if (WLEUrl.isVideoPagePath(window.location.pathname)) {
   ButtonInjector.startInjection();
 }
 

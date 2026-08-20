@@ -15,8 +15,10 @@ const CONFIG = {
     SOUND: 'soundEnabled',
     SUPPORTER: 'supporter',
     LAST_PROMPT: 'lastDonatePrompt',
-    HIDE_JM_BANNER: 'hideJobsMatchBanner'
+    HIDE_JM_BANNER: 'hideJobsMatchBanner',
+    REV: 'wleRev'
   },
+  WRITE_ATTEMPTS: 6,
   // Peppered SHA-256 of supporter unlock material. Plaintext is not in this repository.
   UNLOCK: {
     p: '13c7fd3a9477bf036da5c0d02bb1dc85',
@@ -274,218 +276,274 @@ const Utils = {
 // STORAGE OPERATIONS
 // ============================================
 const StorageManager = {
-  async getVideos() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.VIDEOS]: [] }, (data) => {
-        if (chrome.runtime.lastError) {
-          console.error('Storage read error:', chrome.runtime.lastError);
-          resolve([]);
-          return;
-        }
+  _queue: Promise.resolve(),
 
-        const videos = (data[CONFIG.STORAGE_KEYS.VIDEOS] || [])
-          .map((v) => Utils.normalizeVideo(v))
-          .filter(v => v !== null);
+  enqueue(fn) {
+    const next = this._queue.then(fn, fn);
+    this._queue = next.catch((error) => {
+      console.error('Storage queue error:', error);
+    });
+    return next;
+  },
 
-        resolve(videos);
+  getRaw(defaults) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.get(defaults, (data) => {
+        if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+        else resolve(data);
       });
     });
+  },
+
+  setRaw(values) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set(values, () => {
+        if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+        else resolve();
+      });
+    });
+  },
+
+  normalizeList(videos) {
+    return (videos || [])
+      .map((v) => Utils.normalizeVideo(v))
+      .filter((v) => v !== null);
+  },
+
+  normalizeDeleted(deleted) {
+    return (deleted || [])
+      .map((v) => {
+        const norm = Utils.normalizeVideo(v);
+        if (!norm) return null;
+        norm.deletedAt = typeof v.deletedAt === 'number' ? v.deletedAt : Date.now();
+        norm._idx = typeof v._idx === 'number' ? v._idx : null;
+        return norm;
+      })
+      .filter((v) => v !== null);
+  },
+
+  async getVideos() {
+    try {
+      const data = await this.getRaw({ [CONFIG.STORAGE_KEYS.VIDEOS]: [] });
+      return this.normalizeList(data[CONFIG.STORAGE_KEYS.VIDEOS]);
+    } catch (error) {
+      console.error('Storage read error:', error);
+      return [];
+    }
   },
 
   async getDeleted() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.DELETED]: [] }, (data) => {
-        if (chrome.runtime.lastError) {
-          console.error('Storage read error:', chrome.runtime.lastError);
-          resolve([]);
-          return;
-        }
-
-        const deleted = (data[CONFIG.STORAGE_KEYS.DELETED] || [])
-          .map((v) => {
-            const norm = Utils.normalizeVideo(v);
-            if (!norm) return null;
-            // Preserve trash-only bookkeeping fields
-            norm.deletedAt = typeof v.deletedAt === 'number' ? v.deletedAt : Date.now();
-            norm._idx = typeof v._idx === 'number' ? v._idx : null;
-            return norm;
-          })
-          .filter(v => v !== null);
-
-        resolve(deleted);
-      });
-    });
+    try {
+      const data = await this.getRaw({ [CONFIG.STORAGE_KEYS.DELETED]: [] });
+      return this.normalizeDeleted(data[CONFIG.STORAGE_KEYS.DELETED]);
+    } catch (error) {
+      console.error('Storage read error:', error);
+      return [];
+    }
   },
 
-  async saveVideos(videos) {
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.VIDEOS]: videos }, () => {
-        if (chrome.runtime.lastError) {
-          console.error('Storage write error:', chrome.runtime.lastError);
-          reject(chrome.runtime.lastError);
-          return;
-        }
-        resolve();
-      });
-    });
+  notifyWriteError(error) {
+    console.error('Storage write error:', error);
+    const msg = String(error && (error.message || error));
+    showToast(/quota/i.test(msg) ? 'Could not save — storage may be full' : 'Could not save list');
   },
 
-  async saveDeleted(deleted) {
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.DELETED]: deleted }, () => {
-        if (chrome.runtime.lastError) {
-          console.error('Storage write error:', chrome.runtime.lastError);
-          reject(chrome.runtime.lastError);
-          return;
+  /**
+   * Read-modify-write both lists in one set(). Retries if another writer
+   * changed storage between the snapshot and the write.
+   */
+  async mutateLists(mutator) {
+    return this.enqueue(async () => {
+      const keys = {
+        [CONFIG.STORAGE_KEYS.VIDEOS]: [],
+        [CONFIG.STORAGE_KEYS.DELETED]: [],
+        [CONFIG.STORAGE_KEYS.REV]: 0
+      };
+
+      for (let attempt = 0; attempt < CONFIG.WRITE_ATTEMPTS; attempt++) {
+        const data = await this.getRaw(keys);
+        const snapV = JSON.stringify(data[CONFIG.STORAGE_KEYS.VIDEOS] || []);
+        const snapD = JSON.stringify(data[CONFIG.STORAGE_KEYS.DELETED] || []);
+        const rev = data[CONFIG.STORAGE_KEYS.REV] || 0;
+
+        const ctx = {
+          videos: this.normalizeList(data[CONFIG.STORAGE_KEYS.VIDEOS]),
+          deleted: this.normalizeDeleted(data[CONFIG.STORAGE_KEYS.DELETED]),
+          result: undefined
+        };
+        mutator(ctx);
+
+        const latest = await this.getRaw(keys);
+        if (
+          JSON.stringify(latest[CONFIG.STORAGE_KEYS.VIDEOS] || []) !== snapV ||
+          JSON.stringify(latest[CONFIG.STORAGE_KEYS.DELETED] || []) !== snapD ||
+          (latest[CONFIG.STORAGE_KEYS.REV] || 0) !== rev
+        ) {
+          await new Promise((r) => setTimeout(r, 16 * (attempt + 1)));
+          continue;
         }
-        resolve();
-      });
+
+        await this.setRaw({
+          [CONFIG.STORAGE_KEYS.VIDEOS]: ctx.videos,
+          [CONFIG.STORAGE_KEYS.DELETED]: ctx.deleted,
+          [CONFIG.STORAGE_KEYS.REV]: rev + 1
+        });
+        return ctx.result;
+      }
+
+      throw new Error('Storage write conflict');
     });
   },
 
   async updateVideoByUrl(url, updates) {
     try {
-      const videos = await this.getVideos();
-      const idx = videos.findIndex((v) => v.url === url);
-
-      if (idx === -1) {
-        console.warn('Video not found for URL:', url);
-        return false;
-      }
-
-      videos[idx] = { ...videos[idx], ...updates };
-      await this.saveVideos(videos);
-      return true;
+      return await this.mutateLists((ctx) => {
+        const idx = ctx.videos.findIndex((v) => v.url === url);
+        if (idx === -1) {
+          ctx.result = false;
+          return;
+        }
+        ctx.videos[idx] = { ...ctx.videos[idx], ...updates };
+        ctx.result = true;
+      });
     } catch (error) {
-      console.error('Update video error:', error);
+      this.notifyWriteError(error);
       return false;
     }
   },
 
-  /**
-   * Toggle the "watched" flag (moves a video between To Watch and Archive).
-   */
   async toggleWatched(url) {
     try {
-      const videos = await this.getVideos();
-      const idx = videos.findIndex((v) => v.url === url);
-      if (idx === -1) return false;
-
-      const watched = !videos[idx].watched;
-      videos[idx] = {
-        ...videos[idx],
-        watched,
-        watchedAt: watched ? Date.now() : null
-      };
-      await this.saveVideos(videos);
-      return watched;
+      return await this.mutateLists((ctx) => {
+        const idx = ctx.videos.findIndex((v) => v.url === url);
+        if (idx === -1) {
+          ctx.result = { ok: false };
+          return;
+        }
+        const watched = !ctx.videos[idx].watched;
+        ctx.videos[idx] = {
+          ...ctx.videos[idx],
+          watched,
+          watchedAt: watched ? Date.now() : null
+        };
+        ctx.result = { ok: true, watched };
+      });
     } catch (error) {
-      console.error('Toggle watched error:', error);
-      return false;
+      this.notifyWriteError(error);
+      return { ok: false };
     }
   },
 
-  /**
-   * Soft-delete: move the given URLs from the active list into the trash.
-   * Returns the list of URLs actually moved (for undo).
-   */
   async softDelete(urls) {
     try {
-      const videos = await this.getVideos();
-      const deleted = await this.getDeleted();
-      const urlSet = new Set(urls);
-      const now = Date.now();
-
-      const moved = [];
-      const remaining = [];
-      videos.forEach((v, i) => {
-        if (urlSet.has(v.url)) {
-          moved.push({ ...v, deletedAt: now, _idx: i });
-        } else {
-          remaining.push(v);
+      return await this.mutateLists((ctx) => {
+        const urlSet = new Set(urls);
+        const now = Date.now();
+        const moved = [];
+        const remaining = [];
+        ctx.videos.forEach((v, i) => {
+          if (urlSet.has(v.url)) {
+            moved.push({ ...v, deletedAt: now, _idx: i });
+          } else {
+            remaining.push(v);
+          }
+        });
+        if (moved.length === 0) {
+          ctx.result = [];
+          return;
         }
+        ctx.videos = remaining;
+        ctx.deleted = [...moved, ...ctx.deleted].slice(0, CONFIG.TRASH_CAP);
+        ctx.result = moved.map((m) => m.url);
       });
-
-      if (moved.length === 0) return [];
-
-      const newDeleted = [...moved, ...deleted].slice(0, CONFIG.TRASH_CAP);
-      await this.saveVideos(remaining);
-      await this.saveDeleted(newDeleted);
-      return moved.map((m) => m.url);
     } catch (error) {
-      console.error('Soft delete error:', error);
+      this.notifyWriteError(error);
       return [];
     }
   },
 
-  /**
-   * Restore the given URLs from the trash back into the active list,
-   * reinserting them at their original position when possible.
-   */
   async restore(urls) {
     try {
-      const videos = await this.getVideos();
-      const deleted = await this.getDeleted();
-      const urlSet = new Set(urls);
+      return await this.mutateLists((ctx) => {
+        const urlSet = new Set(urls);
+        const toRestore = ctx.deleted.filter((d) => urlSet.has(d.url));
+        const remainingTrash = ctx.deleted.filter((d) => !urlSet.has(d.url));
 
-      const toRestore = deleted.filter((d) => urlSet.has(d.url));
-      const remainingTrash = deleted.filter((d) => !urlSet.has(d.url));
+        toRestore.sort((a, b) => (a._idx ?? Number.MAX_SAFE_INTEGER) - (b._idx ?? Number.MAX_SAFE_INTEGER));
 
-      // Ascending original index so a multi-item restore rebuilds the order
-      toRestore.sort((a, b) => (a._idx ?? Number.MAX_SAFE_INTEGER) - (b._idx ?? Number.MAX_SAFE_INTEGER));
+        toRestore.forEach((d) => {
+          const clean = { ...d };
+          delete clean.deletedAt;
+          delete clean._idx;
+          const pos = typeof d._idx === 'number'
+            ? Math.min(Math.max(d._idx, 0), ctx.videos.length)
+            : ctx.videos.length;
+          ctx.videos.splice(pos, 0, clean);
+        });
 
-      toRestore.forEach((d) => {
-        const clean = { ...d };
-        delete clean.deletedAt;
-        delete clean._idx;
-        const pos = typeof d._idx === 'number'
-          ? Math.min(Math.max(d._idx, 0), videos.length)
-          : videos.length;
-        videos.splice(pos, 0, clean);
+        ctx.deleted = remainingTrash;
+        ctx.result = true;
       });
-
-      await this.saveVideos(videos);
-      await this.saveDeleted(remainingTrash);
-      return true;
     } catch (error) {
-      console.error('Restore error:', error);
+      this.notifyWriteError(error);
       return false;
     }
   },
 
-  /**
-   * Permanently remove the given URLs from the trash.
-   */
   async permanentDelete(urls) {
     try {
-      const deleted = await this.getDeleted();
-      const urlSet = new Set(urls);
-      const filtered = deleted.filter((d) => !urlSet.has(d.url));
-      await this.saveDeleted(filtered);
-      return true;
+      return await this.mutateLists((ctx) => {
+        const urlSet = new Set(urls);
+        ctx.deleted = ctx.deleted.filter((d) => !urlSet.has(d.url));
+        ctx.result = true;
+      });
     } catch (error) {
-      console.error('Permanent delete error:', error);
+      this.notifyWriteError(error);
       return false;
     }
   },
 
   async emptyTrash() {
     try {
-      await this.saveDeleted([]);
-      return true;
+      return await this.mutateLists((ctx) => {
+        ctx.deleted = [];
+        ctx.result = true;
+      });
     } catch (error) {
-      console.error('Empty trash error:', error);
+      this.notifyWriteError(error);
       return false;
     }
   },
 
-  /**
-   * Unique list of every tag name used across all saved videos
-   * (first-seen casing preserved) — powers the tag autocomplete.
-   */
+  async reorder(fromIndex, toIndex) {
+    try {
+      return await this.mutateLists((ctx) => {
+        if (
+          fromIndex < 0 ||
+          toIndex < 0 ||
+          fromIndex >= ctx.videos.length
+        ) {
+          ctx.result = false;
+          return;
+        }
+        const [item] = ctx.videos.splice(fromIndex, 1);
+        if (!item) {
+          ctx.result = false;
+          return;
+        }
+        const dest = Math.min(toIndex, ctx.videos.length);
+        ctx.videos.splice(dest, 0, item);
+        ctx.result = true;
+      });
+    } catch (error) {
+      this.notifyWriteError(error);
+      return false;
+    }
+  },
+
   async getAllTagNames() {
     const videos = await this.getVideos();
-    const seen = new Map(); // lowercase -> original casing
+    const seen = new Map();
     videos.forEach((v) => {
       (v.tags || []).forEach((t) => {
         const key = t.name.toLowerCase();
@@ -882,10 +940,7 @@ const VideoItemFactory = {
       if (AppState.draggedItemIndex === null || AppState.draggedItemIndex === targetIndex) return;
 
       try {
-        const videos = await StorageManager.getVideos();
-        const [draggedVideo] = videos.splice(AppState.draggedItemIndex, 1);
-        videos.splice(targetIndex, 0, draggedVideo);
-        await StorageManager.saveVideos(videos);
+        await StorageManager.reorder(AppState.draggedItemIndex, targetIndex);
         displayVideos();
       } catch (error) {
         console.error('Error reordering videos:', error);
@@ -1067,10 +1122,11 @@ function setupVideoListHandlers() {
       e.stopPropagation();
       if (!url) return;
       AudioManager.play(AppState.soundEnabled);
-      const nowWatched = await StorageManager.toggleWatched(url);
+      const result = await StorageManager.toggleWatched(url);
       displayVideos();
+      if (!result || !result.ok) return;
       showToast(
-        nowWatched ? 'Moved to Archive' : 'Moved to To Watch',
+        result.watched ? 'Moved to Archive' : 'Moved to To Watch',
         'Undo',
         async () => { await StorageManager.toggleWatched(url); displayVideos(); }
       );
@@ -1092,6 +1148,7 @@ function setupVideoListHandlers() {
       e.stopPropagation();
       if (!url) return;
       AudioManager.play(AppState.soundEnabled);
+      if (!confirm('Permanently delete this video?')) return;
       await StorageManager.permanentDelete([url]);
       displayVideos();
       return;
@@ -1119,7 +1176,7 @@ function setupVideoListHandlers() {
     if (e.target.closest('.drag-handle')) return;
 
     if (e.target.closest('.video-left')) {
-      if (url) {
+      if (WLEUrl.isSafeOpenUrl(url)) {
         AudioManager.play(AppState.soundEnabled);
         window.open(url, '_blank', 'noopener,noreferrer');
       }
@@ -1499,6 +1556,16 @@ function setupSupporterUnlock() {
   }
 }
 
+function setupStorageSync() {
+  let timer = null;
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (!changes[CONFIG.STORAGE_KEYS.VIDEOS] && !changes[CONFIG.STORAGE_KEYS.DELETED]) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => { displayVideos(); }, 80);
+  });
+}
+
 // ============================================
 // INITIALIZATION
 // ============================================
@@ -1520,6 +1587,7 @@ async function init() {
     setupDragAutoScroll();
     setupDonateCallout();
     setupJobsMatchBanner();
+    setupStorageSync();
 
     await displayVideos();
 

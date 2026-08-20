@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Watch Later Enhanced - Complete YouTube Watchlist",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "⚡ Alt+Click any YouTube video to save it instantly! Build and sort your custom Watch Later list with zero distractions.",
   "permissions": ["storage"],
   
@@ -29,8 +29,12 @@
   
   "content_scripts": [
     {
-      "matches": ["*://www.youtube.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://m.youtube.com/*",
+        "*://youtube.com/*"
+      ],
+      "js": ["url-utils.js", "content.js"],
       "css": ["content.css"]
     }
   ],
@@ -38,7 +42,11 @@
   "web_accessible_resources": [
     {
       "resources": ["icons/*", "sounds/*"],
-      "matches": ["*://www.youtube.com/*"]
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://m.youtube.com/*",
+        "*://youtube.com/*"
+      ]
     }
   ]
 }
