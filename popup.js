@@ -14,7 +14,13 @@ const CONFIG = {
     DELETED: 'deletedVideos',
     SOUND: 'soundEnabled',
     SUPPORTER: 'supporter',
-    LAST_PROMPT: 'lastDonatePrompt'
+    LAST_PROMPT: 'lastDonatePrompt',
+    HIDE_JM_BANNER: 'hideJobsMatchBanner'
+  },
+  // Peppered SHA-256 of supporter unlock material. Plaintext is not in this repository.
+  UNLOCK: {
+    p: '13c7fd3a9477bf036da5c0d02bb1dc85',
+    d: ['5fa8fb99e05a8273b4214a4ca1e2ad01', '4916f0d411ef0b67ac58851273d0363a']
   }
 };
 
@@ -66,6 +72,14 @@ const DOMCache = {
   donateBtn: null,
   donateCallout: null,
   scrollContainer: null,
+  jmBanner: null,
+  hideBannerRow: null,
+  hideBannerSwitch: null,
+  hideBannerHint: null,
+  supporterUnlock: null,
+  supporterCodeInput: null,
+  supporterUnlockBtn: null,
+  supporterUnlockStatus: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -81,6 +95,14 @@ const DOMCache = {
     this.donateBtn = document.getElementById('ko-fi-button');
     this.donateCallout = document.getElementById('donate-callout');
     this.scrollContainer = document.querySelector('main');
+    this.jmBanner = document.getElementById('jobsmatch-banner');
+    this.hideBannerRow = document.getElementById('hide-banner-row');
+    this.hideBannerSwitch = document.getElementById('toggle-hide-banner');
+    this.hideBannerHint = document.getElementById('hide-banner-hint');
+    this.supporterUnlock = document.getElementById('supporter-unlock');
+    this.supporterCodeInput = document.getElementById('supporter-code');
+    this.supporterUnlockBtn = document.getElementById('supporter-unlock-btn');
+    this.supporterUnlockStatus = document.getElementById('supporter-unlock-status');
   }
 };
 
@@ -93,6 +115,8 @@ const AppState = {
   tagQueryMode: 'contains',
   draggedItemIndex: null,
   view: 'active', // 'active' | 'archive' | 'trash'
+  supporter: false,
+  hideJobsMatchBanner: false,
 
   setSoundEnabled(value) {
     this.soundEnabled = value;
@@ -1220,12 +1244,17 @@ function setupTrashActions() {
 }
 
 // ============================================
-// DONATE CALLOUT (honor-system supporter prompt)
+// DONATE CALLOUT
 // ============================================
 function markSupporter() {
-  // We cannot verify a Ko-fi donation from the extension (no backend, no login).
-  // This is an honor-system flag: once set, the donate prompt never shows again.
-  chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.SUPPORTER]: true });
+  // Set after the thank-you digest matches. Ko-fi clicks do not unlock.
+  AppState.supporter = true;
+  AppState.hideJobsMatchBanner = true;
+  chrome.storage.local.set({
+    [CONFIG.STORAGE_KEYS.SUPPORTER]: true,
+    [CONFIG.STORAGE_KEYS.HIDE_JM_BANNER]: true
+  });
+  applyJobsMatchBanner();
 }
 
 function positionDonateCallout() {
@@ -1284,21 +1313,190 @@ function maybeShowDonateCallout() {
 
 function setupDonateCallout() {
   const closeBtn = document.getElementById('donate-callout-close');
-  const doneBtn = document.getElementById('donate-callout-done');
   const cta = document.getElementById('donate-callout-cta');
 
   if (closeBtn) closeBtn.addEventListener('click', hideDonateCallout);
-  if (doneBtn) doneBtn.addEventListener('click', () => { markSupporter(); hideDonateCallout(); });
-  if (cta) cta.addEventListener('click', () => { markSupporter(); hideDonateCallout(); });
-
-  // Clicking the header donate button counts as goodwill → stop nagging.
-  if (DOMCache.donateBtn) DOMCache.donateBtn.addEventListener('click', markSupporter);
+  if (cta) cta.addEventListener('click', hideDonateCallout);
 
   window.addEventListener('resize', () => {
     if (DOMCache.donateCallout && DOMCache.donateCallout.classList.contains('visible')) {
       positionDonateCallout();
     }
   });
+}
+
+// ============================================
+// JOBSMATCH BANNER
+// ============================================
+function applyJobsMatchBanner() {
+  const banner = DOMCache.jmBanner;
+  if (banner) {
+    const show = !(AppState.supporter && AppState.hideJobsMatchBanner);
+    banner.classList.toggle('hidden', !show);
+  }
+  updateHideBannerSwitch();
+}
+
+function updateHideBannerSwitch() {
+  const sw = DOMCache.hideBannerSwitch;
+  const hint = DOMCache.hideBannerHint;
+  const row = DOMCache.hideBannerRow;
+  if (!sw) return;
+
+  const unlocked = !!AppState.supporter;
+  sw.disabled = !unlocked;
+  sw.setAttribute('aria-checked', (unlocked && AppState.hideJobsMatchBanner) ? 'true' : 'false');
+  sw.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
+  if (row) row.classList.toggle('locked', !unlocked);
+  if (hint) hint.classList.toggle('hidden', unlocked);
+  if (DOMCache.supporterUnlock) {
+    DOMCache.supporterUnlock.classList.toggle('hidden', unlocked);
+  }
+}
+
+function promptUnlockBannerHide() {
+  AudioManager.play(AppState.soundEnabled);
+  showDonateCallout();
+}
+
+function toggleHideJobsMatchBanner() {
+  if (!AppState.supporter) {
+    promptUnlockBannerHide();
+    return;
+  }
+  AudioManager.play(AppState.soundEnabled);
+  AppState.hideJobsMatchBanner = !AppState.hideJobsMatchBanner;
+  chrome.storage.local.set({
+    [CONFIG.STORAGE_KEYS.HIDE_JM_BANNER]: AppState.hideJobsMatchBanner
+  });
+  applyJobsMatchBanner();
+}
+
+function setupJobsMatchBanner() {
+  const sw = DOMCache.hideBannerSwitch;
+  const row = DOMCache.hideBannerRow;
+
+  if (row) {
+    row.addEventListener('click', () => {
+      if (AppState.supporter) {
+        toggleHideJobsMatchBanner();
+        return;
+      }
+      promptUnlockBannerHide();
+    });
+  }
+
+  if (sw) {
+    sw.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleHideJobsMatchBanner();
+    });
+  }
+
+  chrome.storage.local.get(
+    [CONFIG.STORAGE_KEYS.SUPPORTER, CONFIG.STORAGE_KEYS.HIDE_JM_BANNER],
+    (data) => {
+      const supporter = !!data[CONFIG.STORAGE_KEYS.SUPPORTER];
+      const hasHideKey = Object.prototype.hasOwnProperty.call(
+        data,
+        CONFIG.STORAGE_KEYS.HIDE_JM_BANNER
+      );
+      let hide = hasHideKey ? !!data[CONFIG.STORAGE_KEYS.HIDE_JM_BANNER] : false;
+
+      // Existing supporters keep the perk; default hide if the new key is unset.
+      if (supporter && !hasHideKey) {
+        hide = true;
+        chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.HIDE_JM_BANNER]: true });
+      }
+
+      AppState.supporter = supporter;
+      AppState.hideJobsMatchBanner = hide;
+      applyJobsMatchBanner();
+    }
+  );
+
+  setupSupporterUnlock();
+}
+
+async function hashUnlockCandidate(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (!normalized) return '';
+  const payload = `${CONFIG.UNLOCK.p}\0${normalized}`;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function digestsMatch(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function setUnlockStatus(message, kind) {
+  const el = DOMCache.supporterUnlockStatus;
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle('is-error', kind === 'error');
+  el.classList.toggle('is-ok', kind === 'ok');
+}
+
+async function candidateMatchesUnlock(value) {
+  const expected = CONFIG.UNLOCK.d.join('');
+  const digest = await hashUnlockCandidate(value);
+  return digestsMatch(digest, expected);
+}
+
+async function submitSupporterUnlock() {
+  const input = DOMCache.supporterCodeInput;
+  const raw = input ? input.value : '';
+  const tokens = String(raw || '').trim().split(/\s+/).filter(Boolean);
+  const candidates = [];
+  if (raw && raw.trim()) candidates.push(raw.trim());
+  tokens.forEach((token) => {
+    if (!candidates.includes(token)) candidates.push(token);
+  });
+
+  if (!candidates.length) {
+    setUnlockStatus('Paste the code from your Ko-fi thank-you message.', 'error');
+    return;
+  }
+
+  AudioManager.play(AppState.soundEnabled);
+
+  let matched = false;
+  for (const candidate of candidates) {
+    if (await candidateMatchesUnlock(candidate)) {
+      matched = true;
+      break;
+    }
+  }
+
+  if (!matched) {
+    setUnlockStatus('That code is not valid.', 'error');
+    return;
+  }
+
+  markSupporter();
+  if (input) input.value = '';
+  setUnlockStatus('Thanks — you can hide the JobsMatch note.', 'ok');
+  showToast('Supporter perk unlocked');
+}
+
+function setupSupporterUnlock() {
+  const btn = DOMCache.supporterUnlockBtn;
+  const input = DOMCache.supporterCodeInput;
+  if (btn) btn.addEventListener('click', () => { submitSupporterUnlock(); });
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitSupporterUnlock();
+      }
+    });
+  }
 }
 
 // ============================================
@@ -1321,6 +1519,7 @@ async function init() {
     setupViewTabs();
     setupDragAutoScroll();
     setupDonateCallout();
+    setupJobsMatchBanner();
 
     await displayVideos();
 

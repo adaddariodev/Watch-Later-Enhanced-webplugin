@@ -27,6 +27,20 @@
     </div>
   </header>
 
+  <a
+    id="jobsmatch-banner"
+    class="jm-banner"
+    href="https://www.jobsmatch.app/?utm_source=watch_later_enhanced&utm_medium=extension_banner&utm_campaign=cross_promo&utm_content=popup_header_strip&utm_id=wle-banner-v2&utm_term=next_best_eu_tech_job"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="JobsMatch — find your next best EU tech job (opens in a new tab)"
+  >
+    <span class="jm-mark" aria-hidden="true">
+      <span class="jm-jobs">Jobs</span><span class="jm-match">Match</span>
+    </span>
+    <span class="jm-copy">Find your next best EU tech job</span>
+  </a>
+
   <main>
     <div id="view-tabs" class="view-tabs" role="tablist" aria-label="Video lists">
       <button class="view-tab active" data-view="active" role="tab" aria-selected="true" type="button">
@@ -91,6 +105,42 @@
             <img class="btn-icon" src="icons/buttons/volume.svg" alt="" />
           </button>
         </div>
+
+        <div id="hide-banner-row" class="settings-options locked">
+          <div class="settings-option-text">
+            <span id="hide-banner-label">Hide JobsMatch banner</span>
+            <p id="hide-banner-hint" class="settings-hint">Unlocked after you paste the Ko-fi thank-you code</p>
+          </div>
+          <button
+            id="toggle-hide-banner"
+            class="wle-switch"
+            type="button"
+            role="switch"
+            aria-checked="false"
+            aria-labelledby="hide-banner-label"
+            disabled
+          >
+            <span class="wle-switch-thumb"></span>
+          </button>
+        </div>
+
+        <div id="supporter-unlock" class="settings-unlock">
+          <label for="supporter-code">Supporter code</label>
+          <p class="settings-hint">After a Ko-fi tip, paste the code from the thank-you message.</p>
+          <div class="settings-unlock-row">
+            <input
+              id="supporter-code"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="80"
+              placeholder="Paste code"
+              aria-describedby="supporter-unlock-status"
+            />
+            <button id="supporter-unlock-btn" class="text-btn" type="button">Unlock</button>
+          </div>
+          <p id="supporter-unlock-status" class="settings-unlock-status" role="status"></p>
+        </div>
         
         <div class="credits-box">
           <p>Created with ❤️ by <br><a href="https://github.com/adaddariodev" target="_blank" rel="noopener noreferrer">adaddariodev</a></p>
@@ -107,10 +157,9 @@
     <span class="donate-callout-arrow"></span>
     <button id="donate-callout-close" class="donate-callout-close" type="button" aria-label="Dismiss">×</button>
     <p class="donate-callout-title">Enjoying it? ☕</p>
-    <p class="donate-callout-text">Watch Later Enhanced is free, ad-free and private — forever. If it saves you time, a small tip keeps it alive. 💛</p>
+    <p class="donate-callout-text">Watch Later Enhanced is free and private — forever. After a Ko-fi tip, paste the thank-you code in Settings to hide the JobsMatch note.</p>
     <div class="donate-callout-actions">
       <a id="donate-callout-cta" class="donate-callout-btn" href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">Support on Ko-fi</a>
-      <button id="donate-callout-done" class="donate-callout-link" type="button">I already donated</button>
     </div>
   </div>
 
