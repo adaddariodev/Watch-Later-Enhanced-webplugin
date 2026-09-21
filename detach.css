@@ -1,0 +1,169 @@
+/* =========================================
+   DETACHED MINI PLAYER WINDOW
+   Styles for the Document Picture-in-Picture document. That window is a
+   separate document, so the manifest's content.css never reaches it: detach.js
+   fetches this file and injects it there after YouTube's own stylesheets, and
+   these rules must win over the inline sizing the player carries with it.
+   ========================================= */
+
+html,
+body.wle-pip-body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background: #000 !important;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.wle-pip-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.wle-pip-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ---- The moved player ---- */
+.wle-pip-stage #movie_player,
+.wle-pip-stage .html5-video-player {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: #000 !important;
+}
+
+.wle-pip-stage .html5-video-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.wle-pip-stage video {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  transform: none !important;
+  object-fit: contain !important;
+}
+
+/* YouTube pins the control bar to a pixel width computed for the tab. */
+.wle-pip-stage .ytp-chrome-bottom {
+  left: 12px !important;
+  width: calc(100% - 24px) !important;
+}
+
+/* The player's own title bar duplicates the mini player bar below. */
+.wle-pip-stage .ytp-chrome-top,
+.wle-pip-stage .ytp-gradient-top {
+  display: none !important;
+}
+
+/* The detach button travels inside the player; content.css does not. */
+.wle-pip-stage .wle-ytp-detach-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer !important;
+}
+
+.wle-pip-stage .wle-ytp-detach-icon {
+  width: 22px !important;
+  height: 22px !important;
+  object-fit: contain !important;
+  filter: brightness(0) invert(1);
+  pointer-events: none !important;
+}
+
+/* ---- Mini player bar ---- */
+.wle-pip-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: #fff;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+  opacity: 1;
+  transition: opacity 0.25s ease;
+  z-index: 2147483000;
+  pointer-events: none;
+}
+
+.wle-pip-bar.idle {
+  opacity: 0;
+}
+
+.wle-pip-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.wle-pip-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  pointer-events: auto;
+}
+
+.wle-pip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.wle-pip-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.wle-pip-btn:active {
+  transform: scale(0.92);
+}
+
+.wle-pip-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.wle-pip-icon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wle-pip-bar,
+  .wle-pip-btn {
+    transition: none;
+  }
+}

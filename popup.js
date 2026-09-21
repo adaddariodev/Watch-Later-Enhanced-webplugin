@@ -16,6 +16,8 @@ const CONFIG = {
     SUPPORTER: 'supporter',
     LAST_PROMPT: 'lastDonatePrompt',
     HIDE_JM_BANNER: 'hideJobsMatchBanner',
+    DETACH: 'detachEnabled',
+    PENDING_DETACH: 'pendingDetach',
     REV: 'wleRev'
   },
   WRITE_ATTEMPTS: 6,
@@ -82,6 +84,8 @@ const DOMCache = {
   supporterCodeInput: null,
   supporterUnlockBtn: null,
   supporterUnlockStatus: null,
+  miniPlayerRow: null,
+  miniPlayerSwitch: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -105,6 +109,8 @@ const DOMCache = {
     this.supporterCodeInput = document.getElementById('supporter-code');
     this.supporterUnlockBtn = document.getElementById('supporter-unlock-btn');
     this.supporterUnlockStatus = document.getElementById('supporter-unlock-status');
+    this.miniPlayerRow = document.getElementById('mini-player-row');
+    this.miniPlayerSwitch = document.getElementById('toggle-mini-player');
   }
 };
 
@@ -119,6 +125,7 @@ const AppState = {
   view: 'active', // 'active' | 'archive' | 'trash'
   supporter: false,
   hideJobsMatchBanner: false,
+  detachEnabled: true,
 
   setSoundEnabled(value) {
     this.soundEnabled = value;
@@ -650,6 +657,11 @@ const VideoItemFactory = {
     }
 
     // active / archive
+    if (AppState.detachEnabled) {
+      const miniBtn = this.makeIconButton('mini-player-btn', 'icons/buttons/detach.svg', 'Play in the mini player');
+      actions.appendChild(miniBtn);
+    }
+
     if (mode === 'archive') {
       const unwatchBtn = this.makeIconButton('watch-toggle-btn', 'icons/buttons/rotate-left.svg', 'Move back to To Watch');
       actions.appendChild(unwatchBtn);
@@ -1117,6 +1129,16 @@ function setupVideoListHandlers() {
     if (!li) return;
     const url = li.dataset.url;
 
+    // Open the video in a tab and ask that page for a detached mini player
+    if (e.target.closest('.mini-player-btn')) {
+      e.stopPropagation();
+      if (!WLEUrl.isSafeOpenUrl(url)) return;
+      AudioManager.play(AppState.soundEnabled);
+      await requestDetachedPlayback(url);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     // Mark watched / move back to To Watch
     if (e.target.closest('.watch-toggle-btn')) {
       e.stopPropagation();
@@ -1245,6 +1267,60 @@ function setupSoundToggle() {
       AudioManager.play(true);
     }
   });
+}
+
+// ============================================
+// DETACHED MINI PLAYER
+// The Picture-in-Picture APIs need a user gesture inside the YouTube tab, so
+// the popup cannot open the mini player itself: it leaves a short-lived
+// request in storage and the content script offers a one-click launcher on the
+// page it opens.
+// ============================================
+async function requestDetachedPlayback(url) {
+  const videoId = WLEUrl.extractVideoId(url);
+  if (!videoId) return;
+
+  await new Promise((resolve) => {
+    chrome.storage.local.set(
+      { [CONFIG.STORAGE_KEYS.PENDING_DETACH]: { videoId, ts: Date.now() } },
+      () => {
+        if (chrome.runtime.lastError) {
+          console.warn('Could not queue the mini player request:', chrome.runtime.lastError);
+        }
+        resolve();
+      }
+    );
+  });
+}
+
+function updateMiniPlayerSwitch() {
+  const sw = DOMCache.miniPlayerSwitch;
+  if (!sw) return;
+  sw.setAttribute('aria-checked', AppState.detachEnabled ? 'true' : 'false');
+}
+
+function toggleMiniPlayer() {
+  AudioManager.play(AppState.soundEnabled);
+  AppState.detachEnabled = !AppState.detachEnabled;
+  chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.DETACH]: AppState.detachEnabled });
+  updateMiniPlayerSwitch();
+  displayVideos();
+}
+
+function setupMiniPlayerToggle() {
+  const sw = DOMCache.miniPlayerSwitch;
+  const row = DOMCache.miniPlayerRow;
+
+  if (row) {
+    row.addEventListener('click', () => toggleMiniPlayer());
+  }
+
+  if (sw) {
+    sw.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMiniPlayer();
+    });
+  }
 }
 
 // ============================================
@@ -1573,12 +1649,24 @@ async function init() {
   try {
     DOMCache.init();
 
-    chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.SOUND]: true }, (data) => {
-      AppState.soundEnabled = data[CONFIG.STORAGE_KEYS.SOUND];
-      updateSoundIcon();
+    // Awaited: the list rows are built from these preferences.
+    const prefs = await new Promise((resolve) => {
+      chrome.storage.local.get(
+        {
+          [CONFIG.STORAGE_KEYS.SOUND]: true,
+          [CONFIG.STORAGE_KEYS.DETACH]: true
+        },
+        (data) => resolve(data)
+      );
     });
 
+    AppState.soundEnabled = prefs[CONFIG.STORAGE_KEYS.SOUND] !== false;
+    AppState.detachEnabled = prefs[CONFIG.STORAGE_KEYS.DETACH] !== false;
+    updateSoundIcon();
+    updateMiniPlayerSwitch();
+
     setupSoundToggle();
+    setupMiniPlayerToggle();
     setupSearch();
     setupModal();
     setupTrashActions();
