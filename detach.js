@@ -334,7 +334,7 @@
 
       const backBtn = doc.createElement('button');
       backBtn.type = 'button';
-      backBtn.className = 'wle-pip-btn';
+      backBtn.className = 'wle-pip-btn wle-pip-back';
       backBtn.title = 'Back to the YouTube tab';
       backBtn.setAttribute('aria-label', 'Back to the YouTube tab');
       backBtn.appendChild(createIcon(doc, ICONS.backToTab));
@@ -345,8 +345,8 @@
 
       const closeBtn = doc.createElement('button');
       closeBtn.type = 'button';
-      closeBtn.className = 'wle-pip-btn';
-      closeBtn.title = 'Close mini player';
+      closeBtn.className = 'wle-pip-btn wle-pip-close';
+      closeBtn.title = 'Close mini player (Esc)';
       closeBtn.setAttribute('aria-label', 'Close mini player');
       closeBtn.appendChild(createIcon(doc, ICONS.close));
       closeBtn.addEventListener('click', () => this.close());

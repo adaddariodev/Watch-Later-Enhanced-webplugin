@@ -98,14 +98,35 @@ body.wle-pip-body {
   padding: 8px 10px;
   color: #fff;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
-  opacity: 1;
-  transition: opacity 0.25s ease;
+  transition: background 0.25s ease;
   z-index: 2147483000;
   pointer-events: none;
 }
 
+.wle-pip-title,
+.wle-pip-btn {
+  opacity: 1;
+  transition: opacity 0.25s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+/* Idle: the bar fades out, but the close button stays put — a mini player
+   must always have a reachable "X" in its top-right corner. */
 .wle-pip-bar.idle {
+  background: transparent;
+}
+
+.wle-pip-bar.idle .wle-pip-title,
+.wle-pip-bar.idle .wle-pip-back {
   opacity: 0;
+}
+
+.wle-pip-bar.idle .wle-pip-close {
+  opacity: 0.55;
+}
+
+.wle-pip-bar.idle .wle-pip-close:hover,
+.wle-pip-bar.idle .wle-pip-close:focus-visible {
+  opacity: 1;
 }
 
 .wle-pip-title {
@@ -140,11 +161,15 @@ body.wle-pip-body {
   color: #fff;
   background: rgba(0, 0, 0, 0.45);
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .wle-pip-btn:hover {
   background: rgba(255, 255, 255, 0.22);
+}
+
+/* The classic close affordance reads as one: red on hover. */
+.wle-pip-close:hover {
+  background: #e53935;
 }
 
 .wle-pip-btn:active {
@@ -163,6 +188,7 @@ body.wle-pip-body {
 
 @media (prefers-reduced-motion: reduce) {
   .wle-pip-bar,
+  .wle-pip-title,
   .wle-pip-btn {
     transition: none;
   }
