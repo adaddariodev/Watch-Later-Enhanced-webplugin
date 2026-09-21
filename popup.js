@@ -86,6 +86,8 @@ const DOMCache = {
   supporterUnlockStatus: null,
   miniPlayerRow: null,
   miniPlayerSwitch: null,
+  wikiRow: null,
+  wikiBtn: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -111,6 +113,8 @@ const DOMCache = {
     this.supporterUnlockStatus = document.getElementById('supporter-unlock-status');
     this.miniPlayerRow = document.getElementById('mini-player-row');
     this.miniPlayerSwitch = document.getElementById('toggle-mini-player');
+    this.wikiRow = document.getElementById('wiki-row');
+    this.wikiBtn = document.getElementById('open-wiki');
   }
 };
 
@@ -1270,6 +1274,29 @@ function setupSoundToggle() {
 }
 
 // ============================================
+// USER GUIDE
+// The guide ships with the extension (wiki.html), so it opens instantly and
+// works offline.
+// ============================================
+function openWiki() {
+  AudioManager.play(AppState.soundEnabled);
+  window.open(chrome.runtime.getURL('wiki.html'), '_blank', 'noopener');
+}
+
+function setupWikiButton() {
+  if (DOMCache.wikiRow) {
+    DOMCache.wikiRow.addEventListener('click', () => openWiki());
+  }
+
+  if (DOMCache.wikiBtn) {
+    DOMCache.wikiBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openWiki();
+    });
+  }
+}
+
+// ============================================
 // DETACHED MINI PLAYER
 // The Picture-in-Picture APIs need a user gesture inside the YouTube tab, so
 // the popup cannot open the mini player itself: it leaves a short-lived
@@ -1667,6 +1694,7 @@ async function init() {
 
     setupSoundToggle();
     setupMiniPlayerToggle();
+    setupWikiButton();
     setupSearch();
     setupModal();
     setupTrashActions();

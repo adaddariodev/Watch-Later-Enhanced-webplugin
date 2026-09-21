@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="wiki.css">
+  <title>Watch Later Enhanced — User Guide</title>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to the guide</a>
+
+  <header class="wiki-header">
+    <div class="wiki-brand">
+      <img class="wiki-logo" src="icons/128px.png" alt="">
+      <div class="wiki-brand-text">
+        <h1>Watch Later Enhanced</h1>
+        <p class="wiki-tagline">User guide — everything the extension can do</p>
+      </div>
+    </div>
+
+    <div class="wiki-search-wrap">
+      <input
+        id="wiki-search"
+        class="wiki-search"
+        type="search"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Search the guide…"
+        aria-label="Search the guide"
+        aria-describedby="wiki-search-status"
+      >
+      <p id="wiki-search-status" class="wiki-search-status" role="status"></p>
+    </div>
+  </header>
+
+  <div class="wiki-layout">
+    <nav id="wiki-nav" class="wiki-nav" aria-label="Guide sections">
+      <p class="wiki-nav-title">Contents</p>
+      <ul class="wiki-nav-list">
+        <li><a href="#start">Start here</a></li>
+        <li><a href="#saving">Saving a video</a></li>
+        <li><a href="#list">Your list</a></li>
+        <li><a href="#tags">Tags &amp; search</a></li>
+        <li><a href="#reorder">Reordering</a></li>
+        <li><a href="#miniplayer">Detached mini player</a></li>
+        <li><a href="#shortcuts">All shortcuts</a></li>
+        <li><a href="#settings">Settings</a></li>
+        <li><a href="#privacy">Privacy &amp; your data</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#support">Support &amp; links</a></li>
+      </ul>
+    </nav>
+
+    <main id="content" class="wiki-content">
+      <p id="wiki-no-results" class="wiki-no-results hidden">
+        No section matches that search. <button type="button" id="wiki-clear-search" class="wiki-link-btn">Clear the search</button>
+      </p>
+
+      <!-- ============ START HERE ============ -->
+      <section class="wiki-section" id="start">
+        <h2>Start here</h2>
+        <p class="wiki-lead">
+          Watch Later Enhanced is a private watch list for YouTube. You save videos with one
+          click while you browse, and they wait for you in the extension popup — no playlists,
+          no clutter, no account.
+        </p>
+
+        <div class="wiki-steps">
+          <div class="wiki-step">
+            <span class="wiki-step-num">1</span>
+            <div>
+              <h3>Save</h3>
+              <p>Hold <kbd>Alt</kbd> and click any video on YouTube. A short confirmation appears on screen.</p>
+            </div>
+          </div>
+          <div class="wiki-step">
+            <span class="wiki-step-num">2</span>
+            <div>
+              <h3>Open the popup</h3>
+              <p>Click the extension icon in the browser toolbar to see everything you saved.</p>
+            </div>
+          </div>
+          <div class="wiki-step">
+            <span class="wiki-step-num">3</span>
+            <div>
+              <h3>Watch</h3>
+              <p>Click a title to open the video, or send it to the floating mini player.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="wiki-note">
+          <strong>Can't find the extension icon?</strong>
+          Click the puzzle-piece button in the browser toolbar and pin
+          <em>Watch Later Enhanced</em> so it stays visible.
+        </div>
+      </section>
+
+      <!-- ============ SAVING ============ -->
+      <section class="wiki-section" id="saving">
+        <h2>Saving a video</h2>
+        <p>There are three ways to add a video to your list. All of them work the same way and save the same thing.</p>
+
+        <h3>1. Alt + Click on a thumbnail</h3>
+        <p>
+          Anywhere on YouTube — home page, search results, a channel, the sidebar of
+          recommendations — hold <kbd>Alt</kbd> and click a video's thumbnail or title.
+          The video is saved and YouTube does <em>not</em> navigate away, so you can keep
+          browsing and keep saving.
+        </p>
+
+        <h3>2. Alt + Click on the player</h3>
+        <p>
+          While you are watching something, hold <kbd>Alt</kbd> and click the video player
+          itself to save the video you are on.
+        </p>
+
+        <h3>3. The button under the video</h3>
+        <p>
+          On a video page, Watch Later Enhanced adds a
+          <strong>Save to Watch Later Enhanced</strong> button next to YouTube's own Like and
+          Share buttons.
+        </p>
+
+        <h3>What you get back</h3>
+        <ul>
+          <li>A dark confirmation panel appears in the middle of the page with the video title.</li>
+          <li>A short sound plays (you can turn this off in Settings).</li>
+          <li>If the video is already on your list, the panel says <em>Already saved!</em> instead of adding a duplicate.</li>
+        </ul>
+
+        <div class="wiki-note">
+          <strong>Shorts work too.</strong> Regular videos and Shorts are both saved, and both
+          end up as a normal watch link in your list.
+        </div>
+      </section>
+
+      <!-- ============ LIST ============ -->
+      <section class="wiki-section" id="list">
+        <h2>Your list</h2>
+        <p>The popup has three tabs. The number on each tab tells you how many videos are inside.</p>
+
+        <div class="wiki-cards">
+          <div class="wiki-card">
+            <h3>To Watch</h3>
+            <p>Everything you saved and haven't watched yet. This is the tab you will use most.</p>
+          </div>
+          <div class="wiki-card">
+            <h3>Archive</h3>
+            <p>Videos you marked as watched. They leave <em>To Watch</em> but are not deleted.</p>
+          </div>
+          <div class="wiki-card">
+            <h3>Trash</h3>
+            <p>Removed videos, kept for a while in case you change your mind.</p>
+          </div>
+        </div>
+
+        <h3>What the buttons on each row do</h3>
+        <table class="wiki-table">
+          <thead>
+            <tr><th>Button</th><th>Where</th><th>What happens</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>The video title</td>
+              <td>To Watch, Archive, Trash</td>
+              <td>Opens the video in a new browser tab.</td>
+            </tr>
+            <tr>
+              <td><span class="wiki-chip">Mini player</span></td>
+              <td>To Watch, Archive</td>
+              <td>Opens the video and offers the floating mini player.</td>
+            </tr>
+            <tr>
+              <td><span class="wiki-chip">✓</span></td>
+              <td>To Watch</td>
+              <td>Marks it watched and moves it to Archive.</td>
+            </tr>
+            <tr>
+              <td><span class="wiki-chip">↺</span></td>
+              <td>Archive</td>
+              <td>Moves it back to To Watch.</td>
+            </tr>
+            <tr>
+              <td><span class="wiki-chip">Tag</span></td>
+              <td>To Watch, Archive</td>
+              <td>Opens the tag box for that video.</td>
+            </tr>
+            <tr>
+              <td><span class="wiki-chip">×</span></td>
+              <td>To Watch, Archive</td>
+              <td>Moves it to the Trash.</td>
+            </tr>
+            <tr>
+              <td><span class="wiki-chip">↺</span></td>
+              <td>Trash</td>
+              <td>Restores the video to the list it came from, in its original position.</td>
+            </tr>
+            <tr>
+              <td><span class="wiki-chip">🗑</span></td>
+              <td>Trash</td>
+              <td>Deletes it for good, after a confirmation.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Undo</h3>
+        <p>
+          After you archive or remove a video, a small bar appears at the bottom of the popup
+          with an <strong>Undo</strong> link for a couple of seconds. It puts the video back
+          exactly where it was.
+        </p>
+
+        <h3>How the Trash behaves</h3>
+        <ul>
+          <li>The Trash keeps your 50 most recent removals. Older ones drop off on their own to keep storage small.</li>
+          <li><strong>Empty trash</strong>, at the top of the Trash tab, clears it in one go.</li>
+          <li>Emptying the Trash and deleting permanently cannot be undone.</li>
+        </ul>
+      </section>
+
+      <!-- ============ TAGS ============ -->
+      <section class="wiki-section" id="tags">
+        <h2>Tags &amp; search</h2>
+        <p>
+          Tags are free-form labels — <em>cooking</em>, <em>work</em>, <em>watch tonight</em>,
+          anything you like. A video can have as many as you want.
+        </p>
+
+        <h3>Adding a tag</h3>
+        <ol>
+          <li>Click the tag button on the video's row.</li>
+          <li>Type a name (up to 22 characters). Tags you already use are suggested as you type.</li>
+          <li>Press <kbd>Enter</kbd> to add it. Press <kbd>Esc</kbd> to cancel.</li>
+        </ol>
+        <p>Each tag gets its own colour automatically, derived from its name — the same word always gets the same colour.</p>
+
+        <h3>Finding videos again</h3>
+        <ul>
+          <li><strong>Click a tag</strong> on any row to show only the videos carrying exactly that tag.</li>
+          <li><strong>Type in the search box</strong> at the top to filter by tag name as you type — partial words are fine.</li>
+          <li>Clear the search box to see the whole list again.</li>
+        </ul>
+
+        <h3>Removing a tag</h3>
+        <p>Click the small <strong>×</strong> inside the tag itself. It only affects that one video.</p>
+
+        <div class="wiki-note">
+          The search box looks at <strong>tags</strong>, not video titles. Tag the things you
+          will want to find later.
+        </div>
+      </section>
+
+      <!-- ============ REORDER ============ -->
+      <section class="wiki-section" id="reorder">
+        <h2>Reordering your list</h2>
+        <p>
+          In the <strong>To Watch</strong> tab, grab the handle on the left of a row and drag
+          it up or down to set your own order. Drag near the top or bottom edge and the list
+          scrolls by itself.
+        </p>
+        <p>
+          Dragging is switched off while a tag search is active — otherwise the positions you
+          see would not match the real list. Clear the search box and the handles come back.
+        </p>
+      </section>
+
+      <!-- ============ MINI PLAYER ============ -->
+      <section class="wiki-section" id="miniplayer">
+        <h2>Detached mini player</h2>
+        <p class="wiki-lead">
+          The mini player pops the video out of the browser into a small floating window that
+          stays on top of your other applications. You can drag it anywhere on screen, resize
+          it, and keep watching while the browser is minimized or you work in another program.
+        </p>
+
+        <h3>Three ways to open it</h3>
+        <ul>
+          <li>Click the mini player button in YouTube's own control bar, at the bottom right of the video.</li>
+          <li>Press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> on a video page.</li>
+          <li>Click the mini player button on any row in the extension popup. The video opens in a new tab and asks you to confirm with one click — browsers only allow floating windows right after a click inside the page.</li>
+        </ul>
+
+        <h3>While it is open</h3>
+        <ul>
+          <li>YouTube's real controls come along, so play, volume, captions, quality, chapters and the skip-ad button all keep working.</li>
+          <li>The YouTube tab shows a placeholder with a <strong>Bring the video back</strong> button where the player used to be.</li>
+          <li>The window remembers the size you gave it and opens that way next time.</li>
+        </ul>
+
+        <h3>Controls inside the window</h3>
+        <table class="wiki-table">
+          <thead><tr><th>Key</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Space</kbd> or <kbd>K</kbd></td><td>Play / pause</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Back / forward 5 seconds</td></tr>
+            <tr><td><kbd>M</kbd></td><td>Mute / unmute</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Close the mini player</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Closing it</h3>
+        <p>Any of these puts the video back into the YouTube tab, where it keeps playing:</p>
+        <ul>
+          <li>The <strong>×</strong> in the top-right corner of the mini player. It stays visible even when the bar fades, and turns red as you point at it.</li>
+          <li>The arrow next to it, which also brings the YouTube tab back to the front.</li>
+          <li><kbd>Esc</kbd>, the same button in YouTube's control bar, or <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> again.</li>
+          <li>Navigating to another page in the YouTube tab — the video returns automatically.</li>
+        </ul>
+
+        <h3>What your browser needs</h3>
+        <ul>
+          <li><strong>Chrome, Edge and other Chromium browsers, version 116 or newer:</strong> the full floating window described above.</li>
+          <li><strong>Browsers without it:</strong> the extension falls back to the classic picture-in-picture window, which also floats on top but carries only basic controls.</li>
+          <li><strong>Neither available:</strong> a short message appears on the page and nothing else changes.</li>
+        </ul>
+
+        <div class="wiki-note">
+          You can switch the whole feature off under <strong>Settings → Detached mini player</strong>.
+          That hides the button in YouTube's control bar, the button in the popup and disables the shortcut.
+        </div>
+      </section>
+
+      <!-- ============ SHORTCUTS ============ -->
+      <section class="wiki-section" id="shortcuts">
+        <h2>All shortcuts</h2>
+        <table class="wiki-table wiki-table-shortcuts">
+          <thead><tr><th>Shortcut</th><th>Where it works</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><kbd>Alt</kbd> + click</td>
+              <td>Any thumbnail on YouTube</td>
+              <td>Saves that video without opening it</td>
+            </tr>
+            <tr>
+              <td><kbd>Alt</kbd> + click</td>
+              <td>The video player</td>
+              <td>Saves the video you are watching</td>
+            </tr>
+            <tr>
+              <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd></td>
+              <td>Video pages</td>
+              <td>Opens or closes the detached mini player</td>
+            </tr>
+            <tr>
+              <td><kbd>Space</kbd> or <kbd>K</kbd></td>
+              <td>Mini player window</td>
+              <td>Play / pause</td>
+            </tr>
+            <tr>
+              <td><kbd>←</kbd> / <kbd>→</kbd></td>
+              <td>Mini player window</td>
+              <td>Back / forward 5 seconds</td>
+            </tr>
+            <tr>
+              <td><kbd>M</kbd></td>
+              <td>Mini player window</td>
+              <td>Mute / unmute</td>
+            </tr>
+            <tr>
+              <td><kbd>Esc</kbd></td>
+              <td>Mini player window</td>
+              <td>Closes it and returns the video to the tab</td>
+            </tr>
+            <tr>
+              <td><kbd>Enter</kbd></td>
+              <td>Tag box in the popup</td>
+              <td>Adds the tag you typed</td>
+            </tr>
+            <tr>
+              <td><kbd>Esc</kbd></td>
+              <td>Tag box in the popup</td>
+              <td>Closes the tag box without adding anything</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============ SETTINGS ============ -->
+      <section class="wiki-section" id="settings">
+        <h2>Settings</h2>
+        <p>Open the popup and click the gear icon in the top-right corner.</p>
+
+        <h3>Sound effects</h3>
+        <p>Turns the little confirmation sounds on and off, both on YouTube and in the popup.</p>
+
+        <h3>Detached mini player</h3>
+        <p>Turns the floating mini player on and off, everywhere. It is on by default.</p>
+
+        <h3>User guide</h3>
+        <p>The book button that opened this page. It works offline — the guide ships inside the extension.</p>
+
+        <h3>Supporter code and the JobsMatch note</h3>
+        <p>
+          The extension is free. A small note about JobsMatch sits under the header to support
+          the project. After a tip on Ko-fi you receive a code; pasting it in Settings unlocks
+          a switch that hides the note permanently.
+        </p>
+      </section>
+
+      <!-- ============ PRIVACY ============ -->
+      <section class="wiki-section" id="privacy">
+        <h2>Privacy &amp; your data</h2>
+        <ul>
+          <li>Your list lives in your own browser, in the extension's local storage. There is no account, no sign-in and no server holding your data.</li>
+          <li>Nothing you save is sent anywhere. The only request the extension makes is to YouTube itself, to read the title of a video as you save it.</li>
+          <li>The extension only runs on YouTube pages. It cannot see any other site you visit.</li>
+          <li>Because the list is stored in this browser profile, it does not follow you to another computer — and removing the extension removes the list with it.</li>
+        </ul>
+        <div class="wiki-note">
+          <strong>Moving to a new machine?</strong> There is no export button yet, so treat the
+          list as tied to this browser.
+        </div>
+      </section>
+
+      <!-- ============ TROUBLESHOOTING ============ -->
+      <section class="wiki-section" id="troubleshooting">
+        <h2>Troubleshooting</h2>
+
+        <h3>Alt + Click opened the video instead of saving it</h3>
+        <p>
+          The click has to land on the video's thumbnail or its title. Hold <kbd>Alt</kbd>
+          first, then click, and keep the key down until the confirmation appears. On some
+          Linux desktops <kbd>Alt</kbd> + drag is reserved by the system for moving windows —
+          a plain click still works.
+        </p>
+
+        <h3>The Save button isn't under the video</h3>
+        <p>
+          YouTube sometimes finishes drawing its buttons late. Reload the page. If the button
+          is still missing, the video page may be an unusual layout — <kbd>Alt</kbd> + click on
+          the player always works.
+        </p>
+
+        <h3>The mini player button isn't in the control bar</h3>
+        <ul>
+          <li>Check <strong>Settings → Detached mini player</strong> is on.</li>
+          <li>Reload the video page.</li>
+          <li>Very old browsers have no support for floating windows at all — see the requirements above.</li>
+        </ul>
+
+        <h3>The mini player closed by itself</h3>
+        <p>
+          That is expected when the YouTube tab navigates somewhere else: the video is handed
+          back to the tab so nothing is lost. Reopen it on the new page.
+        </p>
+
+        <h3>"Could not save — storage may be full"</h3>
+        <p>
+          The browser refused the write because the extension's storage is full. Empty the
+          Trash and permanently delete what you no longer need.
+        </p>
+
+        <h3>A video shows the wrong title</h3>
+        <p>
+          Titles are read from YouTube when you save. If the request fails, the extension falls
+          back to the text next to the thumbnail, which is occasionally truncated. Remove the
+          video and save it again from the video's own page for the exact title.
+        </p>
+      </section>
+
+      <!-- ============ SUPPORT ============ -->
+      <section class="wiki-section" id="support">
+        <h2>Support &amp; links</h2>
+        <ul class="wiki-links">
+          <li><a href="https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin" target="_blank" rel="noopener noreferrer">Source code and issue tracker on GitHub</a></li>
+          <li><a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb" target="_blank" rel="noopener noreferrer">Watch Later Enhanced on the Chrome Web Store</a></li>
+          <li><a href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">Support the developer on Ko-fi</a></li>
+        </ul>
+        <p>
+          Found a bug or missing something? Opening an issue on GitHub is the fastest way to
+          reach the developer.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="wiki-footer">
+    <p>Watch Later Enhanced — built with ❤️ by <a href="https://github.com/adaddariodev" target="_blank" rel="noopener noreferrer">adaddariodev</a></p>
+  </footer>
+
+  <button id="wiki-to-top" class="wiki-to-top" type="button" title="Back to top" aria-label="Back to top">↑</button>
+
+  <script src="wiki.js"></script>
+</body>
+</html>

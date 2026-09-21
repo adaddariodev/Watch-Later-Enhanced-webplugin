@@ -43,6 +43,13 @@ window (Chrome 116+), so native controls, captions, quality settings and the
 classic video Picture-in-Picture; the window size is remembered between
 sessions, and the feature can be switched off in Settings.
 
+## 📖 Built-in User Guide
+
+Settings hosts a **User guide** button (the book icon) that opens `wiki.html`, a
+bundled documentation page: searchable, with a sticky table of contents that
+follows the reader, a full shortcut reference and a troubleshooting section. It
+ships inside the extension, so it opens instantly and works offline.
+
 ## 🛠 Technical Stack & Architecture
 
 This project is built entirely in **Vanilla JavaScript**, ensuring zero-dependency overhead, maximum execution speed, and minimal memory footprint within the browser.
@@ -86,6 +93,9 @@ This project is built entirely in **Vanilla JavaScript**, ensuring zero-dependen
 ├── popup.css           # Styling for the popup UI
 ├── popup.html          # Extension popup interface
 ├── popup.js            # Storage reader and list management
+├── wiki.css            # Styling of the built-in user guide
+├── wiki.html           # Built-in user guide (opened from Settings)
+├── wiki.js             # Guide navigation: contents, search, back to top
 └── README.md           # Project documentation
 ```
 
