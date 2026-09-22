@@ -1372,20 +1372,37 @@ function setupSearch() {
 function setupModal() {
   const openBtn = document.getElementById('open-settings');
   const closeBtn = document.getElementById('close-settings');
+  const modal = DOMCache.settingsModal;
 
-  if (openBtn && DOMCache.settingsModal) {
+  if (!modal) return;
+
+  const closeModal = () => {
+    AudioManager.play(AppState.soundEnabled);
+    modal.classList.add('hidden');
+  };
+
+  if (openBtn) {
     openBtn.addEventListener('click', () => {
       AudioManager.play(AppState.soundEnabled);
-      DOMCache.settingsModal.classList.remove('hidden');
+      modal.classList.remove('hidden');
     });
   }
 
-  if (closeBtn && DOMCache.settingsModal) {
-    closeBtn.addEventListener('click', () => {
-      AudioManager.play(AppState.soundEnabled);
-      DOMCache.settingsModal.classList.add('hidden');
-    });
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeModal);
   }
+
+  // The close button used to be the only way out of the modal. Clicking the
+  // backdrop and pressing Escape are what people try first anyway.
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  });
 }
 
 // ============================================

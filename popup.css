@@ -498,12 +498,19 @@ li.video-item:hover .video-actions .icon-btn {
   background: var(--card-bg);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  width: 85%;
-  max-width: 340px; /* Previene overflow nel popup */
-  padding: 20px;
+  width: calc(100% - 28px);
+  max-width: 352px; /* Previene overflow nel popup */
+  /* Il popup è alto al massimo 600px: il modale deve starci dentro e far
+     scorrere il proprio contenuto invece di sbordare da entrambi i lati
+     (così il pulsante di chiusura resta sempre raggiungibile). */
+  max-height: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
   transform: translateY(0) scale(1);
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .wle-modal.hidden .wle-modal-content {
@@ -511,10 +518,11 @@ li.video-item:hover .video-actions .icon-btn {
 }
 
 .wle-modal-header {
+  flex: 0 0 auto; /* resta ancorato sopra al contenuto scorrevole */
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 12px;
 }
@@ -524,18 +532,28 @@ li.video-item:hover .video-actions .icon-btn {
   margin: 0;
 }
 
+.wle-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* La scrollbar scorre nel padding del modale invece di stringere le righe */
+  padding-right: 6px;
+  margin-right: -6px;
+}
+
 .settings-options {
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: rgba(255, 255, 255, 0.03);
-  padding: 10px 16px;
-  margin-bottom: 12px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 14px;
   font-weight: 500;
-  gap: 12px;
+  gap: 10px;
 }
 
 .settings-option-text {
@@ -549,6 +567,7 @@ li.video-item:hover .video-actions .icon-btn {
   margin: 0;
   font-size: 11px;
   font-weight: 400;
+  line-height: 1.35;
   color: var(--text-dim);
 }
 
@@ -604,8 +623,8 @@ li.video-item:hover .video-actions .icon-btn {
 
 .settings-unlock {
   background: rgba(255, 255, 255, 0.03);
-  padding: 10px 16px 12px;
-  margin-bottom: 12px;
+  padding: 10px 14px 12px;
+  margin-bottom: 10px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
