@@ -21,7 +21,7 @@
     DEFAULT_WIDTH: 480,
     MIN_SIZE: { width: 300, height: 180 },
     PENDING_TTL: 60000,          // how long a popup "open detached" request stays valid
-    LAUNCHER_TIMEOUT: 20000,     // how long the in-page launcher card stays up
+    LAUNCHER_TIMEOUT: 45000,     // how long the in-page launcher card stays up
     BAR_IDLE_DELAY: 2600,        // hide the mini player bar after this much idle time
     INJECTION_RETRY_INTERVAL: 500,
     INJECTION_MAX_TIMEOUT: 15000,
@@ -596,8 +596,10 @@
       const btn = document.createElement('button');
       btn.id = 'wle-detach-btn';
       btn.className = 'ytp-button wle-ytp-detach-btn';
-      btn.title = 'Mini player (Alt+Shift+D)';
-      btn.setAttribute('aria-label', 'Open the Watch Later Enhanced mini player');
+      // Named apart from YouTube's own miniplayer button, which sits a few
+      // pixels away in the same control bar.
+      btn.title = 'Pop out into the WLE mini player (Alt+Shift+D)';
+      btn.setAttribute('aria-label', 'Pop out into the Watch Later Enhanced mini player');
 
       const icon = document.createElement('img');
       icon.className = 'wle-ytp-detach-icon';
@@ -678,21 +680,31 @@
     show() {
       this.hide();
 
+      // Centred on the video rather than tucked into a corner: this card is
+      // the one click the browser demands before it will open a floating
+      // window, so missing it looks like the feature is broken.
       const card = document.createElement('div');
       card.className = 'wle-detach-launcher';
+      card.setAttribute('role', 'dialog');
+      card.setAttribute('aria-label', 'Open the mini player');
+
+      const icon = document.createElement('img');
+      icon.className = 'wle-detach-launcher-icon';
+      icon.src = chrome.runtime.getURL('icons/128px.png');
+      icon.alt = '';
+
+      const title = document.createElement('p');
+      title.className = 'wle-detach-launcher-title';
+      title.textContent = 'Open the mini player';
 
       const text = document.createElement('p');
       text.className = 'wle-detach-launcher-text';
-      text.textContent = 'Watch this in the mini player?';
+      text.textContent = 'Your browser needs one click on this page before it can open a floating window.';
 
       const openBtn = document.createElement('button');
       openBtn.type = 'button';
       openBtn.className = 'wle-detach-launcher-btn';
       openBtn.textContent = 'Open mini player';
-      openBtn.addEventListener('click', async () => {
-        this.hide();
-        await DetachedPlayer.open();
-      });
 
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
@@ -700,9 +712,18 @@
       closeBtn.textContent = '×';
       closeBtn.title = 'Dismiss';
       closeBtn.setAttribute('aria-label', 'Dismiss');
-      closeBtn.addEventListener('click', () => this.hide());
+      closeBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.hide();
+      });
 
-      card.append(text, openBtn, closeBtn);
+      // The whole card is the target, not just the button.
+      card.addEventListener('click', async () => {
+        this.hide();
+        await DetachedPlayer.open();
+      });
+
+      card.append(closeBtn, icon, title, text, openBtn);
       document.body.appendChild(card);
 
       requestAnimationFrame(() => card.classList.add('visible'));

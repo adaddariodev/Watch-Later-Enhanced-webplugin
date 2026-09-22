@@ -279,9 +279,9 @@
 
         <h3>Three ways to open it</h3>
         <ul>
-          <li>Click the mini player button in YouTube's own control bar, at the bottom right of the video.</li>
+          <li>Click the pop-out button (a square with an arrow leaving it) in YouTube's own control bar, at the bottom right of the video. Careful not to confuse it with YouTube's own miniplayer button a few icons away, which only shrinks the video inside the tab.</li>
           <li>Press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> on a video page.</li>
-          <li>Click the mini player button on any row in the extension popup. The video opens in a new tab and asks you to confirm with one click — browsers only allow floating windows right after a click inside the page.</li>
+          <li>Click the mini player button on any row in the extension popup. The video opens in a new tab and a card in the middle of the page asks for one click — browsers only allow floating windows right after a click inside the page, so the popup cannot skip that step.</li>
         </ul>
 
         <h3>While it is open</h3>
@@ -441,6 +441,24 @@
           <li>Reload the video page.</li>
           <li>Very old browsers have no support for floating windows at all — see the requirements above.</li>
         </ul>
+
+        <h3>I clicked the mini player button in the popup and it only opened the video</h3>
+        <p>
+          That is the first half of the flow. Look at the middle of the video
+          page: a card titled <strong>Open the mini player</strong> is waiting for
+          a click. A browser only opens a floating window immediately after a
+          click inside that page, so the popup cannot do it on its own. If you
+          dismissed the card, use the pop-out button in the player's control bar
+          or <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>.
+        </p>
+
+        <h3>I got a small player inside the page instead of a floating window</h3>
+        <p>
+          That is YouTube's own miniplayer, which lives in the corner of the tab
+          and disappears when you minimize the browser. Its button sits in the
+          same control bar as ours. The Watch Later Enhanced button is the square
+          with an arrow leaving it.
+        </p>
 
         <h3>The mini player closed by itself</h3>
         <p>
