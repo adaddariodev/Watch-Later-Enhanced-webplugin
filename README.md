@@ -103,12 +103,16 @@ Every outbound request the extension makes, in full:
 | --- | --- | --- |
 | `youtube.com/oembed` | Saving a video whose title the page did not provide | The video URL |
 | `youtube.com/shorts/<id>` | Saving, to tell a Short from a video | The video ID |
-| `fonts.googleapis.com` | Opening the popup | Loads the Inter webfont |
 
-The first two go to YouTube, only while you are already on YouTube, and carry
-nothing about you. The third is a webfont, and the only request that reaches
-anyone other than YouTube; the popup falls back to your system font if it is
-blocked, and bundling the font into the extension would remove it entirely.
+That is the complete list. Both go to YouTube, only while you are already on
+YouTube, and carry nothing about you beyond the video you just saved. Nothing
+reaches any other party: the Inter typeface is
+[bundled with the extension](fonts/) rather than fetched from Google, so
+opening the popup makes no request at all.
+
+The page's own Content Security Policy enforces it — `style-src 'self';
+font-src 'self';` — so a remote stylesheet or font could not load even if one
+were added by mistake.
 
 Permissions requested: **`storage`**. That is the whole list — no host
 permissions, no tabs, no scripting.
@@ -158,6 +162,7 @@ it runs.
 
 ```text
 .
+├── fonts/              # Inter, bundled (woff2 + OFL licence) — no CDN
 ├── icons/              # Extension icons (48px, 128px) and button glyphs
 ├── imgs/               # Logos and store banners
 ├── sounds/             # Audio feedback (success.wav, click.mp3)
@@ -181,6 +186,9 @@ selectors for YouTube's ever-changing DOM. Fork it and open a PR.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+The bundled **Inter** typeface is © The Inter Project Authors, licensed under
+the SIL Open Font License 1.1 — see [`fonts/OFL.txt`](fonts/OFL.txt).
 
 ---
 <div align="center">

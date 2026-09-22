@@ -66,7 +66,8 @@ WHY THIS ONE
 
 ▸ TRULY PRIVATE
   No account. No sign-in. No tracking. No cloud. Your list is stored on your
-  own machine and never sent anywhere.
+  own machine and never sent anywhere. The extension talks to nobody but
+  YouTube — not even for a font.
 
 ▸ ONE PERMISSION
   The extension asks for "storage" and nothing else. It cannot read your tabs
@@ -106,6 +107,7 @@ behind it.
   and indentation are what give it structure there.
 * Keep the permissions claim accurate: if a future version adds a permission,
   the "one permission" line has to change with it.
-* The privacy claim covers **your data**. The popup does load the Inter webfont
-  from Google Fonts; bundling it locally would make the "never sent anywhere"
-  statement true of every request the extension makes, not only of the list.
+* "Talks to nobody but YouTube" is true as of 2.7.0 and is enforced by the
+  extension's own CSP (`style-src 'self'; font-src 'self'`). Anything that
+  later adds a CDN, an analytics snippet or a remote webfont has to come out
+  of this copy at the same time.

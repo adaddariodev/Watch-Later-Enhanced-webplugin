@@ -51,6 +51,18 @@ documentation page that ships inside the extension: searchable, with a table of
 contents that follows you as you scroll, every shortcut listed, and a
 troubleshooting section. It works offline and opens instantly.
 
+### 🔒 It no longer talks to Google
+
+The popup used to fetch its typeface from Google Fonts every time you opened
+it — which meant an extension whose whole point is that nothing leaves your
+machine was quietly announcing to a third party that you had opened it, and
+when. The font now ships inside the extension.
+
+Opening the popup, or the guide, now makes **no network request at all**, and
+the extension's own security policy enforces it. The only requests it ever
+makes are to YouTube, while you are on YouTube, to read a video's title and to
+tell a Short from a video.
+
 ### ✨ Smaller things
 
 * Buttons have clearer icons — each one now looks like what it does.
