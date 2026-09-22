@@ -5,14 +5,14 @@ The top entry is written to be pasted straight into a GitHub Release.
 
 ---
 
-## v2.7.1 — pin the player, and see who published what
+## v2.7.2 — pin the player, and see who published what
 
 ### 📌 Keep the player on top of everything
 
 The mini player opened from the extension survives minimizing the browser, but
 it still slipped behind other windows. It now has a **Pin on top** button in
-its top-right corner: one click and it floats above every other application,
-whatever you are doing underneath.
+its corner: one click and it floats above every other application, whatever you
+are doing underneath.
 
 The button is there because it has to be — a browser only grants an
 always-on-top window in response to a click inside the page, so nothing can do
@@ -21,14 +21,23 @@ this for you automatically. Opening the mini player from a video page, with
 the floating kind directly.
 
 While the video is pinned, the window it came from **gets out of the way**: it
-minimizes itself, so only the floating player is on screen, and comes back the
-moment you close it. It cannot simply close — a floating player belongs to the
-window that opened it, and would go down with it.
+minimizes itself, so only the floating player is on screen, and comes back
+exactly as you left it — maximized if that is how you had it. It cannot simply
+close: a floating player belongs to the window that opened it, and would go
+down with it.
+
+It comes back **without interrupting you**. A player that closes because you
+asked — the ✕, `Esc`, the back button — brings its window up with it. One that
+closes on its own, because autoplay moved to the next video, quietly hands the
+video back without pulling you out of whatever you were working in.
+
+### 🪟 Both ways in, one mini player
 
 The floating player opened from a video page now **says it is pinned**, with a
 badge beside its title. It always floated above other windows; nothing said so,
 which made it look like the one feature the video-page button was missing. Both
-windows now carry the video's title, so the two ways in look like one feature.
+windows now carry the video's title, and the same bar, so the two ways in look
+like one feature rather than two.
 
 ### 📺 The channel, next to the title
 
@@ -49,7 +58,11 @@ in 2.7.0. Nothing to click, no re-saving.
 Settings now has a small mixer. Each sound — the **click** in the popup and the
 **save** on YouTube — has its own switch and its own level, set by dragging the
 slider or typing a number beside it. Mute one and keep the other, or switch
-everything off with **All sounds**. Muting remembers the level you had.
+everything off with **All sounds**. Muting remembers the level you had, so
+switching a sound back on sounds the way it did.
+
+Both sounds **play back as you set them**, at the level you are setting, so you
+are not choosing a number blind and finding out later.
 
 ### 🗂 Settings that fold away
 
@@ -64,6 +77,20 @@ The user guide and the supporter code stay where they were, in plain sight.
 The **Shorts** label was red and the **Video** one grey, which made a list of
 Shorts look like a list of warnings. Both are now the same quiet slate: the
 word tells you which is which, and the colour is left to your own tags.
+
+Scrollbars, in the popup and in the guide, go from a solid grey bar to a
+hairline that firms up as you reach for it — still easy to grab, far quieter
+when you are not using it.
+
+### ✨ Smaller things
+
+* The **JobsMatch** strip reads better: its line sits beside the arrow it
+  points at instead of trailing the logo across an empty gap.
+* A number typed above the maximum in the mixer is corrected on screen, not
+  only in the setting behind it.
+* The guide gained a troubleshooting entry for the commonest confusion after
+  an update: a YouTube tab that was already open keeps running the old version
+  until you reload it, which makes a setting look like it is being ignored.
 
 ### 🐛 Fixed
 

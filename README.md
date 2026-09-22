@@ -9,7 +9,7 @@
   <a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb">
     <img src="https://img.shields.io/badge/Available_on-Chrome_Web_Store-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Chrome Web Store" />
   </a>
-  <img src="https://img.shields.io/badge/Version-2.7.1-FF5A50?style=for-the-badge" alt="Version 2.7.1" />
+  <img src="https://img.shields.io/badge/Version-2.7.2-FF5A50?style=for-the-badge" alt="Version 2.7.2" />
   <img src="https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Dependencies-0-8FA6C4?style=for-the-badge" alt="Zero dependencies" />
   <img src="https://img.shields.io/badge/License-MIT-34A853?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License" />

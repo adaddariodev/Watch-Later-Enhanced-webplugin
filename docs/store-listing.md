@@ -112,7 +112,7 @@ behind it.
   and indentation are what give it structure there.
 * Keep the permissions claim accurate: if a future version adds a permission,
   the "one permission" line has to change with it.
-* "Talks to nobody but YouTube" is true as of 2.7.0 and is enforced by the
+* "Talks to nobody but YouTube" is true as of 2.7.2 and is enforced by the
   extension's own CSP (`style-src 'self'; font-src 'self'`). Anything that
   later adds a CDN, an analytics snippet or a remote webfont has to come out
   of this copy at the same time.
