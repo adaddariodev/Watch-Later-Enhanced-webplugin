@@ -29,6 +29,7 @@ const CONFIG = {
     click: { enabled: true, volume: 0.5 },
     save: { enabled: true, volume: 0.5 }
   },
+  AUDIO_WRITE_DELAY: 200,   // settle time before a mixer change reaches storage
   // 'video' unless a record says otherwise: entries saved before the kind was
   // recorded carry no type, and most of them are videos.
   KINDS: {
@@ -55,6 +56,7 @@ const CONFIG = {
 // ============================================
 const AudioManager = {
   clickAudio: null,
+  saveAudio: null,   // only ever built to preview the mixer's save row
 
   init() {
     if (!this.clickAudio) {
@@ -77,7 +79,28 @@ const AudioManager = {
     audio.play().catch(e => console.warn("Audio play blocked:", e));
   },
 
+  /**
+   * Play a sound at a given level so its slider can be heard where it is set.
+   * The save sound belongs to YouTube pages, but it ships with the extension,
+   * so the mixer can play it here rather than leaving that row set blind.
+   */
+  preview(name, volume) {
+    if (name === 'click') {
+      this.play(true, volume);
+      return;
+    }
+
+    if (!this.saveAudio) this.saveAudio = new Audio('sounds/success.wav');
+    this.saveAudio.volume = volume;
+    this.saveAudio.currentTime = 0;
+    this.saveAudio.play().catch((e) => console.warn('Audio play blocked:', e));
+  },
+
   cleanup() {
+    if (this.saveAudio) {
+      this.saveAudio.pause();
+      this.saveAudio = null;
+    }
     if (this.clickAudio) {
       this.clickAudio.pause();
       this.clickAudio.currentTime = 0;
@@ -124,10 +147,34 @@ const AudioMix = {
     return entry.enabled ? entry.volume : 0;
   },
 
+  writeTimer: null,
+
+  /**
+   * Dragging a slider fires input by the dozen, and writing each one cost a
+   * disk write and a storage event in every open YouTube tab. The value in
+   * memory is what the UI reads, so only the one the user settles on needs
+   * to reach storage.
+   */
+  persist() {
+    clearTimeout(this.writeTimer);
+    this.writeTimer = setTimeout(() => {
+      this.writeTimer = null;
+      chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.AUDIO_MIX]: this.mix });
+    }, CONFIG.AUDIO_WRITE_DELAY);
+  },
+
+  /** A popup can be shut mid-drag, which would drop the pending write. */
+  flush() {
+    if (!this.writeTimer) return;
+    clearTimeout(this.writeTimer);
+    this.writeTimer = null;
+    chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.AUDIO_MIX]: this.mix });
+  },
+
   set(name, patch) {
     if (!this.mix) this.mix = this.normalize(null);
     this.mix[name] = { ...this.get(name), ...patch };
-    chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.AUDIO_MIX]: this.mix });
+    this.persist();
     return this.mix[name];
   }
 };
@@ -1550,7 +1597,11 @@ function setupSoundToggle() {
 // Slider and number box are the same value in two shapes; each writes the
 // other. The master switch dims the lot without forgetting the levels.
 // ============================================
-function updateMixerUI() {
+/**
+ * @param {boolean} [settle] true once a value is final: the number box is then
+ *   rewritten even while focused, so a clamped value cannot stay on screen.
+ */
+function updateMixerUI({ settle = false } = {}) {
   document.querySelectorAll('.mixer-row').forEach((row) => {
     const name = row.dataset.sound;
     const entry = AudioMix.get(name);
@@ -1562,7 +1613,12 @@ function updateMixerUI() {
 
     if (toggle) toggle.setAttribute('aria-checked', entry.enabled ? 'true' : 'false');
     if (slider && document.activeElement !== slider) slider.value = String(percent);
-    if (number && document.activeElement !== number) number.value = String(percent);
+    // Left alone mid-typing so the cursor does not jump, but corrected the
+    // moment the value settles — change fires while the box still holds focus,
+    // so the focus guard alone would let a clamped value stay on screen.
+    if (number && (settle || document.activeElement !== number)) {
+      number.value = String(percent);
+    }
 
     // Off on its own switch, or off because everything is.
     row.classList.toggle('is-off', !entry.enabled || !AppState.soundEnabled);
@@ -1576,15 +1632,17 @@ function setupMixer() {
   if (!mixer) return;
 
   // Previewing every pixel of a drag would stutter; on release is enough.
+  // Both sounds are previewed here — setting a level you cannot hear is
+  // guesswork, and the save sound ships with the extension like the click one.
   const preview = (name, volume) => {
     if (!AppState.soundEnabled || !AudioMix.get(name).enabled || volume <= 0) return;
-    if (name === 'click') AudioManager.play(true, volume);
+    AudioManager.preview(name, volume);
   };
 
-  const setVolume = (name, percent, { play = false } = {}) => {
+  const setVolume = (name, percent, { play = false, settle = false } = {}) => {
     const clamped = Math.min(100, Math.max(0, Math.round(Number(percent) || 0)));
     AudioMix.set(name, { volume: clamped / 100 });
-    updateMixerUI();
+    updateMixerUI({ settle });
     if (play) preview(name, clamped / 100);
   };
 
@@ -1598,12 +1656,18 @@ function setupMixer() {
     if (number && number.value !== '') setVolume(number.dataset.soundNumber, number.value);
   });
 
+  // change is where a value settles, so this is where the box is corrected:
+  // typing 500 clamps to 100, and leaving 500 on screen beside a level of 100
+  // is worse than the cursor jumping.
   mixer.addEventListener('change', (e) => {
     const slider = e.target.closest('[data-sound-slider]');
-    if (slider) { setVolume(slider.dataset.soundSlider, slider.value, { play: true }); return; }
+    if (slider) {
+      setVolume(slider.dataset.soundSlider, slider.value, { play: true, settle: true });
+      return;
+    }
 
     const number = e.target.closest('[data-sound-number]');
-    if (number) setVolume(number.dataset.soundNumber, number.value, { play: true });
+    if (number) setVolume(number.dataset.soundNumber, number.value, { play: true, settle: true });
   });
 
   mixer.addEventListener('click', (e) => {
@@ -2134,6 +2198,15 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// pagehide, not unload: a popup dismissed with Esc or by clicking away can be
+// torn down without unload firing, which would drop a mixer change still
+// waiting to be written.
+window.addEventListener('pagehide', () => {
+  AudioMix.flush();
+  AudioManager.cleanup();
+});
+
 window.addEventListener('unload', () => {
+  AudioMix.flush();
   AudioManager.cleanup();
 });
