@@ -7,7 +7,12 @@ const CONFIG = {
   BUTTON_INJECTION_RETRY_INTERVAL: 500,
   BUTTON_INJECTION_MAX_TIMEOUT: 10000,
   REV_KEY: 'wleRev',
-  WRITE_ATTEMPTS: 6
+  WRITE_ATTEMPTS: 6,
+  // Working out video vs Short by asking YouTube
+  KIND_PROBE_TIMEOUT: 5000,
+  KIND_MEMO_MAX: 200,
+  KIND_BACKFILL_PER_PAGE: 3,
+  KIND_BACKFILL_DELAY: 4000
 };
 
 // ============================================
@@ -120,17 +125,45 @@ const KindDetector = {
     return 'video';
   },
 
+  /** videoId -> Promise, so the same id is never asked about twice. */
+  asked: new Map(),
+
   /**
    * The authoritative answer: /shorts/<id> stays put for a Short and redirects
    * to /watch for anything else. Same origin, so the final URL is readable.
    * @returns {Promise<'short'|'video'|null>} null when there is no usable answer
    */
-  async verify(videoId) {
+  verify(videoId) {
+    if (!this.asked.has(videoId)) {
+      // A YouTube tab can live for hours; keep the memo from growing forever.
+      if (this.asked.size >= CONFIG.KIND_MEMO_MAX) this.asked.clear();
+      this.asked.set(videoId, this.ask(videoId));
+    }
+    return this.asked.get(videoId);
+  },
+
+  async ask(videoId) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CONFIG.KIND_PROBE_TIMEOUT);
+
+    // Same origin as the page this runs in. The extension has no host
+    // permissions, so hardcoding www.youtube.com would make this a blocked
+    // cross-origin request on m.youtube.com.
+    const url = `${window.location.origin}/shorts/${videoId}`;
+
     try {
-      const response = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+      let response = await fetch(url, {
         method: 'HEAD',
-        redirect: 'follow'
+        redirect: 'follow',
+        signal: controller.signal
       });
+
+      // Not every YouTube front end answers a HEAD. A GET reads the same
+      // redirect; the body is dropped as soon as the headers are in.
+      if (response.status === 405 || response.status === 501) {
+        response = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal });
+        response.body?.cancel().catch(() => {});
+      }
 
       if (!response.ok || !response.url) return null;
       if (response.url.includes('/shorts/')) return 'short';
@@ -139,6 +172,8 @@ const KindDetector = {
     } catch (error) {
       console.warn('WLE: could not confirm the video type:', error);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 };
@@ -155,7 +190,7 @@ async function confirmKindLater(normalizedUrl, assumedKind) {
   if (!videoId) return;
 
   const confirmed = await KindDetector.verify(videoId);
-  if (!confirmed || confirmed === assumedKind) return;
+  if (!confirmed) return;
 
   return StorageQueue.enqueue(async () => {
     const data = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
@@ -171,6 +206,33 @@ async function confirmKindLater(normalizedUrl, assumedKind) {
     });
     console.info('WLE: saved type corrected to', confirmed, 'for', normalizedUrl);
   });
+}
+
+/**
+ * Records saved before types existed carry no kind at all. The popup cannot
+ * ask YouTube about them — the extension holds no host permissions, so a fetch
+ * from the extension page would be cross-origin — which leaves this content
+ * script, on a YouTube tab, as the only place the question can be put.
+ *
+ * A few per page load, so it never looks like a crawl, and only ever for
+ * records that have no type yet.
+ */
+async function backfillKinds() {
+  try {
+    const data = await storageGet({ savedVideos: [] });
+    const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
+
+    const untyped = savedVideos
+      .filter((v) => v && v.kind !== 'short' && v.kind !== 'video' && WLEUrl.extractVideoId(v.url))
+      .slice(0, CONFIG.KIND_BACKFILL_PER_PAGE);
+
+    // Sequentially: the point is to be unobtrusive, not fast.
+    for (const entry of untyped) {
+      await confirmKindLater(entry.url, 'video');
+    }
+  } catch (error) {
+    console.warn('WLE: could not work out the type of older saves:', error);
+  }
 }
 
 // ============================================
@@ -216,14 +278,18 @@ async function saveVideoToWLE(url, title, kind) {
         // /watch looks exactly like a video — and must not overwrite 'short'.
         const existing = savedVideos.find((v) => v && v.url === normalizedUrl);
         if (existing) {
-          if (kind === 'short' && existing.kind !== 'short') {
-            existing.kind = 'short';
+          const upgrade = kind === 'short' && existing.kind !== 'short';
+          // Saved before types existed: give it one, so the check that runs
+          // after this has something to correct. Leaving it without a type
+          // returns nothing to the caller, which silences that check entirely.
+          const untyped = existing.kind !== 'short' && existing.kind !== 'video';
+
+          if (upgrade || untyped) {
+            existing.kind = upgrade ? 'short' : 'video';
             await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
-            showHud('Already saved — now marked as a Short');
-          } else {
-            showHud('Already saved!');
           }
 
+          showHud(upgrade ? 'Already saved — now marked as a Short' : 'Already saved!');
           return existing.kind;
         }
 
@@ -603,6 +669,10 @@ if (WLEUrl.isVideoPagePath(window.location.pathname)) {
   ButtonInjector.startInjection();
 }
 
+// Well after the page has settled, so it never competes with YouTube's own
+// loading. Once per content script, not once per SPA navigation.
+const backfillTimer = setTimeout(backfillKinds, CONFIG.KIND_BACKFILL_DELAY);
+
 // ============================================
 // HUD (Heads-Up Display) MANAGEMENT
 // ============================================
@@ -636,7 +706,8 @@ function showHud(message) {
 window.addEventListener('unload', () => {
   AudioManager.cleanup();
   ButtonInjector.stopInjection();
-  
+  clearTimeout(backfillTimer);
+
   if (hudTimeout) {
     clearTimeout(hudTimeout);
   }

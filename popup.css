@@ -537,7 +537,11 @@ li.video-item:hover .video-actions .icon-btn {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/* Hidden here rather than with a style attribute in the markup: the extension
+   page's CSP refuses inline styles, so the attribute never applied and the box
+   flashed on every open before the script could hide it. */
 .tutorial-container {
+  display: none;
   padding: 24px;
   text-align: center;
 }

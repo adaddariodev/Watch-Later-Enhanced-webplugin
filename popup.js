@@ -271,7 +271,7 @@ const Utils = {
         color: Utils.colorFromTagName(t.name),
       }));
 
-    return {
+    const normalized = {
       ...video,
       title: video.title || 'Untitled Video',
       url: video.url || '',
@@ -279,8 +279,21 @@ const Utils = {
       watched: video.watched === true,
       watchedAt: typeof video.watchedAt === 'number' ? video.watchedAt : null,
       savedAt: typeof video.savedAt === 'number' ? video.savedAt : null,
-      kind: video.kind === 'short' ? 'short' : 'video',
     };
+
+    // Unknown is not 'video'. A record saved before types existed has no type
+    // yet, and asserting one here would freeze the guess into storage the next
+    // time the list is written back — after which nothing could tell a real
+    // video from one that was never checked. The key stays absent instead, and
+    // the content script fills it in when it can ask YouTube.
+    if (video.kind !== 'short' && video.kind !== 'video') delete normalized.kind;
+
+    return normalized;
+  },
+
+  /** Unknown reads as a video everywhere it is shown or counted. */
+  isShort(video) {
+    return video?.kind === 'short';
   },
 
   debounce(func, wait) {
@@ -680,7 +693,10 @@ const VideoItemFactory = {
     const pill = document.createElement('span');
     pill.className = `kind-pill kind-pill-${type}`;
     pill.textContent = CONFIG.KINDS[type];
-    pill.title = type === 'short' ? 'Saved from YouTube Shorts' : 'Saved from a YouTube video';
+    // Out of the title it reads as a bare word next to the tag names, so say
+    // what the word is for. No title attribute: it would only repeat the text
+    // already on screen, as a tooltip on every row.
+    pill.setAttribute('aria-label', `Type: ${CONFIG.KINDS[type]}`);
     return pill;
   },
 
@@ -1095,33 +1111,46 @@ async function displayVideos() {
       return;
     }
 
+    // 'video' means "not a Short", so records with no type yet are counted
+    // and filtered the same way they are labelled.
     const filteredVideos = AppState.typeFilter === 'all'
       ? taggedVideos
-      : taggedVideos.filter((v) => v.kind === AppState.typeFilter);
+      : taggedVideos.filter((v) =>
+          AppState.typeFilter === 'short' ? Utils.isShort(v) : !Utils.isShort(v));
 
     if (filteredVideos.length === 0) {
-      const label = AppState.typeFilter === 'short' ? 'Shorts' : 'videos';
+      const label = AppState.typeFilter === 'short' ? 'Shorts' : 'Videos';
       showTutorial(
-        `No ${label} here`,
-        `Nothing in this list matches the <b>${label === 'Shorts' ? 'Shorts' : 'Videos'}</b> filter.` +
-        '<button type="button" class="tutorial-reset" id="reset-type-filter">Show everything</button>'
+        `No ${AppState.typeFilter === 'short' ? 'Shorts' : 'videos'} here`,
+        `Nothing in this list matches the <b>${label}</b> filter.`
       );
-      document.getElementById('reset-type-filter')?.addEventListener('click', () => {
+
+      // A node, not markup: nothing YouTube supplies should ever reach
+      // showTutorial's innerHTML through a template string.
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'tutorial-reset';
+      reset.id = 'reset-type-filter';
+      reset.textContent = 'Show everything';
+      reset.addEventListener('click', () => {
         AudioManager.play(AppState.soundEnabled);
         AppState.setTypeFilter('all');
         updateTypeFilterUI();
         displayVideos();
       });
+      document.getElementById('tutorial-text')?.appendChild(reset);
       return;
     }
 
     DOMCache.tutorial.style.display = 'none';
 
+    // Index into the FULL saved array, so drag reorder stays correct. Built
+    // once: looking each row up by scanning was quadratic in the list length.
+    const indexByUrl = new Map(savedVideos.map((v, i) => [v.url, i]));
+
     const frag = document.createDocumentFragment();
     filteredVideos.forEach((video) => {
-      // Index into the FULL saved array, so drag reorder stays correct
-      const index = savedVideos.findIndex((v) => v.url === video.url);
-      frag.appendChild(VideoItemFactory.create(video, index, AppState.view));
+      frag.appendChild(VideoItemFactory.create(video, indexByUrl.get(video.url) ?? -1, AppState.view));
     });
 
     DOMCache.videoList.appendChild(frag);
@@ -1155,11 +1184,8 @@ function showTutorial(title, message, showHint = false) {
 // move between the chips and only the selected one is a tab stop.
 // ============================================
 function updateTypeCounts(videos) {
-  const counts = {
-    all: videos.length,
-    video: videos.filter((v) => v.kind !== 'short').length,
-    short: videos.filter((v) => v.kind === 'short').length
-  };
+  const shorts = videos.filter((v) => Utils.isShort(v)).length;
+  const counts = { all: videos.length, video: videos.length - shorts, short: shorts };
 
   Object.entries(counts).forEach(([type, n]) => {
     const el = document.querySelector(`.type-chip-count[data-count-for-type="${type}"]`);
@@ -1198,6 +1224,14 @@ function setupTypeFilter() {
   });
 
   group.addEventListener('keydown', (e) => {
+    // Home / End jump to the ends of the group, as a radiogroup should.
+    const edge = { Home: 0, End: chips.length - 1 }[e.key];
+    if (edge !== undefined) {
+      e.preventDefault();
+      select(chips[edge], { focus: true });
+      return;
+    }
+
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
     if (!step) return;
 
