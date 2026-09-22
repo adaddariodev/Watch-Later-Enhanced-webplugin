@@ -519,11 +519,24 @@
      * rather than guard if the load order ever changed.
      */
     currentTitle() {
+      // Shorts keep their title in their own view model, and their tab title
+      // is usually just "YouTube" (kept in step with content.js's extractor).
+      const short = document.querySelector(
+        'ytd-reel-video-renderer[is-active] h1.ytShortsVideoTitleViewModelShortsVideoTitle, ' +
+        'h1.ytShortsVideoTitleViewModelShortsVideoTitle, ' +
+        'ytd-reel-player-header-renderer #video-title'
+      );
+      const fromShort = short?.getAttribute('aria-label')?.trim() || short?.textContent?.trim();
+      if (fromShort) return fromShort;
+
       const heading = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
       const fromDom = heading?.textContent?.trim();
       if (fromDom) return fromDom;
 
-      return document.title.replace(' - YouTube', '').trim() || 'YouTube Video';
+      const docTitle = document.title.replace(' - YouTube', '').trim();
+      if (docTitle && docTitle.toLowerCase() !== 'youtube') return docTitle;
+
+      return 'YouTube Video';
     },
 
     /** Closed from the mini player's own window controls. */

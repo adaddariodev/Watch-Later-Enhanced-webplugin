@@ -169,19 +169,75 @@ const TitleExtractor = {
   },
 
   /**
-   * Extract title from current watch page DOM
+   * Shorts keep their title in their own view-model tree, nowhere near the
+   * watch page's metadata. The <h1> carries the full text in aria-label and
+   * the visible span may be clipped, so the attribute comes first.
+   */
+  SHORTS_TITLE_SELECTORS: [
+    'h1.ytShortsVideoTitleViewModelShortsVideoTitle',
+    'yt-shorts-video-title-view-model h1',
+    'ytd-reel-player-header-renderer h2 #video-title',
+    'ytd-reel-player-header-renderer #video-title',
+    'h2.ytd-reel-player-header-renderer'
+  ],
+
+  getCurrentShortTitle() {
+    // The feed keeps every reel in the DOM. Once we know which one is playing,
+    // look only in there: reading a neighbour's heading would quietly save the
+    // wrong name, which is worse than finding nothing and asking YouTube.
+    const scope = document.querySelector('ytd-reel-video-renderer[is-active]') || document;
+
+    for (const selector of this.SHORTS_TITLE_SELECTORS) {
+      const el = scope.querySelector(selector);
+      if (!el) continue;
+
+      const ariaLabel = el.getAttribute('aria-label');
+      if (this.isValidTitle(ariaLabel)) return ariaLabel.trim();
+
+      const text = el.textContent?.trim();
+      if (this.isValidTitle(text)) return text;
+    }
+
+    return null;
+  },
+
+  /**
+   * Title of the page we are on, or null when the DOM has nothing usable —
+   * on Shorts the tab title is often just "YouTube", which is not a title.
    */
   getCurrentPageTitle() {
-    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
-    if (titleEl?.textContent) {
-      return titleEl.textContent.trim();
+    if (window.location.pathname.startsWith('/shorts/')) {
+      const shortTitle = this.getCurrentShortTitle();
+      if (shortTitle) return shortTitle;
     }
-    
-    // Fallback to document title
+
+    const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
+    const watchTitle = titleEl?.textContent?.trim();
+    if (this.isValidTitle(watchTitle)) return watchTitle;
+
     const docTitle = document.title.replace(' - YouTube', '').trim();
-    return docTitle || 'YouTube Video';
+    if (this.isValidTitle(docTitle) && docTitle.toLowerCase() !== 'youtube') {
+      return docTitle;
+    }
+
+    return null;
   },
-  
+
+  /**
+   * What the current page is called, asking YouTube itself when its DOM does
+   * not say (the Shorts player, a layout we do not know yet).
+   */
+  async resolveCurrentPageTitle(url) {
+    const fromDom = this.getCurrentPageTitle();
+    if (fromDom) return fromDom;
+
+    const oEmbedTitle = await this.fetchTitleFromOEmbed(url);
+    if (this.isValidTitle(oEmbedTitle)) return oEmbedTitle.trim();
+
+    console.warn('WLE: no title found for the current page:', url);
+    return 'Unknown Title';
+  },
+
   /**
    * Extract title from the DOM context around a thumbnail link
    * Used as fallback when oEmbed fails on CASE A (Alt+Click on thumbnail)
@@ -195,6 +251,18 @@ const TitleExtractor = {
         'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-reel-item-renderer, ytd-shorts, ytd-reel-video-renderer'
       );
       if (!container) return null;
+
+      // Strategy 0: a Shorts tile keeps its title in its own view model
+      for (const selector of this.SHORTS_TITLE_SELECTORS) {
+        const shortTitleEl = container.querySelector(selector);
+        if (!shortTitleEl) continue;
+
+        const shortAria = shortTitleEl.getAttribute('aria-label');
+        if (this.isValidTitle(shortAria)) return shortAria.trim();
+
+        const shortText = shortTitleEl.textContent?.trim();
+        if (this.isValidTitle(shortText)) return shortText;
+      }
 
       // Strategy 1: "title" attribute on the title heading or link (cleanest source)
       const titleLink = container.querySelector('#video-title, #video-title-link, h3 a');
@@ -322,7 +390,7 @@ document.addEventListener('click', async (event) => {
       return;
     }
 
-    const title = TitleExtractor.getCurrentPageTitle();
+    const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
     await saveVideoToWLE(normalizedUrl, title);
   }
 }, true); // Capture phase to intercept before YouTube handlers
@@ -368,7 +436,7 @@ const ButtonInjector = {
         return;
       }
 
-      const title = TitleExtractor.getCurrentPageTitle();
+      const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
       await saveVideoToWLE(normalizedUrl, title);
     });
   },
