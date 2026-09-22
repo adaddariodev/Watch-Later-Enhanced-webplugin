@@ -128,8 +128,7 @@
   opacity: 0.85;
 }
 
-.wle-detach-placeholder-btn,
-.wle-detach-launcher-btn {
+.wle-detach-placeholder-btn {
   border: none;
   border-radius: 18px;
   padding: 0 16px;
@@ -143,99 +142,67 @@
   transition: background 0.2s ease;
 }
 
-.wle-detach-placeholder-btn:hover,
-.wle-detach-launcher-btn:hover {
+.wle-detach-placeholder-btn:hover {
   background: rgba(255, 255, 255, 0.24);
 }
 
-/* One-click launcher shown when the popup asked for a detached playback.
-   Centred and full-size on purpose: it is a required step, not a hint. */
-.wle-detach-launcher {
+/* =========================================
+   MINI PLAYER WINDOW
+   The popup opens the video in a small window of its own, marked with a hash.
+   detach.js lifts the real player onto this stage, so the rest of the watch
+   page never shows — no reliance on YouTube's layout classes.
+   ========================================= */
+html.wle-mini-window,
+html.wle-mini-window body {
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
+.wle-mini-stage {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -46%) scale(0.96);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 10px;
-  width: 300px;
-  max-width: calc(100vw - 32px);
-  padding: 26px 24px 24px;
-  background: rgba(18, 18, 18, 0.94);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 22px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  cursor: pointer;
-  opacity: 0;
-  z-index: 2147483646;
-  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  inset: 0;
+  z-index: 2147483000;
+  background: #000;
+  overflow: hidden;
 }
 
-.wle-detach-launcher.visible {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+.wle-mini-stage #movie_player,
+.wle-mini-stage .html5-video-player {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-.wle-detach-launcher-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+.wle-mini-stage .html5-video-container {
+  width: 100% !important;
+  height: 100% !important;
 }
 
-.wle-detach-launcher-title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
+.wle-mini-stage video {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  transform: none !important;
+  object-fit: contain !important;
 }
 
-.wle-detach-launcher-text {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.72);
+/* YouTube pins the control bar to a pixel width computed for the full page. */
+.wle-mini-stage .ytp-chrome-bottom {
+  left: 12px !important;
+  width: calc(100% - 24px) !important;
 }
 
-.wle-detach-launcher-btn {
-  margin-top: 6px;
-  width: 100%;
-  height: 40px;
-  border-radius: 20px;
-  background: #fff;
-  color: #0f0f0f;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.wle-detach-launcher-btn:hover {
-  background: rgba(255, 255, 255, 0.86);
-}
-
-.wle-detach-launcher-close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 20px;
-  line-height: 1;
-  padding: 4px 8px;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.wle-detach-launcher-close:hover {
-  color: #fff;
+.wle-mini-stage .ytp-chrome-top,
+.wle-mini-stage .ytp-gradient-top {
+  display: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wle-detach-launcher {
+  .wle-detach-placeholder-btn {
     transition: none;
   }
 }

@@ -17,8 +17,16 @@ const CONFIG = {
     LAST_PROMPT: 'lastDonatePrompt',
     HIDE_JM_BANNER: 'hideJobsMatchBanner',
     DETACH: 'detachEnabled',
-    PENDING_DETACH: 'pendingDetach',
+    MINI_SIZE: 'miniPlayerSize',
     REV: 'wleRev'
+  },
+  MINI_WINDOW: {
+    MARKER: 'wle-mini',   // detach.js recognises the window by this hash
+    WIDTH: 560,
+    HEIGHT: 360,
+    MIN_WIDTH: 320,
+    MIN_HEIGHT: 220,
+    CHROME: 46            // rough height of a popup window's title bar
   },
   WRITE_ATTEMPTS: 6,
   // Peppered SHA-256 of supporter unlock material. Plaintext is not in this repository.
@@ -1133,13 +1141,12 @@ function setupVideoListHandlers() {
     if (!li) return;
     const url = li.dataset.url;
 
-    // Open the video in a tab and ask that page for a detached mini player
+    // Play the video in its own small window
     if (e.target.closest('.mini-player-btn')) {
       e.stopPropagation();
       if (!WLEUrl.isSafeOpenUrl(url)) return;
       AudioManager.play(AppState.soundEnabled);
-      await requestDetachedPlayback(url);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      openMiniPlayerWindow(url);
       return;
     }
 
@@ -1298,25 +1305,41 @@ function setupWikiButton() {
 
 // ============================================
 // DETACHED MINI PLAYER
-// The Picture-in-Picture APIs need a user gesture inside the YouTube tab, so
-// the popup cannot open the mini player itself: it leaves a short-lived
-// request in storage and the content script offers a one-click launcher on the
-// page it opens.
+// The always-on-top window (Document Picture-in-Picture) can only be opened
+// right after a click inside the page itself — no extension API grants that.
+// So the popup opens the video in a small browser window of its own instead:
+// no tab, no confirmation, and it survives minimizing the main window. From
+// there the player's pop-out button promotes it to always-on-top.
 // ============================================
-async function requestDetachedPlayback(url) {
+function openMiniPlayerWindow(url) {
   const videoId = WLEUrl.extractVideoId(url);
   if (!videoId) return;
 
-  await new Promise((resolve) => {
-    chrome.storage.local.set(
-      { [CONFIG.STORAGE_KEYS.PENDING_DETACH]: { videoId, ts: Date.now() } },
-      () => {
-        if (chrome.runtime.lastError) {
-          console.warn('Could not queue the mini player request:', chrome.runtime.lastError);
-        }
-        resolve();
-      }
+  const target = `https://www.youtube.com/watch?v=${videoId}#${CONFIG.MINI_WINDOW.MARKER}`;
+
+  chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.MINI_SIZE]: null }, (data) => {
+    const saved = data[CONFIG.STORAGE_KEYS.MINI_SIZE];
+    const width = Math.max(
+      CONFIG.MINI_WINDOW.MIN_WIDTH,
+      Math.round(Number(saved?.width) || CONFIG.MINI_WINDOW.WIDTH)
     );
+    const height = Math.max(
+      CONFIG.MINI_WINDOW.MIN_HEIGHT,
+      // A stored size is the player's own; the window adds its title bar.
+      Math.round(Number(saved?.height) ? Number(saved.height) + CONFIG.MINI_WINDOW.CHROME : CONFIG.MINI_WINDOW.HEIGHT)
+    );
+
+    if (!chrome.windows || typeof chrome.windows.create !== 'function') {
+      window.open(target, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    chrome.windows.create({ url: target, type: 'popup', width, height, focused: true }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('Could not open the mini player window:', chrome.runtime.lastError);
+        window.open(target, '_blank', 'noopener,noreferrer');
+      }
+    });
   });
 }
 

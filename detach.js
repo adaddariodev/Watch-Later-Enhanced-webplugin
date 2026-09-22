@@ -15,13 +15,11 @@
   const DETACH = {
     KEYS: {
       ENABLED: 'detachEnabled',
-      SIZE: 'miniPlayerSize',
-      PENDING: 'pendingDetach'
+      SIZE: 'miniPlayerSize'
     },
+    MINI_MARKER: 'wle-mini',     // hash the popup puts on the mini player window
     DEFAULT_WIDTH: 480,
     MIN_SIZE: { width: 300, height: 180 },
-    PENDING_TTL: 60000,          // how long a popup "open detached" request stays valid
-    LAUNCHER_TIMEOUT: 45000,     // how long the in-page launcher card stays up
     BAR_IDLE_DELAY: 2600,        // hide the mini player bar after this much idle time
     INJECTION_RETRY_INTERVAL: 500,
     INJECTION_MAX_TIMEOUT: 15000,
@@ -198,6 +196,7 @@
   const DetachedPlayer = {
     pipWindow: null,
     player: null,       // the moved #movie_player, while detached
+    videoId: null,      // the video it was detached with
     placeholder: null,  // stand-in left in the page
     stage: null,
     bar: null,
@@ -367,6 +366,7 @@
 
       this.stage.appendChild(player);
       this.player = player;
+      this.videoId = WLEUrl.extractVideoId(window.location.href);
     },
 
     createPlaceholder(playerRect) {
@@ -543,6 +543,7 @@
       this.placeholder = null;
       this.stage = null;
       this.bar = null;
+      this.videoId = null;
       clearTimeout(this.idleTimer);
       clearTimeout(this.resizeTimer);
 
@@ -555,14 +556,24 @@
           console.warn('WLE: the player could not be moved back:', error);
         }
       } else {
-        // The watch page is gone (YouTube rebuilt its layout): drop the orphan
-        // instead of leaving it playing audio from nowhere.
-        try {
-          player.querySelector('video')?.pause();
-        } catch (error) {
-          console.warn('WLE: orphaned player could not be paused:', error);
+        // The page re-rendered while detached, so the spot we kept is gone.
+        // Re-attach to the container the page has now; only drop the player
+        // when YouTube has already built a new one, since two #movie_player
+        // elements would break the page worse than a missing video.
+        const host = document.getElementById('movie_player')
+          ? null
+          : document.querySelector('ytd-player #container, #player-container-inner, #player-container');
+
+        if (host) {
+          host.appendChild(player);
+        } else {
+          try {
+            player.querySelector('video')?.pause();
+          } catch (error) {
+            console.warn('WLE: orphaned player could not be paused:', error);
+          }
+          player.remove();
         }
-        player.remove();
       }
 
       placeholder?.remove();
@@ -649,94 +660,70 @@
   };
 
   // ============================================
-  // LAUNCHER CARD
-  // The popup cannot open the mini player itself — the API needs a gesture in
-  // the YouTube tab — so it leaves a request behind and the page offers a
-  // single click to detach.
+  // MINI PLAYER WINDOW
+  // The popup opens the video in its own small browser window, marked with a
+  // hash. Here the real player is lifted into a full-window stage, so the page
+  // around it (masthead, comments, recommendations) never shows: no dependence
+  // on YouTube's layout classes, only on the player element itself.
   // ============================================
-  const Launcher = {
-    element: null,
-    timer: null,
+  const MiniWindow = {
+    wanted: false,
+    active: false,
+    stage: null,
+    interval: null,
+    timeout: null,
 
-    async maybeShow() {
-      if (!DetachState.enabled || !Support.any() || !isWatchPage()) return;
-
-      const data = await readStorage({ [DETACH.KEYS.PENDING]: null });
-      const pending = data[DETACH.KEYS.PENDING];
-      if (!pending || typeof pending !== 'object') return;
-
-      // One-shot request: clear it whether or not it still applies here.
-      await writeStorage({ [DETACH.KEYS.PENDING]: null });
-
-      const isFresh = Date.now() - Number(pending.ts || 0) < DETACH.PENDING_TTL;
-      const isSameVideo = pending.videoId &&
-        pending.videoId === WLEUrl.extractVideoId(window.location.href);
-
-      if (!isFresh || !isSameVideo) return;
-
-      this.show();
+    /** Read once at start-up: YouTube rewrites the URL as it boots. */
+    detectRequest() {
+      this.wanted = window.location.hash.replace('#', '') === DETACH.MINI_MARKER;
+      return this.wanted;
     },
 
-    show() {
-      this.hide();
+    start() {
+      if (!this.wanted || this.active) return;
 
-      // Centred on the video rather than tucked into a corner: this card is
-      // the one click the browser demands before it will open a floating
-      // window, so missing it looks like the feature is broken.
-      const card = document.createElement('div');
-      card.className = 'wle-detach-launcher';
-      card.setAttribute('role', 'dialog');
-      card.setAttribute('aria-label', 'Open the mini player');
+      if (this.enter()) return;
 
-      const icon = document.createElement('img');
-      icon.className = 'wle-detach-launcher-icon';
-      icon.src = chrome.runtime.getURL('icons/128px.png');
-      icon.alt = '';
-
-      const title = document.createElement('p');
-      title.className = 'wle-detach-launcher-title';
-      title.textContent = 'Open the mini player';
-
-      const text = document.createElement('p');
-      text.className = 'wle-detach-launcher-text';
-      text.textContent = 'Your browser needs one click on this page before it can open a floating window.';
-
-      const openBtn = document.createElement('button');
-      openBtn.type = 'button';
-      openBtn.className = 'wle-detach-launcher-btn';
-      openBtn.textContent = 'Open mini player';
-
-      const closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'wle-detach-launcher-close';
-      closeBtn.textContent = '×';
-      closeBtn.title = 'Dismiss';
-      closeBtn.setAttribute('aria-label', 'Dismiss');
-      closeBtn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        this.hide();
-      });
-
-      // The whole card is the target, not just the button.
-      card.addEventListener('click', async () => {
-        this.hide();
-        await DetachedPlayer.open();
-      });
-
-      card.append(closeBtn, icon, title, text, openBtn);
-      document.body.appendChild(card);
-
-      requestAnimationFrame(() => card.classList.add('visible'));
-
-      this.element = card;
-      this.timer = setTimeout(() => this.hide(), DETACH.LAUNCHER_TIMEOUT);
+      this.stop();
+      this.interval = setInterval(() => {
+        if (this.enter()) this.stop();
+      }, DETACH.INJECTION_RETRY_INTERVAL);
+      this.timeout = setTimeout(() => this.stop(), DETACH.INJECTION_MAX_TIMEOUT);
     },
 
-    hide() {
-      clearTimeout(this.timer);
-      this.timer = null;
-      this.element?.remove();
-      this.element = null;
+    stop() {
+      if (this.interval) {
+        clearInterval(this.interval);
+        this.interval = null;
+      }
+      if (this.timeout) {
+        clearTimeout(this.timeout);
+        this.timeout = null;
+      }
+    },
+
+    enter() {
+      const player = document.getElementById('movie_player') ||
+        document.querySelector('.html5-video-player');
+      if (!player || !document.body) return false;
+
+      const stage = document.createElement('div');
+      stage.className = 'wle-mini-stage';
+      document.body.appendChild(stage);
+      stage.appendChild(player);
+
+      document.documentElement.classList.add('wle-mini-window');
+      this.stage = stage;
+      this.active = true;
+
+      // YouTube sizes its controls from the player box it thinks it has.
+      try {
+        window.dispatchEvent(new Event('resize'));
+      } catch (error) {
+        console.warn('WLE: resize notification failed:', error);
+      }
+
+      return true;
     }
   };
 
@@ -756,6 +743,13 @@
   }
 
   function onPageReady() {
+    // A navigation that slipped past yt-navigate-start: the tab is on another
+    // video now, so hand the player back before YouTube comes looking for it.
+    if (DetachedPlayer.pipWindow &&
+        DetachedPlayer.videoId !== WLEUrl.extractVideoId(window.location.href)) {
+      DetachedPlayer.close();
+    }
+
     if (!isWatchPage()) {
       DetachButton.stop();
       return;
@@ -764,7 +758,7 @@
     if (!DetachState.enabled) return;
 
     DetachButton.start();
-    Launcher.maybeShow();
+    MiniWindow.start();
   }
 
   function applyEnabledState() {
@@ -774,11 +768,14 @@
     }
 
     DetachButton.remove();
-    Launcher.hide();
     DetachedPlayer.close();
   }
 
   async function init() {
+    // Before anything async: YouTube rewrites the URL while it boots, and the
+    // hash is what tells us this window is a mini player.
+    MiniWindow.detectRequest();
+
     const data = await readStorage({ [DETACH.KEYS.ENABLED]: true });
     DetachState.enabled = data[DETACH.KEYS.ENABLED] !== false;
 
@@ -791,10 +788,17 @@
     });
 
     // YouTube's SPA reuses #movie_player on the next page, and it looks it up
-    // in the tab's document: hand it back before navigation starts.
-    document.addEventListener('yt-navigate-start', () => {
+    // in the tab's document: hand it back before navigation starts. It also
+    // fires this event while booting the page it is already on, which must not
+    // cost the user their mini player — so only leave when the video changes.
+    document.addEventListener('yt-navigate-start', (event) => {
+      if (!DetachedPlayer.pipWindow) return;
+
+      const target = event?.detail?.endpoint?.watchEndpoint?.videoId ||
+        WLEUrl.extractVideoId(window.location.href);
+
+      if (target && target === DetachedPlayer.videoId) return;
       DetachedPlayer.close();
-      Launcher.hide();
     });
 
     document.addEventListener('yt-navigate-finish', onPageReady);

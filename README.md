@@ -33,7 +33,7 @@ top of every other application — the browser can be minimized and the video
 keeps playing, wherever the user drags the window.
 
 * **From the video page:** the mini-player button in YouTube's control bar, or `Alt + Shift + D`.
-* **From the extension popup:** the mini-player button on any saved video opens it and offers a one-click launcher on the page (the Picture-in-Picture APIs require a gesture inside the tab, so the popup cannot detach a video on its own).
+* **From the extension popup:** the mini-player button on any saved video plays it straight away in a small window of its own — no tab, nothing to confirm. That window is not pinned above other applications, but it survives minimizing the main browser, and its pop-out button promotes it to the always-on-top player (which browsers only grant right after a click inside the page).
 * **While detached:** `Space` / `K` play and pause, `←` `→` seek, `M` mutes, `Esc` closes. Closing the window — or navigating away — drops the player back exactly where it was, still playing.
 
 Under the hood WLE moves YouTube's *own* player element into a
