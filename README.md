@@ -1,111 +1,186 @@
 <div align="center">
   <img src="imgs/logo.png" alt="Watch Later Enhanced Logo" width="350"/>
 
-  <h1>Watch Later Enhanced ✨</h1>
+  <h1>Watch Later Enhanced</h1>
 
-  <p>A high-performance, lightweight browser extension engineered to optimize the YouTube "Watch Later" experience through smart event delegation and asynchronous state management.</p>
+  <p><strong>Save any YouTube video with <code>Alt + Click</code>. Watch it in a floating window that outlives the browser.</strong><br/>
+  A zero-dependency Manifest V3 extension. Your list never leaves your machine.</p>
 
   <a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb">
     <img src="https://img.shields.io/badge/Available_on-Chrome_Web_Store-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Chrome Web Store" />
   </a>
-  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="Vanilla JS" />
+  <img src="https://img.shields.io/badge/Version-2.7.0-FF5A50?style=for-the-badge" alt="Version 2.7.0" />
   <img src="https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Manifest V3" />
+  <img src="https://img.shields.io/badge/Dependencies-0-8FA6C4?style=for-the-badge" alt="Zero dependencies" />
   <img src="https://img.shields.io/badge/License-MIT-34A853?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License" />
 
   <br /><br />
 
   [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/adaddariodev)
-  
-  </div>
 
-  
+</div>
 
 ---
 
-## 📋 Overview
+## Why it exists
 
-**Watch Later Enhanced** is a productivity-focused web extension designed to remove the friction of YouTube's native playlist management. Instead of navigating through multiple dropdown menus, WLE injects a custom logic layer allowing users to instantly save videos to a local queue using a simple `Alt + Click` shortcut, complete with immediate visual and auditory feedback.
+YouTube's own "Watch Later" costs you three clicks, a dropdown and a page you
+did not want to load — and then the list only works on YouTube. Most videos
+saved that way are never seen again.
 
-## 🪟 Detached Mini Player
+Watch Later Enhanced replaces that with one gesture. Hold `Alt`, click any
+thumbnail, and it is on your list — no navigation, no dropdown, no page load.
+The list lives in your browser toolbar, reachable from any site.
 
-Any video can be popped out of the browser into a floating window that stays on
-top of every other application — the browser can be minimized and the video
-keeps playing, wherever the user drags the window.
+## What it does
 
-* **From the video page:** the mini-player button in YouTube's control bar, or `Alt + Shift + D`.
-* **From the extension popup:** the mini-player button on any saved video plays it straight away in a small window of its own — no tab, nothing to confirm. That window is not pinned above other applications, but it survives minimizing the main browser, and its pop-out button promotes it to the always-on-top player (which browsers only grant right after a click inside the page).
-* **While detached:** `Space` / `K` play and pause, `←` `→` seek, `M` mutes, `Esc` closes. Closing the window — or navigating away — drops the player back exactly where it was, still playing.
+### Save without leaving the page
 
-Under the hood WLE moves YouTube's *own* player element into a
-[Document Picture-in-Picture](https://developer.chrome.com/docs/web-platform/document-picture-in-picture)
-window (Chrome 116+), so native controls, captions, quality settings and the
-"skip ad" button all keep working. Browsers without that API fall back to the
-classic video Picture-in-Picture; the window size is remembered between
-sessions, and the feature can be switched off in Settings.
+`Alt + Click` any thumbnail, or the player itself, and the video is saved. A
+small HUD confirms it with the video's real title, pulled from the page or from
+YouTube's oEmbed endpoint if the page does not offer one.
 
-## 📖 Built-in User Guide
+### Watch it in a window of its own
 
-Settings hosts a **User guide** button (the book icon) that opens `wiki.html`, a
-bundled documentation page: searchable, with a sticky table of contents that
-follows the reader, a full shortcut reference and a troubleshooting section. It
-ships inside the extension, so it opens instantly and works offline.
+Pop any video out of the browser into a floating mini player. Minimize the
+browser, move to another app, drag the window anywhere — it keeps playing.
 
-## 🛠 Technical Stack & Architecture
+* **On a video page:** the mini-player button in YouTube's control bar, or
+  `Alt + Shift + D`.
+* **From the popup:** the mini-player button on a saved video plays it
+  immediately in a dedicated window — no tab, nothing to confirm.
+* **While detached:** `Space`/`K` play and pause, `←` `→` seek five seconds,
+  `M` mutes, `Esc` closes, and a plain **✕** sits in the corner.
 
-This project is built entirely in **Vanilla JavaScript**, ensuring zero-dependency overhead, maximum execution speed, and minimal memory footprint within the browser.
+Closing it — or navigating away — returns the player to the tab exactly where
+it was, still playing.
 
-* **Standard:** Adheres to **Manifest V3**, utilizing declarative permissions for enhanced security.
-* **Data Management:** Stateless communication utilizing `chrome.storage.local` to sync data seamlessly between the Content Script and the Popup UI.
-* **Zero External Dependencies:** Built natively with Fetch API, DOM API, and Web Audio API.
+### Organise it the way you think
 
-## 🚀 Engineering Highlights
+* **Tags**, colour-derived from their own name, with autocomplete and
+  search-by-tag.
+* **Drag and drop** to set your own order.
+* **To Watch / Archive / Trash**, so finished videos leave the queue without
+  disappearing, and deletions are recoverable.
+* **Video and Shorts labels**, with a filter that narrows the list to either.
 
-* **Advanced Event Delegation:** Instead of attaching hundreds of listeners to dynamically loaded YouTube thumbnails, the extension uses a single global event listener on the document object, significantly reducing CPU idle usage and preventing memory leaks.
-* **Graceful Degradation (Title Extraction):** WLE implements a robust dual-strategy for data retrieval. It primarily fetches clean metadata via YouTube's `oembed` API. If the network request fails, it instantly falls back to an **Aggressive DOM Parsing** strategy, iterating through 4 different selector layers (`aria-label`, `img alt`, etc.) to guarantee a result.
-* **Asynchronous UI State Management:** The custom injected HUD handles rapid user inputs and race conditions gracefully. Global timeouts are cleared and reset dynamically to prevent UI flickering or overlapping animations during consecutive saves.
-* **Cross-Document Player Hand-off:** The mini player re-parents the live `<video>` player into a second document without interrupting playback, mirrors the page's stylesheets into it, and restores the element to its original node position on close — including when YouTube's SPA router navigates away mid-playback.
+### Know what you saved
 
-## ⚙️ Installation
+A **Video** or **Shorts** label sits under every title. Because YouTube serves
+the same Short behind both `/shorts/` and `/watch` links, the type is worked
+out from the URL, then from the page around the thumbnail, and finally — when
+neither settles it — by asking YouTube in the background and correcting the
+label a moment later.
 
-### From Chrome Web Store (Recommended)
-1. Go to the [Chrome Web Store Page](https://chromewebstore.google.com/detail/pkepecmnomlcbmemeochebfonchhdpfb?utm_source=item-share-cb).
-2. Click **"Add to Chrome"**.
+### Read the manual without leaving the extension
 
-### Manual Installation (For Developers)
-1. Clone this repository: `git clone https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin.git`
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable **Developer mode** in the top right corner.
-4. Click **Load unpacked** and select the cloned directory.
+Settings opens a bundled user guide: searchable, with a table of contents that
+tracks your scroll position, a full shortcut reference and troubleshooting.
+It ships inside the extension, so it works offline.
 
-## 🏗 Project Structure
+## Shortcuts
+
+| Shortcut | Where | What it does |
+| --- | --- | --- |
+| `Alt + Click` | Any YouTube thumbnail | Saves it without opening it |
+| `Alt + Click` | The video player | Saves what you are watching |
+| `Alt + Shift + D` | Video pages | Opens / closes the mini player |
+| `Space` or `K` | Mini player | Play / pause |
+| `←` / `→` | Mini player | Back / forward 5 seconds |
+| `M` | Mini player | Mute / unmute |
+| `Esc` | Mini player | Close and return the video to the tab |
+| `Enter` / `Esc` | Tag box | Add the tag / close without adding |
+
+## Privacy
+
+There is no server behind this extension. No account, no sign-in, no telemetry,
+no analytics, no sync. Your list is held in `chrome.storage.local` on your own
+machine and is never transmitted anywhere.
+
+Every outbound request the extension makes, in full:
+
+| To | When | What it carries |
+| --- | --- | --- |
+| `youtube.com/oembed` | Saving a video whose title the page did not provide | The video URL |
+| `youtube.com/shorts/<id>` | Saving, to tell a Short from a video | The video ID |
+| `fonts.googleapis.com` | Opening the popup | Loads the Inter webfont |
+
+The first two go to YouTube, only while you are already on YouTube, and carry
+nothing about you. The third is a webfont, and the only request that reaches
+anyone other than YouTube; the popup falls back to your system font if it is
+blocked, and bundling the font into the extension would remove it entirely.
+
+Permissions requested: **`storage`**. That is the whole list — no host
+permissions, no tabs, no scripting.
+
+## Install
+
+**From the Chrome Web Store** —
+[add it here](https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb).
+
+**From source**
+
+```bash
+git clone https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin.git
+```
+
+Then open `chrome://extensions/`, turn on **Developer mode**, click
+**Load unpacked**, and select the cloned directory.
+
+Requires Chrome 116+ for the detached mini player (older versions fall back to
+the classic Picture-in-Picture). Firefox 109+ is supported.
+
+## How it is built
+
+Vanilla JavaScript, no build step, no dependencies, no framework. Clone it and
+it runs.
+
+* **Manifest V3**, with `storage` as the only permission.
+* **One delegated listener** on `document` handles every thumbnail on the page,
+  rather than binding to each of the hundreds YouTube creates and destroys as
+  you scroll. Nothing to clean up, nothing to leak.
+* **Layered title extraction** — the page's own DOM first (with selectors for
+  the Shorts view model, which stores its title somewhere else entirely), then
+  YouTube's `oembed` endpoint as a fallback.
+* **Layered type detection** — the URL, then the DOM around the click, then a
+  same-origin redirect check, memoised per video and bounded by a timeout.
+* **Optimistic writes with a snapshot guard** — every read-modify-write on the
+  list re-reads before committing and retries on conflict, so the popup and a
+  YouTube tab saving at the same moment cannot drop each other's changes.
+* **Cross-document player hand-off** — the mini player re-parents YouTube's
+  live `<video>` element into a
+  [Document Picture-in-Picture](https://developer.chrome.com/docs/web-platform/document-picture-in-picture)
+  window without interrupting playback, mirrors the page's stylesheets into it,
+  and restores the element to its original position on close — including when
+  YouTube's SPA router navigates away mid-playback.
+
+## Project structure
 
 ```text
 .
-├── icons/              # Required extension icons (48px, 128px)
-├── imgs/               # Promotional assets, high-res logos, and store banners
-├── sounds/             # Audio feedback assets (success.wav, click.mp3)
-├── .gitattributes      # Git configuration
-├── content.css         # UI layer: Glassmorphism HUD and animations
-├── content.js          # Core logic: Event delegation, API fetch, DOM parsing
-├── detach.css          # Styling of the detached mini-player window
-├── detach.js           # Detached mini player: Document Picture-in-Picture
-├── manifest.json       # Extension configuration & V3 permissions
-├── popup.css           # Styling for the popup UI
-├── popup.html          # Extension popup interface
-├── popup.js            # Storage reader and list management
-├── wiki.css            # Styling of the built-in user guide
-├── wiki.html           # Built-in user guide (opened from Settings)
-├── wiki.js             # Guide navigation: contents, search, back to top
-└── README.md           # Project documentation
+├── icons/              # Extension icons (48px, 128px) and button glyphs
+├── imgs/               # Logos and store banners
+├── sounds/             # Audio feedback (success.wav, click.mp3)
+├── content.js          # Saving, title extraction, type detection, HUD
+├── content.css         # In-page HUD and injected button styles
+├── detach.js           # Detached mini player (Document Picture-in-Picture)
+├── detach.css          # Mini player window styling
+├── popup.html/.css/.js # The list: tags, search, filters, drag reorder
+├── wiki.html/.css/.js  # Built-in user guide, opened from Settings
+├── url-utils.js        # Shared URL parsing and validation
+├── manifest.json       # Manifest V3 configuration
+├── CHANGELOG.md        # Release history
+└── README.md
 ```
 
-## 🤝 Contributing
+## Contributing
 
-This project was built to solve a specific problem, but I am totally open to contributions! Whether it's refactoring, adding new features, or optimizing the DOM parsing logic, feel free to fork the repo and submit a Pull Request.
+Issues and pull requests are welcome — refactors, new features, or sharper
+selectors for YouTube's ever-changing DOM. Fork it and open a PR.
 
-## 📄 License
+## License
 
-Distributed under the MIT License. See LICENSE for more information.
+MIT. See [LICENSE](LICENSE).
 
 ---
 <div align="center">
