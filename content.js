@@ -78,6 +78,102 @@ function storageSet(values) {
 }
 
 // ============================================
+// KIND DETECTION (video or short)
+// The stored link is always the canonical watch URL, so the kind has to be
+// settled while saving. A /shorts/ URL proves it, but YouTube serves the same
+// Short behind /watch too — from search, a channel's video tab, a shared link
+// — and there the URL says nothing. The DOM around a thumbnail usually does,
+// and when neither is conclusive YouTube itself is asked afterwards.
+// ============================================
+const KindDetector = {
+  SHORTS_CONTAINERS: [
+    'ytd-reel-item-renderer',
+    'ytd-reel-video-renderer',
+    'ytd-reel-shelf-renderer',
+    'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
+    'ytd-rich-shelf-renderer[is-shorts]',
+    'ytd-shorts'
+  ].join(','),
+
+  SHORTS_BADGES: [
+    '[overlay-style="SHORTS"]',
+    '.shortsLockupViewModelHostThumbnailContainer',
+    'ytd-thumbnail-overlay-time-status-renderer[overlay-style="SHORTS"]'
+  ].join(','),
+
+  /** Synchronous best guess: the URL first, then the DOM around the click. */
+  fromContext(url, element) {
+    if (WLEUrl.getKind(url) === 'short') return 'short';
+
+    try {
+      if (element?.closest(this.SHORTS_CONTAINERS)) return 'short';
+
+      const tile = element?.closest(
+        'ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer'
+      );
+      if (tile?.querySelector(this.SHORTS_BADGES)) return 'short';
+    } catch (error) {
+      console.warn('WLE: could not read the video type from the page:', error);
+    }
+
+    return 'video';
+  },
+
+  /**
+   * The authoritative answer: /shorts/<id> stays put for a Short and redirects
+   * to /watch for anything else. Same origin, so the final URL is readable.
+   * @returns {Promise<'short'|'video'|null>} null when there is no usable answer
+   */
+  async verify(videoId) {
+    try {
+      const response = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+        method: 'HEAD',
+        redirect: 'follow'
+      });
+
+      if (!response.ok || !response.url) return null;
+      if (response.url.includes('/shorts/')) return 'short';
+      if (response.url.includes('/watch')) return 'video';
+      return null;
+    } catch (error) {
+      console.warn('WLE: could not confirm the video type:', error);
+      return null;
+    }
+  }
+};
+
+/**
+ * Saving must not wait on the network, so the guess is stored immediately and
+ * put right afterwards if YouTube disagrees. Only a guess of 'video' is worth
+ * checking: a /shorts/ URL and a shorts tile are not wrong about being Shorts.
+ */
+async function confirmKindLater(normalizedUrl, assumedKind) {
+  if (assumedKind === 'short') return;
+
+  const videoId = WLEUrl.extractVideoId(normalizedUrl);
+  if (!videoId) return;
+
+  const confirmed = await KindDetector.verify(videoId);
+  if (!confirmed || confirmed === assumedKind) return;
+
+  return StorageQueue.enqueue(async () => {
+    const data = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
+    const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
+    const entry = savedVideos.find((v) => v && v.url === normalizedUrl);
+
+    if (!entry || entry.kind === confirmed) return;
+
+    entry.kind = confirmed;
+    await storageSet({
+      savedVideos,
+      [CONFIG.REV_KEY]: (data[CONFIG.REV_KEY] || 0) + 1
+    });
+    console.info('WLE: saved type corrected to', confirmed, 'for', normalizedUrl);
+  });
+}
+
+// ============================================
 // VIDEO SAVING LOGIC (Centralized)
 // ============================================
 /**
@@ -92,7 +188,7 @@ async function saveVideoToWLE(url, title, kind) {
     return;
   }
 
-  return StorageQueue.enqueue(async () => {
+  const storedKind = await StorageQueue.enqueue(async () => {
     for (let attempt = 0; attempt < CONFIG.WRITE_ATTEMPTS; attempt++) {
       try {
         const data = await storageGet({
@@ -105,11 +201,6 @@ async function saveVideoToWLE(url, title, kind) {
         const rev = data[CONFIG.REV_KEY] || 0;
         const isSoundEnabled = data.soundEnabled ?? true;
 
-        if (savedVideos.some((v) => v && v.url === normalizedUrl)) {
-          showHud('Already saved!');
-          return;
-        }
-
         const latest = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
         if (
           JSON.stringify(latest.savedVideos || []) !== snap ||
@@ -119,10 +210,29 @@ async function saveVideoToWLE(url, title, kind) {
           continue;
         }
 
+        // Saving something already on the list is how a wrong type gets put
+        // right, so it updates the record rather than just refusing. Only
+        // upwards though: 'video' is a weak guess — the same Short opened from
+        // /watch looks exactly like a video — and must not overwrite 'short'.
+        const existing = savedVideos.find((v) => v && v.url === normalizedUrl);
+        if (existing) {
+          if (kind === 'short' && existing.kind !== 'short') {
+            existing.kind = 'short';
+            await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
+            showHud('Already saved — now marked as a Reel');
+          } else {
+            showHud('Already saved!');
+          }
+
+          return existing.kind;
+        }
+
+        const settledKind = kind === 'short' ? 'short' : 'video';
+
         savedVideos.push({
           url: normalizedUrl,
           title: title || 'Untitled Video',
-          kind: kind === 'short' ? 'short' : 'video',
+          kind: settledKind,
           tags: [],
           watched: false,
           watchedAt: null,
@@ -136,7 +246,8 @@ async function saveVideoToWLE(url, title, kind) {
 
         AudioManager.play(isSoundEnabled);
         showHud(title);
-        return;
+        return settledKind;
+
       } catch (error) {
         console.error('Storage write error:', error);
         if (attempt === CONFIG.WRITE_ATTEMPTS - 1) {
@@ -148,6 +259,10 @@ async function saveVideoToWLE(url, title, kind) {
     }
     showHud('Failed to save');
   });
+
+  // Off the critical path: the save has already landed, this only puts the
+  // label right if YouTube says the guess was wrong.
+  if (storedKind) confirmKindLater(normalizedUrl, storedKind);
 }
 
 // ============================================
@@ -181,6 +296,7 @@ const TitleExtractor = {
   SHORTS_TITLE_SELECTORS: [
     'h1.ytShortsVideoTitleViewModelShortsVideoTitle',
     'yt-shorts-video-title-view-model h1',
+    '.shortsLockupViewModelHostMetadataTitle',
     'ytd-reel-player-header-renderer h2 #video-title',
     'ytd-reel-player-header-renderer #video-title',
     'h2.ytd-reel-player-header-renderer'
@@ -253,7 +369,7 @@ const TitleExtractor = {
     try {
       // Navigate up to the video renderer container
       const container = videoLink.closest(
-        'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-reel-item-renderer, ytd-shorts, ytd-reel-video-renderer'
+        'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-reel-item-renderer, ytd-shorts, ytd-reel-video-renderer, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2'
       );
       if (!container) return null;
 
@@ -378,7 +494,7 @@ document.addEventListener('click', async (event) => {
     }
 
     const title = await TitleExtractor.resolveTitle(normalizedUrl, videoLink);
-    await saveVideoToWLE(normalizedUrl, title, WLEUrl.getKind(url));
+    await saveVideoToWLE(normalizedUrl, title, KindDetector.fromContext(url, videoLink));
     return;
   }
 
@@ -396,7 +512,7 @@ document.addEventListener('click', async (event) => {
     }
 
     const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
-    await saveVideoToWLE(normalizedUrl, title, WLEUrl.getKind(window.location.href));
+    await saveVideoToWLE(normalizedUrl, title, KindDetector.fromContext(window.location.href, videoPlayer));
   }
 }, true); // Capture phase to intercept before YouTube handlers
 
@@ -442,7 +558,7 @@ const ButtonInjector = {
       }
 
       const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
-      await saveVideoToWLE(normalizedUrl, title, WLEUrl.getKind(window.location.href));
+      await saveVideoToWLE(normalizedUrl, title, KindDetector.fromContext(window.location.href, null));
     });
   },
 
