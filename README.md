@@ -83,7 +83,7 @@ This project is built entirely in **Vanilla JavaScript**, ensuring zero-dependen
 .
 ├── icons/              # Required extension icons (48px, 128px)
 ├── imgs/               # Promotional assets, high-res logos, and store banners
-├── sounds/             # Audio feedback assets (success.wav, click.wav)
+├── sounds/             # Audio feedback assets (success.wav, click.mp3)
 ├── .gitattributes      # Git configuration
 ├── content.css         # UI layer: Glassmorphism HUD and animations
 ├── content.js          # Core logic: Event delegation, API fetch, DOM parsing

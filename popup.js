@@ -50,7 +50,7 @@ const AudioManager = {
 
   init() {
     if (!this.clickAudio) {
-      this.clickAudio = new Audio('sounds/click.wav');
+      this.clickAudio = new Audio('sounds/click.mp3');
       this.clickAudio.volume = CONFIG.AUDIO_VOLUME;
     }
     return this.clickAudio;
