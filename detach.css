@@ -116,8 +116,37 @@ body.wle-pip-body {
 }
 
 .wle-pip-bar.idle .wle-pip-title,
+.wle-pip-bar.idle .wle-pip-pinned,
 .wle-pip-bar.idle .wle-pip-back {
   opacity: 0;
+}
+
+/* This window floats above the others by its nature — there is nothing to
+   switch, only something to say. A chip, not a button, so it does not promise
+   an action it cannot perform. */
+.wle-pip-pinned {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: default;
+  user-select: none;
+  transition: opacity 0.25s ease;
+}
+
+.wle-pip-pinned .wle-pip-icon {
+  width: 13px;
+  height: 13px;
 }
 
 .wle-pip-bar.idle .wle-pip-close {

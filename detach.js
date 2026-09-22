@@ -32,6 +32,26 @@
     enabled: true
   };
 
+  // The service worker acts on the mini player's own browser window; content
+  // scripts cannot reach chrome.windows themselves.
+  const WINDOW_MESSAGES = {
+    HIDE: 'wle-mini-window-hide',
+    SHOW: 'wle-mini-window-show'
+  };
+
+  /**
+   * Ask the service worker to minimize or restore the window this page is in.
+   * Best effort: an older browser, a torn-down worker or a window the user
+   * already closed must not break pinning.
+   */
+  function askWindow(type) {
+    try {
+      chrome.runtime.sendMessage({ type }, () => void chrome.runtime.lastError);
+    } catch (error) {
+      console.info('WLE: could not reach the background worker —', error?.message);
+    }
+  }
+
   // ============================================
   // CAPABILITY DETECTION
   // Document PiP (Chrome 116+) is the real thing: an independent OS window.
@@ -348,6 +368,20 @@
       const actions = doc.createElement('div');
       actions.className = 'wle-pip-actions';
 
+      // This window already floats above everything — that is what a document
+      // picture-in-picture window is. Saying so is the point: without it the
+      // window opened from the popup looks like the only one that can pin,
+      // and this one looks like it is missing the feature.
+      const pinState = doc.createElement('span');
+      pinState.className = 'wle-pip-pinned';
+      pinState.appendChild(createIcon(doc, ICONS.pin));
+      const pinText = doc.createElement('span');
+      pinText.className = 'wle-pip-pinned-text';
+      pinText.textContent = 'Pinned';
+      pinState.appendChild(pinText);
+      pinState.title = 'This player stays above your other windows';
+      pinState.setAttribute('role', 'status');
+
       const backBtn = doc.createElement('button');
       backBtn.type = 'button';
       backBtn.className = 'wle-pip-btn wle-pip-back';
@@ -367,7 +401,7 @@
       closeBtn.appendChild(createIcon(doc, ICONS.close));
       closeBtn.addEventListener('click', () => this.close());
 
-      actions.append(backBtn, closeBtn);
+      actions.append(pinState, backBtn, closeBtn);
       bar.append(title, actions);
 
       return bar;
@@ -716,9 +750,11 @@
   const MiniWindow = {
     wanted: false,
     active: false,
+    pinned: false,
     stage: null,
     bar: null,
     pinBtn: null,
+    titleEl: null,
     note: null,
     interval: null,
     timeout: null,
@@ -809,6 +845,13 @@
       const bar = document.createElement('div');
       bar.className = 'wle-mini-bar';
 
+      // The same line the floating player carries, so the two windows read as
+      // one feature rather than two.
+      const title = document.createElement('span');
+      title.className = 'wle-mini-title';
+      title.textContent = DetachedPlayer.currentTitle();
+      title.title = title.textContent;
+
       const pinBtn = document.createElement('button');
       pinBtn.type = 'button';
       pinBtn.className = 'wle-mini-pin';
@@ -832,22 +875,41 @@
       note.textContent = 'Playing in the pinned player';
       note.hidden = true;
 
-      bar.appendChild(pinBtn);
+      bar.append(title, pinBtn);
       document.body.append(bar, note);
 
       this.bar = bar;
       this.pinBtn = pinBtn;
+      this.titleEl = title;
       this.note = note;
+    },
+
+    /** The stage goes up before YouTube has finished writing the metadata. */
+    refreshTitle() {
+      if (!this.titleEl) return;
+      const title = DetachedPlayer.currentTitle();
+      if (!title) return;
+      this.titleEl.textContent = title;
+      this.titleEl.title = title;
     },
 
     /**
      * While pinned the player lives in the floating window, so this one would
      * otherwise be a black rectangle with no explanation.
+     *
+     * It cannot simply be closed: a document picture-in-picture window belongs
+     * to the document that opened it, so closing this one would take the
+     * floating player down with it. Minimizing is as far out of the way as it
+     * can get, and it comes back the moment the video does.
      */
     setPinned(pinned) {
-      if (!this.active) return;
-      if (this.bar) this.bar.hidden = Boolean(pinned);
-      if (this.note) this.note.hidden = !pinned;
+      if (!this.active || this.pinned === Boolean(pinned)) return;
+      this.pinned = Boolean(pinned);
+
+      if (this.bar) this.bar.hidden = this.pinned;
+      if (this.note) this.note.hidden = !this.pinned;
+
+      askWindow(this.pinned ? WINDOW_MESSAGES.HIDE : WINDOW_MESSAGES.SHOW);
     },
 
     /**
@@ -908,12 +970,14 @@
       const stage = this.stage;
       this.stage = null;
       this.active = false;
+      this.pinned = false;
       document.documentElement.classList.remove('wle-mini-window');
 
       this.bar?.remove();
       this.note?.remove();
       this.bar = null;
       this.pinBtn = null;
+      this.titleEl = null;
       this.note = null;
 
       if (!stage) return;
@@ -970,6 +1034,7 @@
     DetachButton.start();
     MiniWindow.start();
     MiniWindow.reclaim();
+    MiniWindow.refreshTitle();
   }
 
   function applyEnabledState() {

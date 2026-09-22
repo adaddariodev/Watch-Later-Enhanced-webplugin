@@ -20,8 +20,15 @@ this for you automatically. Opening the mini player from a video page, with
 `Alt + Shift + D` or the button in YouTube's control bar, has always given you
 the floating kind directly.
 
-While the video is pinned, the window it came from says so rather than sitting
-there black, and closing the pinned player hands the video straight back to it.
+While the video is pinned, the window it came from **gets out of the way**: it
+minimizes itself, so only the floating player is on screen, and comes back the
+moment you close it. It cannot simply close — a floating player belongs to the
+window that opened it, and would go down with it.
+
+The floating player opened from a video page now **says it is pinned**, with a
+badge beside its title. It always floated above other windows; nothing said so,
+which made it look like the one feature the video-page button was missing. Both
+windows now carry the video's title, so the two ways in look like one feature.
 
 ### 📺 The channel, next to the title
 

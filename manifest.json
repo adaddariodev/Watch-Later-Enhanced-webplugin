@@ -16,6 +16,10 @@
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self'; font-src 'self';"
   },
   
+  "background": {
+    "service_worker": "background.js"
+  },
+
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icons/128px.png",

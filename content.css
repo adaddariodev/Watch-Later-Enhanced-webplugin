@@ -173,11 +173,34 @@ html.wle-mini-window body {
    ========================================= */
 .wle-mini-bar {
   position: fixed;
-  top: 10px;
-  right: 10px;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 2147483001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
   opacity: 0.35;
   transition: opacity 0.18s ease;
+  /* The bar is only a place to put things; clicks pass through to the player
+     underneath except where a control actually sits. */
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+}
+
+/* The same line the floating player shows, so the two windows read alike. */
+.wle-mini-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #fff;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .wle-mini-bar:hover,
@@ -187,6 +210,8 @@ html.wle-mini-window:hover .wle-mini-bar {
 }
 
 .wle-mini-pin {
+  pointer-events: auto;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
