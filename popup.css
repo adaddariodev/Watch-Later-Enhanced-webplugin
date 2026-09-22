@@ -170,13 +170,16 @@ h1 {
   display: none;
 }
 
+/* The spare width goes to the copy's left, not the arrow's, so the sentence
+   sits beside the chevron it points at rather than trailing the JobsMatch
+   mark across an empty strip. */
 .jm-banner::after {
   content: "›";
-  margin-left: auto;
   color: var(--jm-dark);
   font-size: 16px;
   line-height: 1;
   opacity: 0.9;
+  flex-shrink: 0;
 }
 
 .jm-mark {
@@ -204,11 +207,14 @@ h1 {
 }
 
 .jm-copy {
+  margin-left: auto;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Still allowed to shrink and clip when the popup cannot fit the sentence,
+     which auto margins alone would not permit. */
   min-width: 0;
 }
 
