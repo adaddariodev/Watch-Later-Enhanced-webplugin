@@ -617,11 +617,13 @@ const VideoItemFactory = {
     if (editable) {
       const tagRow = this.createTagRow(video, li, tagAddBtn);
       li.appendChild(tagRow);
-    } else if (Array.isArray(video.tags) && video.tags.length) {
-      // Read-only tags in the trash view
+    } else {
+      // Trash: the kind still shows, the tags are read-only
       const tagRow = document.createElement('div');
       tagRow.className = 'tag-row';
-      video.tags.forEach((tag) => tagRow.appendChild(this.createReadonlyPill(tag)));
+      tagRow.appendChild(this.createKindPill(video.kind));
+      (Array.isArray(video.tags) ? video.tags : [])
+        .forEach((tag) => tagRow.appendChild(this.createReadonlyPill(tag)));
       li.appendChild(tagRow);
     }
 
@@ -644,7 +646,7 @@ const VideoItemFactory = {
       left.appendChild(this.createDragHandle());
     }
 
-    left.appendChild(this.createTitle(video.title, video.kind));
+    left.appendChild(this.createTitle(video.title));
 
     const { actions, tagAddBtn } = this.createActions(index, mode, video);
     row.append(left, actions);
@@ -662,19 +664,24 @@ const VideoItemFactory = {
     return handle;
   },
 
-  createTitle(title, kind) {
+  createTitle(title) {
     const titleEl = document.createElement('span');
     titleEl.className = 'video-title';
-
-    const label = CONFIG.KINDS[kind] || CONFIG.KINDS.video;
-    const pill = document.createElement('span');
-    pill.className = `kind-pill kind-pill-${kind === 'short' ? 'short' : 'video'}`;
-    pill.textContent = label;
-
-    // The space is not decoration: without it a screen reader runs the label
-    // into the title ("ShortsOnly OGs Remember…").
-    titleEl.append(pill, document.createTextNode(` ${title}`));
+    titleEl.textContent = title;
     return titleEl;
+  },
+
+  /**
+   * The Video/Shorts label. It lives under the title, in the tag row, so it
+   * never eats into the two lines the title gets.
+   */
+  createKindPill(kind) {
+    const type = kind === 'short' ? 'short' : 'video';
+    const pill = document.createElement('span');
+    pill.className = `kind-pill kind-pill-${type}`;
+    pill.textContent = CONFIG.KINDS[type];
+    pill.title = type === 'short' ? 'Saved from YouTube Shorts' : 'Saved from a YouTube video';
+    return pill;
   },
 
   makeIconButton(className, iconSrc, title) {
@@ -732,6 +739,9 @@ const VideoItemFactory = {
   createTagRow(video, li, tagAddBtn) {
     const tagRow = document.createElement('div');
     tagRow.className = 'tag-row';
+
+    // First in the row, so it reads as the row's subject rather than as a tag.
+    tagRow.appendChild(this.createKindPill(video.kind));
 
     const tags = Array.isArray(video.tags) ? video.tags : [];
 

@@ -319,32 +319,40 @@ li.video-item:hover {
 
 /* =========================================
    KIND PILL — what was saved, at a glance
-   Sits inside the title's line box so it wraps with the text instead of
-   stealing a row of its own.
+   It sits under the title, first in the tag row, so the title keeps both of
+   its lines to itself. Squarer and smaller than a tag pill on purpose: the
+   shape says "this is not a tag you can remove".
    ========================================= */
 .kind-pill {
-  display: inline-block;
-  vertical-align: 1px;
-  margin-right: 2px; /* the space after it does the rest */
-  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px 7px;
   border-radius: 6px;
+  border: 1px solid transparent;
   font-size: 9.5px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.5;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
+  cursor: default;
+  user-select: none;
 }
 
-/* The common case stays quiet; the exception is the one worth noticing. */
-.kind-pill-video {
-  background: rgba(255, 255, 255, 0.07);
-  color: #9e9e9e;
-}
-
+/* Warm for Shorts, cool for videos: the pair differs in hue as well as in
+   wording, so the two never rely on colour alone. Both clear 6:1 on the card
+   and on its hover shade. */
 .kind-pill-short {
-  background: rgba(255, 90, 80, 0.18);
-  color: #ff9a90;
+  background: rgba(255, 70, 85, 0.16);
+  border-color: rgba(255, 70, 85, 0.34);
+  color: #ff9aa2;
+}
+
+.kind-pill-video {
+  background: rgba(143, 166, 196, 0.14);
+  border-color: rgba(143, 166, 196, 0.26);
+  color: #aebaca;
 }
 
 .video-title {
