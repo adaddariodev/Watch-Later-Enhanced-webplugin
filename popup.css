@@ -432,11 +432,22 @@ li.video-item:hover .video-actions .icon-btn {
   opacity: 1;
 }
 
+/* Two rows under the title: what the video is, then what you called it.
+   Keeping them apart stops a long channel name and a pile of tags from
+   fighting over the same line. */
+.meta-row,
 .tag-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+/* A tag row with no tags holds only the closed editor. Out of the layout
+   entirely, or the card's row gap would leave a strip of nothing on every
+   untagged video. */
+.tag-row.is-empty {
+  display: none;
 }
 
 .tag-pill {

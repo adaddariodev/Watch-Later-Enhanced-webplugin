@@ -633,17 +633,16 @@ const VideoItemFactory = {
     const { row, tagAddBtn } = this.createVideoRow(video, index, mode, canDrag);
     li.appendChild(row);
 
+    // What the video is, then what you called it: one row each, so a long
+    // channel name and a pile of tags never share a line.
+    li.appendChild(this.createMetaRow(video));
+
     if (editable) {
-      const tagRow = this.createTagRow(video, li, tagAddBtn);
-      li.appendChild(tagRow);
-    } else {
-      // Trash: the kind still shows, the tags are read-only
+      li.appendChild(this.createTagRow(video, li, tagAddBtn));
+    } else if (Array.isArray(video.tags) && video.tags.length) {
       const tagRow = document.createElement('div');
       tagRow.className = 'tag-row';
-      tagRow.appendChild(this.createKindPill(video.kind));
-      if (video.channel) tagRow.appendChild(this.createChannelPill(video.channel));
-      (Array.isArray(video.tags) ? video.tags : [])
-        .forEach((tag) => tagRow.appendChild(this.createReadonlyPill(tag)));
+      video.tags.forEach((tag) => tagRow.appendChild(this.createReadonlyPill(tag)));
       li.appendChild(tagRow);
     }
 
@@ -775,13 +774,18 @@ const VideoItemFactory = {
     return { actions, tagAddBtn };
   },
 
+  /** What YouTube says about the video: its type, and who published it. */
+  createMetaRow(video) {
+    const row = document.createElement('div');
+    row.className = 'meta-row';
+    row.appendChild(this.createKindPill(video.kind));
+    if (video.channel) row.appendChild(this.createChannelPill(video.channel));
+    return row;
+  },
+
   createTagRow(video, li, tagAddBtn) {
     const tagRow = document.createElement('div');
     tagRow.className = 'tag-row';
-
-    // First in the row, so they read as the row's subject rather than as tags.
-    tagRow.appendChild(this.createKindPill(video.kind));
-    if (video.channel) tagRow.appendChild(this.createChannelPill(video.channel));
 
     const tags = Array.isArray(video.tags) ? video.tags : [];
 
@@ -792,6 +796,11 @@ const VideoItemFactory = {
 
     const tagEditor = this.createTagInput(li, tagAddBtn, video);
     tagRow.appendChild(tagEditor);
+
+    // With no tags the row holds only the closed editor. Left in the layout it
+    // would still take the card's row gap, so every untagged video would carry
+    // a strip of nothing. The editor opening puts it back.
+    if (!tags.length) tagRow.classList.add('is-empty');
 
     return tagRow;
   },
@@ -909,8 +918,14 @@ const VideoItemFactory = {
     let tagUniverse = [];
     const existingLower = () => new Set((video.tags || []).map((t) => t.name.toLowerCase()));
 
+    const row = () => wrap.closest('.tag-row');
+
     const closeEditor = () => {
       wrap.style.display = 'none';
+      // Back out of the layout if nothing was added, so the card does not keep
+      // a blank strip where the editor was.
+      const tagRow = row();
+      if (tagRow && !tagRow.querySelector('.tag-pill')) tagRow.classList.add('is-empty');
       tagInput.value = '';
       suggestions.hidden = true;
       suggestions.textContent = '';
@@ -918,6 +933,7 @@ const VideoItemFactory = {
 
     const openEditor = async () => {
       wrap.style.display = 'inline-flex';
+      row()?.classList.remove('is-empty');
       tagInput.value = '';
       suggestions.hidden = true;
       suggestions.textContent = '';

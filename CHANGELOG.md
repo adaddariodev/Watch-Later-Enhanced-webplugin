@@ -29,6 +29,10 @@ Every saved item now shows **who published it**, on the line under its title
 beside the Video / Shorts label. Long channel names are shortened with the full
 one on hover.
 
+Your own tags have moved to a line of their own underneath, so what YouTube
+says about a video and what you called it no longer compete for the same row.
+Videos with no tags take up no more space than before.
+
 Items you saved before this version get their channel filled in quietly in the
 background while you browse YouTube — the same way older items got their type
 in 2.7.0. Nothing to click, no re-saving.

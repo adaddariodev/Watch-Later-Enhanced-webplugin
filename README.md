@@ -72,7 +72,8 @@ it was, still playing.
 
 ### Know what you saved
 
-A **Video** or **Shorts** label and the **channel name** sit under every title.
+A **Video** or **Shorts** label and the **channel name** sit on one line under
+every title, with your own tags on a line of their own below them.
 Because YouTube serves the same Short behind both `/shorts/` and `/watch`
 links, the type is worked out from the URL, then from the page around the
 thumbnail, and finally — when neither settles it — by asking YouTube in the
