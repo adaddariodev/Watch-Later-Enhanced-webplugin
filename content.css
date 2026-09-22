@@ -182,11 +182,13 @@ html.wle-mini-window body {
   gap: 8px;
   padding: 10px;
   opacity: 0.35;
-  transition: opacity 0.18s ease;
+  transition: opacity 0.18s ease, background 0.25s ease;
   /* The bar is only a place to put things; clicks pass through to the player
      underneath except where a control actually sits. */
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+  /* Transparent at rest, like the floating player's own bar: a permanent dark
+     strip across the top of the video is exactly what that one avoids. */
+  background: transparent;
 }
 
 /* The same line the floating player shows, so the two windows read alike. */
@@ -207,6 +209,7 @@ html.wle-mini-window body {
 .wle-mini-bar:focus-within,
 html.wle-mini-window:hover .wle-mini-bar {
   opacity: 1;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
 }
 
 .wle-mini-pin {

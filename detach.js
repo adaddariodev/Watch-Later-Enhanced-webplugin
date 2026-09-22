@@ -34,19 +34,32 @@
 
   // The service worker acts on the mini player's own browser window; content
   // scripts cannot reach chrome.windows themselves.
+  // Kept in step with the same pair in background.js — a content script and a
+  // service worker share no module, so the strings are written twice.
   const WINDOW_MESSAGES = {
     HIDE: 'wle-mini-window-hide',
     SHOW: 'wle-mini-window-show'
   };
 
+  // Set once the page is on its way out, so teardown does not ask the worker
+  // to restore a window that is already closing.
+  let pageClosing = false;
+
   /**
    * Ask the service worker to minimize or restore the window this page is in.
    * Best effort: an older browser, a torn-down worker or a window the user
    * already closed must not break pinning.
+   *
+   * @param {boolean} focus whether restoring should also raise the window.
+   *   Only true when the user asked for the video back — a player that closes
+   *   itself (autoplay moving on, the feature switched off) must not yank the
+   *   user out of whatever they were doing.
    */
-  function askWindow(type) {
+  function askWindow(type, { focus = false } = {}) {
+    if (pageClosing) return;
+
     try {
-      chrome.runtime.sendMessage({ type }, () => void chrome.runtime.lastError);
+      chrome.runtime.sendMessage({ type, focus }, () => void chrome.runtime.lastError);
     } catch (error) {
       console.info('WLE: could not reach the background worker —', error?.message);
     }
@@ -248,7 +261,7 @@
 
     async toggle() {
       if (this.pipWindow) {
-        this.close();
+        this.close({ focus: true });
         return;
       }
 
@@ -380,7 +393,6 @@
       pinText.textContent = 'Pinned';
       pinState.appendChild(pinText);
       pinState.title = 'This player stays above your other windows';
-      pinState.setAttribute('role', 'status');
 
       const backBtn = doc.createElement('button');
       backBtn.type = 'button';
@@ -390,7 +402,7 @@
       backBtn.appendChild(createIcon(doc, ICONS.backToTab));
       backBtn.addEventListener('click', () => {
         try { window.focus(); } catch { /* focus may be refused */ }
-        this.close();
+        this.close({ focus: true });
       });
 
       const closeBtn = doc.createElement('button');
@@ -399,7 +411,7 @@
       closeBtn.title = 'Close mini player (Esc)';
       closeBtn.setAttribute('aria-label', 'Close mini player');
       closeBtn.appendChild(createIcon(doc, ICONS.close));
-      closeBtn.addEventListener('click', () => this.close());
+      closeBtn.addEventListener('click', () => this.close({ focus: true }));
 
       actions.append(pinState, backBtn, closeBtn);
       bar.append(title, actions);
@@ -437,7 +449,7 @@
       button.type = 'button';
       button.className = 'wle-detach-placeholder-btn';
       button.textContent = 'Bring the video back';
-      button.addEventListener('click', () => this.close());
+      button.addEventListener('click', () => this.close({ focus: true }));
 
       box.append(text, button);
       return box;
@@ -465,7 +477,7 @@
 
       if (key === 'Escape') {
         event.preventDefault();
-        this.close();
+        this.close({ focus: true });
         return;
       }
 
@@ -578,24 +590,31 @@
       return 'YouTube Video';
     },
 
-    /** Closed from the mini player's own window controls. */
+    /**
+     * Closed from the mini player's own window controls — a person asking for
+     * the video back, so the window it came from is raised with it.
+     */
     handleWindowClosed() {
       const pipWindow = this.pipWindow;
       if (!pipWindow) return;
 
       this.persistSize(pipWindow);
       this.pipWindow = null;
-      this.restore();
+      this.restore({ focus: true });
     },
 
-    /** Closed from the page (button, shortcut, navigation). */
-    close() {
+    /**
+     * Closed from the page (button, shortcut, navigation).
+     * @param {boolean} [focus] true when a person asked for it, false when the
+     *   player closed itself — see askWindow().
+     */
+    close({ focus = false } = {}) {
       const pipWindow = this.pipWindow;
       if (!pipWindow) return;
 
       this.persistSize(pipWindow);
       this.pipWindow = null;
-      this.restore();
+      this.restore({ focus });
 
       try {
         pipWindow.close();
@@ -605,8 +624,8 @@
     },
 
     /** Put the player back where it came from. Safe to call twice. */
-    restore() {
-      MiniWindow.setPinned(false);
+    restore({ focus = false } = {}) {
+      MiniWindow.setPinned(false, { focus });
 
       const player = this.player;
       const placeholder = this.placeholder;
@@ -755,6 +774,7 @@
     bar: null,
     pinBtn: null,
     titleEl: null,
+    titleTimer: null,
     note: null,
     interval: null,
     timeout: null,
@@ -849,8 +869,6 @@
       // one feature rather than two.
       const title = document.createElement('span');
       title.className = 'wle-mini-title';
-      title.textContent = DetachedPlayer.currentTitle();
-      title.title = title.textContent;
 
       const pinBtn = document.createElement('button');
       pinBtn.type = 'button';
@@ -882,15 +900,29 @@
       this.pinBtn = pinBtn;
       this.titleEl = title;
       this.note = note;
+      this.refreshTitle();
     },
 
-    /** The stage goes up before YouTube has finished writing the metadata. */
-    refreshTitle() {
+    /**
+     * The stage goes up as soon as the player element exists, which on a real
+     * watch page is well before YouTube has written the metadata — so the
+     * first read can come back empty. yt-navigate-finish calls this again,
+     * and these retries cover the case where even that lands too early.
+     */
+    refreshTitle(retries = 4) {
       if (!this.titleEl) return;
+
       const title = DetachedPlayer.currentTitle();
-      if (!title) return;
-      this.titleEl.textContent = title;
-      this.titleEl.title = title;
+      if (title && title !== 'YouTube Video') {
+        this.titleEl.textContent = title;
+        this.titleEl.title = title;
+        return;
+      }
+
+      if (retries > 0) {
+        clearTimeout(this.titleTimer);
+        this.titleTimer = setTimeout(() => this.refreshTitle(retries - 1), 400);
+      }
     },
 
     /**
@@ -902,14 +934,14 @@
      * floating player down with it. Minimizing is as far out of the way as it
      * can get, and it comes back the moment the video does.
      */
-    setPinned(pinned) {
+    setPinned(pinned, { focus = false } = {}) {
       if (!this.active || this.pinned === Boolean(pinned)) return;
       this.pinned = Boolean(pinned);
 
       if (this.bar) this.bar.hidden = this.pinned;
       if (this.note) this.note.hidden = !this.pinned;
 
-      askWindow(this.pinned ? WINDOW_MESSAGES.HIDE : WINDOW_MESSAGES.SHOW);
+      askWindow(this.pinned ? WINDOW_MESSAGES.HIDE : WINDOW_MESSAGES.SHOW, { focus });
     },
 
     /**
@@ -966,6 +998,7 @@
     teardown() {
       this.stop();
       clearTimeout(this.sizeTimer);
+      clearTimeout(this.titleTimer);
 
       const stage = this.stage;
       this.stage = null;
@@ -978,6 +1011,7 @@
       this.bar = null;
       this.pinBtn = null;
       this.titleEl = null;
+      this.titleTimer = null;
       this.note = null;
 
       if (!stage) return;
@@ -1081,7 +1115,10 @@
 
     document.addEventListener('yt-navigate-finish', onPageReady);
 
-    window.addEventListener('pagehide', () => DetachedPlayer.close());
+    window.addEventListener('pagehide', () => {
+      pageClosing = true;
+      DetachedPlayer.close();
+    });
 
     onPageReady();
   }

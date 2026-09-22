@@ -2200,13 +2200,9 @@ if (document.readyState === 'loading') {
 
 // pagehide, not unload: a popup dismissed with Esc or by clicking away can be
 // torn down without unload firing, which would drop a mixer change still
-// waiting to be written.
+// waiting to be written. pagehide covers every case unload does, so it is the
+// only listener here.
 window.addEventListener('pagehide', () => {
-  AudioMix.flush();
-  AudioManager.cleanup();
-});
-
-window.addEventListener('unload', () => {
   AudioMix.flush();
   AudioManager.cleanup();
 });
