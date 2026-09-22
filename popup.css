@@ -783,6 +783,20 @@ li.video-item:hover .video-actions .icon-btn {
   flex-shrink: 0;
 }
 
+/* Inside the one group, a quiet rule between the settings it holds. */
+.settings-subhead {
+  margin: 14px 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.settings-subhead:first-of-type {
+  margin-top: 4px;
+}
+
 /* What the section holds, so a closed one still says something. */
 .settings-group-note {
   font-size: 11.5px;

@@ -1619,23 +1619,27 @@ function setupMixer() {
 }
 
 /**
- * What a closed section holds, so it still says something when shut.
+ * What is switched off in there, so shutting the section hides controls
+ * rather than information. Everything at its default says nothing at all —
+ * a header reading "on, on, shown" is noise.
  */
 function updateGroupNotes() {
-  const note = (id, text) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
-  };
+  const el = document.getElementById('prefs-group-summary');
+  if (!el) return;
+
+  const changed = [];
 
   if (!AppState.soundEnabled) {
-    note('audio-group-summary', 'All muted');
+    changed.push('muted');
   } else {
     const off = Object.keys(CONFIG.AUDIO_DEFAULTS).filter((n) => !AudioMix.get(n).enabled);
-    note('audio-group-summary', off.length ? `${off.length} muted` : 'On');
+    if (off.length) changed.push(`${off.join(' & ')} muted`);
   }
 
-  note('mini-player-group-summary', AppState.detachEnabled ? 'On' : 'Off');
-  note('banner-group-summary', AppState.hideJobsMatchBanner ? 'Hidden' : 'Shown');
+  if (!AppState.detachEnabled) changed.push('mini player off');
+  if (AppState.supporter && AppState.hideJobsMatchBanner) changed.push('banner hidden');
+
+  el.textContent = changed.join(' · ');
 }
 
 // ============================================

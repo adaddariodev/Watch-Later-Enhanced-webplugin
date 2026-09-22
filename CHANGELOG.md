@@ -46,10 +46,11 @@ everything off with **All sounds**. Muting remembers the level you had.
 
 ### 🗂 Settings that fold away
 
-The settings panel was a long scroll. **Sound**, **Mini player** and
-**JobsMatch banner** are now sections that open on click and stay shut
-otherwise, each showing its current state on the closed header. The user guide
-and the supporter code stay where they were, in plain sight.
+The settings panel was a long scroll. Sound, the mixer, the mini player and
+the JobsMatch banner now sit together under one **Preferences** section that
+opens on click and stays shut otherwise. Its closed header names anything you
+have switched off, so folding it away hides controls rather than information.
+The user guide and the supporter code stay where they were, in plain sight.
 
 ### 🎨 Calmer labels
 
