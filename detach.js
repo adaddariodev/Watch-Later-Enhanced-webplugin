@@ -129,8 +129,14 @@
     return svg;
   }
 
+  // The pair reads as one idea: the same window, with the arrow leaving it on
+  // the control bar's pop-out button and coming back into it here.
   const ICONS = {
-    backToTab: ['M9 14 4 9l5-5', 'M20 20v-7a4 4 0 0 0-4-4H4'],
+    backToTab: [
+      'M20 10h-6V4',
+      'M21 3l-7 7',
+      'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'
+    ],
     close: ['M18 6 6 18', 'M6 6l12 12']
   };
 

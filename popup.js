@@ -670,7 +670,13 @@ const VideoItemFactory = {
 
     // active / archive
     if (AppState.detachEnabled) {
-      const miniBtn = this.makeIconButton('mini-player-btn', 'icons/buttons/detach.svg', 'Play in the mini player');
+      // A screen with a play symbol: here the action is "start playing it in a
+      // small window", not "pop out what is already playing".
+      const miniBtn = this.makeIconButton(
+        'mini-player-btn',
+        'icons/buttons/mini-player.svg',
+        'Play in a mini player window'
+      );
       actions.appendChild(miniBtn);
     }
 
