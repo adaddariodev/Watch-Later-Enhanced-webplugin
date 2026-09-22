@@ -18,7 +18,14 @@ const CONFIG = {
     HIDE_JM_BANNER: 'hideJobsMatchBanner',
     DETACH: 'detachEnabled',
     MINI_WINDOW_SIZE: 'miniWindowSize',
+    TYPE_FILTER: 'typeFilter',
     REV: 'wleRev'
+  },
+  // 'video' unless a record says otherwise: entries saved before the kind was
+  // recorded carry no type, and most of them are videos.
+  KINDS: {
+    video: 'Video',
+    short: 'Reel'
   },
   MINI_WINDOW: {
     MARKER: 'wle-mini',   // detach.js recognises the window by this hash
@@ -95,6 +102,7 @@ const DOMCache = {
   miniPlayerSwitch: null,
   wikiRow: null,
   wikiBtn: null,
+  typeFilter: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -122,6 +130,7 @@ const DOMCache = {
     this.miniPlayerSwitch = document.getElementById('toggle-mini-player');
     this.wikiRow = document.getElementById('wiki-row');
     this.wikiBtn = document.getElementById('open-wiki');
+    this.typeFilter = document.getElementById('type-filter');
   }
 };
 
@@ -132,6 +141,7 @@ const AppState = {
   soundEnabled: true,
   tagQuery: '',
   tagQueryMode: 'contains',
+  typeFilter: 'all', // 'all' | 'video' | 'short'
   draggedItemIndex: null,
   view: 'active', // 'active' | 'archive' | 'trash'
   supporter: false,
@@ -150,6 +160,11 @@ const AppState = {
 
   setView(view) {
     this.view = view;
+  },
+
+  setTypeFilter(value) {
+    this.typeFilter = value === 'video' || value === 'short' ? value : 'all';
+    chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.TYPE_FILTER]: this.typeFilter });
   }
 };
 
@@ -264,6 +279,7 @@ const Utils = {
       watched: video.watched === true,
       watchedAt: typeof video.watchedAt === 'number' ? video.watchedAt : null,
       savedAt: typeof video.savedAt === 'number' ? video.savedAt : null,
+      kind: video.kind === 'short' ? 'short' : 'video',
     };
   },
 
@@ -588,9 +604,12 @@ const VideoItemFactory = {
     li.dataset.index = String(index);
 
     const editable = mode !== 'trash';
-    const canDrag = mode === 'active' && !AppState.tagQuery;
+    // Reordering writes positions in the full list, so it only makes sense
+    // while the list on screen is the full list.
+    const isFiltered = Boolean(AppState.tagQuery) || AppState.typeFilter !== 'all';
+    const canDrag = mode === 'active' && !isFiltered;
     li.draggable = canDrag;
-    if (mode === 'active' && AppState.tagQuery) li.classList.add('drag-disabled');
+    if (mode === 'active' && isFiltered) li.classList.add('drag-disabled');
 
     const { row, tagAddBtn } = this.createVideoRow(video, index, mode, canDrag);
     li.appendChild(row);
@@ -618,11 +637,14 @@ const VideoItemFactory = {
     const left = document.createElement('div');
     left.className = 'video-left';
 
-    if (canDrag) {
+    // Shown whenever reordering is a thing in this view, even when a filter
+    // has it switched off: hiding it would shift every row sideways and leave
+    // no hint that reordering exists at all.
+    if (mode === 'active') {
       left.appendChild(this.createDragHandle());
     }
 
-    left.appendChild(this.createTitle(video.title));
+    left.appendChild(this.createTitle(video.title, video.kind));
 
     const { actions, tagAddBtn } = this.createActions(index, mode, video);
     row.append(left, actions);
@@ -633,15 +655,25 @@ const VideoItemFactory = {
   createDragHandle() {
     const handle = document.createElement('div');
     handle.className = 'drag-handle';
-    handle.title = AppState.tagQuery ? 'Clear search to reorder' : 'Hold and drag to reorder';
+    handle.title = (AppState.tagQuery || AppState.typeFilter !== 'all')
+      ? 'Clear the filters to reorder'
+      : 'Hold and drag to reorder';
     handle.appendChild(Utils.createBtnIcon('icons/buttons/menu-burger.svg', ''));
     return handle;
   },
 
-  createTitle(title) {
+  createTitle(title, kind) {
     const titleEl = document.createElement('span');
     titleEl.className = 'video-title';
-    titleEl.textContent = title;
+
+    const label = CONFIG.KINDS[kind] || CONFIG.KINDS.video;
+    const pill = document.createElement('span');
+    pill.className = `kind-pill kind-pill-${kind === 'short' ? 'short' : 'video'}`;
+    pill.textContent = label;
+
+    // The space is not decoration: without it a screen reader runs the label
+    // into the title ("ReelOnly OGs Remember…").
+    titleEl.append(pill, document.createTextNode(` ${title}`));
     return titleEl;
   },
 
@@ -1026,6 +1058,7 @@ async function displayVideos() {
     const source = AppState.view === 'archive' ? archivedVideos : activeVideos;
 
     if (source.length === 0) {
+      updateTypeCounts([]);
       if (AppState.view === 'archive') {
         showTutorial('No watched videos yet', 'Mark a video as watched (✓) to move it here.');
       } else {
@@ -1034,7 +1067,7 @@ async function displayVideos() {
       return;
     }
 
-    const filteredVideos = AppState.tagQuery
+    const taggedVideos = AppState.tagQuery
       ? source.filter((v) =>
           (v.tags || []).some((t) => {
             const n = t.name.toLowerCase();
@@ -1043,8 +1076,32 @@ async function displayVideos() {
         )
       : source;
 
-    if (filteredVideos.length === 0) {
+    // Counts are taken after the tag search, so each chip predicts exactly
+    // what selecting it would show.
+    updateTypeCounts(taggedVideos);
+
+    if (taggedVideos.length === 0) {
       showTutorial('No results', 'No videos match this tag search.');
+      return;
+    }
+
+    const filteredVideos = AppState.typeFilter === 'all'
+      ? taggedVideos
+      : taggedVideos.filter((v) => v.kind === AppState.typeFilter);
+
+    if (filteredVideos.length === 0) {
+      const label = AppState.typeFilter === 'short' ? 'reels' : 'videos';
+      showTutorial(
+        `No ${label} here`,
+        `Nothing in this list matches the <b>${label === 'reels' ? 'Reels' : 'Videos'}</b> filter.` +
+        '<button type="button" class="tutorial-reset" id="reset-type-filter">Show everything</button>'
+      );
+      document.getElementById('reset-type-filter')?.addEventListener('click', () => {
+        AudioManager.play(AppState.soundEnabled);
+        AppState.setTypeFilter('all');
+        updateTypeFilterUI();
+        displayVideos();
+      });
       return;
     }
 
@@ -1080,6 +1137,65 @@ function showTutorial(title, message, showHint = false) {
   // The keyboard/mouse "ALT + LEFT CLICK" hint only makes sense on the
   // "How to use" empty state — hide it for Archive / Trash / no-results.
   if (visualEl) visualEl.style.display = showHint ? '' : 'none';
+}
+
+// ============================================
+// TYPE FILTER (All / Videos / Reels)
+// A single-choice group, so radios rather than toggle buttons: arrow keys
+// move between the chips and only the selected one is a tab stop.
+// ============================================
+function updateTypeCounts(videos) {
+  const counts = {
+    all: videos.length,
+    video: videos.filter((v) => v.kind !== 'short').length,
+    short: videos.filter((v) => v.kind === 'short').length
+  };
+
+  Object.entries(counts).forEach(([type, n]) => {
+    const el = document.querySelector(`.type-chip-count[data-count-for-type="${type}"]`);
+    if (el) el.textContent = String(n);
+  });
+}
+
+function updateTypeFilterUI() {
+  if (!DOMCache.typeFilter) return;
+
+  DOMCache.typeFilter.querySelectorAll('.type-chip').forEach((chip) => {
+    const selected = chip.dataset.type === AppState.typeFilter;
+    chip.setAttribute('aria-checked', selected ? 'true' : 'false');
+    chip.tabIndex = selected ? 0 : -1;
+  });
+}
+
+function setupTypeFilter() {
+  const group = DOMCache.typeFilter;
+  if (!group) return;
+
+  const chips = Array.from(group.querySelectorAll('.type-chip'));
+
+  const select = (chip, { focus = false } = {}) => {
+    if (!chip || chip.dataset.type === AppState.typeFilter) return;
+    AudioManager.play(AppState.soundEnabled);
+    AppState.setTypeFilter(chip.dataset.type);
+    updateTypeFilterUI();
+    if (focus) chip.focus();
+    displayVideos();
+  };
+
+  group.addEventListener('click', (e) => {
+    const chip = e.target.closest('.type-chip');
+    if (chip) select(chip);
+  });
+
+  group.addEventListener('keydown', (e) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!step) return;
+
+    e.preventDefault();
+    const current = chips.findIndex((c) => c.dataset.type === AppState.typeFilter);
+    const next = chips[(current + step + chips.length) % chips.length];
+    select(next, { focus: true });
+  });
 }
 
 function updateTabCounts(active, archive, trash) {
@@ -1727,7 +1843,8 @@ async function init() {
       chrome.storage.local.get(
         {
           [CONFIG.STORAGE_KEYS.SOUND]: true,
-          [CONFIG.STORAGE_KEYS.DETACH]: true
+          [CONFIG.STORAGE_KEYS.DETACH]: true,
+          [CONFIG.STORAGE_KEYS.TYPE_FILTER]: 'all'
         },
         (data) => resolve(data)
       );
@@ -1735,12 +1852,17 @@ async function init() {
 
     AppState.soundEnabled = prefs[CONFIG.STORAGE_KEYS.SOUND] !== false;
     AppState.detachEnabled = prefs[CONFIG.STORAGE_KEYS.DETACH] !== false;
+    AppState.typeFilter = ['video', 'short'].includes(prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER])
+      ? prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER]
+      : 'all';
     updateSoundIcon();
     updateMiniPlayerSwitch();
+    updateTypeFilterUI();
 
     setupSoundToggle();
     setupMiniPlayerToggle();
     setupWikiButton();
+    setupTypeFilter();
     setupSearch();
     setupModal();
     setupTrashActions();

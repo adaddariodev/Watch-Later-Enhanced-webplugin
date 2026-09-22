@@ -29,6 +29,22 @@ const WLEUrl = (() => {
     return pathname === '/watch' || pathname.startsWith('/shorts/');
   }
 
+  /**
+   * 'short' or 'video' — read from the URL a video was saved from, since the
+   * stored link is always normalised to the canonical watch form.
+   */
+  function getKind(url) {
+    try {
+      const u = new URL(url, 'https://www.youtube.com');
+      if (!HOSTS.has(u.hostname)) return null;
+      if (SHORTS_RE.test(u.pathname)) return 'short';
+      if (u.pathname === '/watch' && ID_RE.test(u.searchParams.get('v') || '')) return 'video';
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   function normalizeUrl(url) {
     const id = extractVideoId(url);
     if (!id) return null;
@@ -48,6 +64,7 @@ const WLEUrl = (() => {
     extractVideoId,
     isValidYouTubeUrl,
     isVideoPagePath,
+    getKind,
     normalizeUrl,
     isSafeOpenUrl
   };

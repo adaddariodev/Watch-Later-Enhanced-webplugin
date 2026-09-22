@@ -80,7 +80,11 @@ function storageSet(values) {
 // ============================================
 // VIDEO SAVING LOGIC (Centralized)
 // ============================================
-async function saveVideoToWLE(url, title) {
+/**
+ * @param {string} kind 'short' or 'video' — the stored link is always the
+ *   canonical watch URL, so what it was saved from has to be recorded here.
+ */
+async function saveVideoToWLE(url, title, kind) {
   const normalizedUrl = WLEUrl.normalizeUrl(url);
   if (!normalizedUrl) {
     console.warn('Invalid YouTube URL, not saving:', url);
@@ -118,6 +122,7 @@ async function saveVideoToWLE(url, title) {
         savedVideos.push({
           url: normalizedUrl,
           title: title || 'Untitled Video',
+          kind: kind === 'short' ? 'short' : 'video',
           tags: [],
           watched: false,
           watchedAt: null,
@@ -373,7 +378,7 @@ document.addEventListener('click', async (event) => {
     }
 
     const title = await TitleExtractor.resolveTitle(normalizedUrl, videoLink);
-    await saveVideoToWLE(normalizedUrl, title);
+    await saveVideoToWLE(normalizedUrl, title, WLEUrl.getKind(url));
     return;
   }
 
@@ -391,7 +396,7 @@ document.addEventListener('click', async (event) => {
     }
 
     const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
-    await saveVideoToWLE(normalizedUrl, title);
+    await saveVideoToWLE(normalizedUrl, title, WLEUrl.getKind(window.location.href));
   }
 }, true); // Capture phase to intercept before YouTube handlers
 
@@ -437,7 +442,7 @@ const ButtonInjector = {
       }
 
       const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
-      await saveVideoToWLE(normalizedUrl, title);
+      await saveVideoToWLE(normalizedUrl, title, WLEUrl.getKind(window.location.href));
     });
   },
 

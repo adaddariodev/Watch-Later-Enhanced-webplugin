@@ -68,6 +68,18 @@
         title="Search by tag"
         aria-label="Search videos by tag"
       />
+
+      <div id="type-filter" class="type-filter" role="radiogroup" aria-label="Filter by type">
+        <button class="type-chip" type="button" role="radio" data-type="all" aria-checked="true" tabindex="0">
+          All<span class="type-chip-count" data-count-for-type="all"></span>
+        </button>
+        <button class="type-chip" type="button" role="radio" data-type="video" aria-checked="false" tabindex="-1">
+          Videos<span class="type-chip-count" data-count-for-type="video"></span>
+        </button>
+        <button class="type-chip" type="button" role="radio" data-type="short" aria-checked="false" tabindex="-1">
+          Reels<span class="type-chip-count" data-count-for-type="short"></span>
+        </button>
+      </div>
     </div>
 
     <div id="trash-actions" class="trash-actions">
