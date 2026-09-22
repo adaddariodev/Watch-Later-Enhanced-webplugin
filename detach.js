@@ -15,7 +15,8 @@
   const DETACH = {
     KEYS: {
       ENABLED: 'detachEnabled',
-      SIZE: 'miniPlayerSize'
+      SIZE: 'miniPlayerSize',        // the always-on-top window's inner size
+      WINDOW_SIZE: 'miniWindowSize'  // the popup's own browser window's size
     },
     MINI_MARKER: 'wle-mini',     // hash the popup puts on the mini player window
     DEFAULT_WIDTH: 480,
@@ -26,15 +27,6 @@
     SEEK_STEP: 5,
     SVG_NS: 'http://www.w3.org/2000/svg'
   };
-
-  // Used only if detach.css cannot be fetched: without these rules the moved
-  // player would keep YouTube's inline sizing and render at the wrong scale.
-  const FALLBACK_PIP_CSS = `
-    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-    .wle-pip-root, .wle-pip-stage { position: absolute; inset: 0; }
-    #movie_player, .html5-video-player { width: 100% !important; height: 100% !important; }
-    video { width: 100% !important; height: 100% !important; left: 0 !important; top: 0 !important; object-fit: contain !important; }
-  `;
 
   const DetachState = {
     enabled: true
@@ -105,9 +97,9 @@
   }
 
   /**
-   * Build an icon with the same stroke style as the bundled SVGs.
-   * Created node by node: the mini player document may inherit a CSP that
-   * rejects markup parsing, and createElementNS always works.
+   * Build an icon with the same stroke style as the bundled SVGs. Inline SVG
+   * rather than an <img>: these buttons colour their icon with currentColor,
+   * which is what gives the close button its red hover state.
    */
   function createIcon(doc, paths) {
     const svg = doc.createElementNS(DETACH.SVG_NS, 'svg');
@@ -160,7 +152,9 @@
             return '';
           })
           .then((css) => {
-            this.text = css || FALLBACK_PIP_CSS;
+            // Empty means the window would show a mis-sized player; the caller
+            // turns that into the plain picture-in-picture fallback instead.
+            this.text = css;
             this.pending = null;
             return this.text;
           });
@@ -175,10 +169,15 @@
    * player keeps its own look (controls, captions, ad overlays).
    */
   function copyPageStyles(targetDoc) {
+    // This runs inside the click that opens the window, and a watch page
+    // carries a lot of CSS: skip what cannot contribute anything.
+    const seenHrefs = new Set();
+
     document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
       try {
         if (node.tagName === 'LINK') {
-          if (!node.href) return;
+          if (!node.href || seenHrefs.has(node.href)) return;
+          seenHrefs.add(node.href);
           const link = targetDoc.createElement('link');
           link.rel = 'stylesheet';
           link.href = node.href; // resolved, absolute
@@ -187,8 +186,11 @@
           return;
         }
 
+        const css = node.textContent;
+        if (!css || !css.trim()) return;
+
         const style = targetDoc.createElement('style');
-        style.textContent = node.textContent;
+        style.textContent = css;
         targetDoc.head.appendChild(style);
       } catch (error) {
         console.warn('WLE: a stylesheet could not be copied to the mini player:', error);
@@ -276,6 +278,10 @@
      */
     async openDocumentPip(player, video) {
       const [css, size] = await Promise.all([PipStyles.load(), this.resolveSize(video)]);
+
+      // Without the stylesheet the player would land at YouTube's tab-sized
+      // inline dimensions: better to let open() fall back to classic PiP.
+      if (!css) throw new Error('mini player stylesheet unavailable');
 
       const pipWindow = await window.documentPictureInPicture.requestWindow({
         width: size.width,
@@ -507,10 +513,16 @@
       writeStorage({ [DETACH.KEYS.SIZE]: { width, height } });
     },
 
+    /**
+     * Read locally rather than through content.js's TitleExtractor: content
+     * scripts share one scope, so a `typeof` guard on its `const` would throw
+     * rather than guard if the load order ever changed.
+     */
     currentTitle() {
-      if (typeof TitleExtractor === 'object' && typeof TitleExtractor.getCurrentPageTitle === 'function') {
-        return TitleExtractor.getCurrentPageTitle();
-      }
+      const heading = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
+      const fromDom = heading?.textContent?.trim();
+      if (fromDom) return fromDom;
+
       return document.title.replace(' - YouTube', '').trim() || 'YouTube Video';
     },
 
@@ -565,10 +577,14 @@
         // The page re-rendered while detached, so the spot we kept is gone.
         // Re-attach to the container the page has now; only drop the player
         // when YouTube has already built a new one, since two #movie_player
-        // elements would break the page worse than a missing video.
+        // elements would break the page worse than a missing video. In a mini
+        // player window the page containers are hidden behind the stage, so
+        // the stage wins — otherwise the video comes back invisible.
         const host = document.getElementById('movie_player')
           ? null
-          : document.querySelector('ytd-player #container, #player-container-inner, #player-container');
+          : (MiniWindow.active && MiniWindow.stage?.isConnected
+              ? MiniWindow.stage
+              : document.querySelector('ytd-player #container, #player-container-inner, #player-container'));
 
         if (host) {
           host.appendChild(player);
@@ -600,6 +616,11 @@
     injectionTimeout: null,
 
     inject() {
+      // While detached the player is in the mini player window and the button
+      // rides along with it; the fallback selector below would otherwise
+      // attach a second button to whatever player instance the page has left.
+      if (DetachedPlayer.pipWindow) return true;
+
       // Scoped to the watch player: YouTube keeps other player instances
       // (its own miniplayer, inline previews) around with the same classes.
       const player = document.getElementById('movie_player') ||
@@ -678,10 +699,14 @@
     stage: null,
     interval: null,
     timeout: null,
+    sizeTimer: null,
 
     /** Read once at start-up: YouTube rewrites the URL as it boots. */
     detectRequest() {
       this.wanted = window.location.hash.replace('#', '') === DETACH.MINI_MARKER;
+      if (!this.wanted && window.location.hash.includes(DETACH.MINI_MARKER)) {
+        console.info('WLE: mini player marker present but not exact, opening as a normal page');
+      }
       return this.wanted;
     },
 
@@ -721,6 +746,16 @@
       document.documentElement.classList.add('wle-mini-window');
       this.stage = stage;
       this.active = true;
+      this.watchSize();
+
+      // Leaving the marker in the address bar would let any page hand out a
+      // link that strips YouTube down; dropping it also means a reload gives
+      // the normal page back.
+      try {
+        history.replaceState(history.state, '', window.location.pathname + window.location.search);
+      } catch (error) {
+        console.warn('WLE: could not clear the mini player marker:', error);
+      }
 
       // YouTube sizes its controls from the player box it thinks it has.
       try {
@@ -730,6 +765,86 @@
       }
 
       return true;
+    },
+
+    /**
+     * The stage is opaque: if the player ever leaves it, the window shows
+     * nothing but black. YouTube re-parents its player when the SPA navigates
+     * (autoplay to the next video), so check after every navigation.
+     */
+    reclaim() {
+      if (!this.active) return;
+
+      if (!this.stage?.isConnected) {
+        // The stage itself was wiped: rebuild it from scratch.
+        this.active = false;
+        this.stage = null;
+        document.documentElement.classList.remove('wle-mini-window');
+        this.start();
+        return;
+      }
+
+      // While detached the placeholder holds the spot — that is not a loss.
+      if (this.stage.querySelector('#movie_player, .html5-video-player, .wle-detach-placeholder')) return;
+
+      const player = document.getElementById('movie_player') ||
+        document.querySelector('.html5-video-player');
+
+      if (player) {
+        this.stage.appendChild(player);
+        try {
+          window.dispatchEvent(new Event('resize'));
+        } catch (error) {
+          console.warn('WLE: resize notification failed:', error);
+        }
+        return;
+      }
+
+      // Nothing left to show: never leave a black wall over the page.
+      this.teardown();
+    },
+
+    /** Remember this window's size, so it opens the same way next time. */
+    watchSize() {
+      window.addEventListener('resize', () => {
+        clearTimeout(this.sizeTimer);
+        this.sizeTimer = setTimeout(() => {
+          const width = window.outerWidth;
+          const height = window.outerHeight;
+          if (!Number.isFinite(width) || !Number.isFinite(height)) return;
+          if (width < DETACH.MIN_SIZE.width || height < DETACH.MIN_SIZE.height) return;
+          writeStorage({ [DETACH.KEYS.WINDOW_SIZE]: { width, height } });
+        }, 400);
+      });
+    },
+
+    teardown() {
+      this.stop();
+      clearTimeout(this.sizeTimer);
+
+      const stage = this.stage;
+      this.stage = null;
+      this.active = false;
+      document.documentElement.classList.remove('wle-mini-window');
+
+      if (!stage) return;
+
+      // Hand the player back to the page first: removing the stage with the
+      // player still inside it would take the video down with it.
+      const player = stage.querySelector('#movie_player, .html5-video-player');
+      if (player) {
+        const host = document.querySelector('ytd-player #container, #player-container-inner, #player-container') ||
+          document.body;
+        host.appendChild(player);
+      }
+
+      stage.remove();
+
+      try {
+        window.dispatchEvent(new Event('resize'));
+      } catch (error) {
+        console.warn('WLE: resize notification failed:', error);
+      }
     }
   };
 
@@ -765,6 +880,7 @@
 
     DetachButton.start();
     MiniWindow.start();
+    MiniWindow.reclaim();
   }
 
   function applyEnabledState() {
@@ -775,6 +891,8 @@
 
     DetachButton.remove();
     DetachedPlayer.close();
+    // Leaving the stage up would strip the page with no way back out of it.
+    MiniWindow.teardown();
   }
 
   async function init() {

@@ -80,7 +80,9 @@
     if (!query) {
       index.forEach(({ section, id }) => {
         section.classList.remove('hidden');
-        linkById.get(id)?.classList.remove('hidden');
+        // The list item, not the link: on narrow screens the items are flex
+        // children, and an emptied one still claims its gap.
+        linkById.get(id)?.parentElement?.classList.remove('hidden');
       });
       noResults?.classList.add('hidden');
       if (searchStatus) searchStatus.textContent = '';
@@ -93,7 +95,7 @@
       const hit = text.includes(query);
       if (hit) matches += 1;
       section.classList.toggle('hidden', !hit);
-      linkById.get(id)?.classList.toggle('hidden', !hit);
+      linkById.get(id)?.parentElement?.classList.toggle('hidden', !hit);
     });
 
     noResults?.classList.toggle('hidden', matches > 0);
@@ -147,6 +149,26 @@
     update();
   }
 
+  // ---------- Sticky header offset ----------
+  // The header grows when the search box wraps onto its own row, so the space
+  // anchors have to clear cannot be a constant.
+  function trackHeaderHeight() {
+    const header = document.querySelector('.wiki-header');
+    if (!header) return;
+
+    const apply = () => {
+      const height = Math.round(header.getBoundingClientRect().height);
+      if (height > 0) {
+        document.documentElement.style.setProperty('--header-height', `${height}px`);
+      }
+    };
+
+    apply();
+
+    if ('ResizeObserver' in window) new ResizeObserver(apply).observe(header);
+    else window.addEventListener('resize', apply);
+  }
+
   // ---------- Deep links ----------
   function openRequestedSection() {
     const id = window.location.hash.replace('#', '');
@@ -155,6 +177,7 @@
     document.getElementById(id)?.scrollIntoView();
   }
 
+  trackHeaderHeight();
   watchSections();
   setupSearch();
   setupToTop();

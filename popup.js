@@ -17,7 +17,7 @@ const CONFIG = {
     LAST_PROMPT: 'lastDonatePrompt',
     HIDE_JM_BANNER: 'hideJobsMatchBanner',
     DETACH: 'detachEnabled',
-    MINI_SIZE: 'miniPlayerSize',
+    MINI_WINDOW_SIZE: 'miniWindowSize',
     REV: 'wleRev'
   },
   MINI_WINDOW: {
@@ -25,8 +25,7 @@ const CONFIG = {
     WIDTH: 560,
     HEIGHT: 360,
     MIN_WIDTH: 320,
-    MIN_HEIGHT: 220,
-    CHROME: 46            // rough height of a popup window's title bar
+    MIN_HEIGHT: 220
   },
   WRITE_ATTEMPTS: 6,
   // Peppered SHA-256 of supporter unlock material. Plaintext is not in this repository.
@@ -1323,16 +1322,17 @@ function openMiniPlayerWindow(url) {
 
   const target = `https://www.youtube.com/watch?v=${videoId}#${CONFIG.MINI_WINDOW.MARKER}`;
 
-  chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.MINI_SIZE]: null }, (data) => {
-    const saved = data[CONFIG.STORAGE_KEYS.MINI_SIZE];
+  // The size the mini player window was last left at, written by that window
+  // itself — so no guessing at how tall a title bar is.
+  chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.MINI_WINDOW_SIZE]: null }, (data) => {
+    const saved = data?.[CONFIG.STORAGE_KEYS.MINI_WINDOW_SIZE];
     const width = Math.max(
       CONFIG.MINI_WINDOW.MIN_WIDTH,
       Math.round(Number(saved?.width) || CONFIG.MINI_WINDOW.WIDTH)
     );
     const height = Math.max(
       CONFIG.MINI_WINDOW.MIN_HEIGHT,
-      // A stored size is the player's own; the window adds its title bar.
-      Math.round(Number(saved?.height) ? Number(saved.height) + CONFIG.MINI_WINDOW.CHROME : CONFIG.MINI_WINDOW.HEIGHT)
+      Math.round(Number(saved?.height) || CONFIG.MINI_WINDOW.HEIGHT)
     );
 
     if (!chrome.windows || typeof chrome.windows.create !== 'function') {
