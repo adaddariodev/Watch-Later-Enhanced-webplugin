@@ -137,7 +137,14 @@ const KindDetector = {
     if (!this.asked.has(videoId)) {
       // A YouTube tab can live for hours; keep the memo from growing forever.
       if (this.asked.size >= CONFIG.KIND_MEMO_MAX) this.asked.clear();
-      this.asked.set(videoId, this.ask(videoId));
+
+      // Only an actual answer is worth remembering. Memoising a timeout or a
+      // blocked request would stop this tab ever asking about that video
+      // again, turning one bad moment into a permanent wrong label.
+      this.asked.set(videoId, this.ask(videoId).then((result) => {
+        if (result === null) this.asked.delete(videoId);
+        return result;
+      }));
     }
     return this.asked.get(videoId);
   },
@@ -183,28 +190,46 @@ const KindDetector = {
  * put right afterwards if YouTube disagrees. Only a guess of 'video' is worth
  * checking: a /shorts/ URL and a shorts tile are not wrong about being Shorts.
  */
-async function confirmKindLater(normalizedUrl, assumedKind) {
+async function confirmKindLater(normalizedUrl, assumedKind, { force = false } = {}) {
   if (assumedKind === 'short') return;
 
   const videoId = WLEUrl.extractVideoId(normalizedUrl);
   if (!videoId) return;
 
   const confirmed = await KindDetector.verify(videoId);
-  if (!confirmed) return;
+  // An answer that agrees with the guess needs no write — except during the
+  // backfill, where the record has no type at all and 'video' is what it is
+  // missing. Without this, every ordinary save would take the storage queue
+  // through a pointless read.
+  if (!confirmed || (!force && confirmed === assumedKind)) return;
 
   return StorageQueue.enqueue(async () => {
-    const data = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
-    const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
-    const entry = savedVideos.find((v) => v && v.url === normalizedUrl);
+    // Read-modify-write on a list other tabs also write to, so it takes the
+    // same snapshot guard the save path uses: without it a save made in
+    // another tab between the read and the write is silently dropped.
+    for (let attempt = 0; attempt < CONFIG.WRITE_ATTEMPTS; attempt++) {
+      const data = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
+      const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
+      const rev = data[CONFIG.REV_KEY] || 0;
+      const snap = JSON.stringify(savedVideos);
 
-    if (!entry || entry.kind === confirmed) return;
+      const entry = savedVideos.find((v) => v && v.url === normalizedUrl);
+      if (!entry || entry.kind === confirmed) return;
 
-    entry.kind = confirmed;
-    await storageSet({
-      savedVideos,
-      [CONFIG.REV_KEY]: (data[CONFIG.REV_KEY] || 0) + 1
-    });
-    console.info('WLE: saved type corrected to', confirmed, 'for', normalizedUrl);
+      const latest = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
+      if (
+        JSON.stringify(latest.savedVideos || []) !== snap ||
+        (latest[CONFIG.REV_KEY] || 0) !== rev
+      ) {
+        await sleep(16 * (attempt + 1));
+        continue;
+      }
+
+      entry.kind = confirmed;
+      await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
+      console.info('WLE: saved type corrected to', confirmed, 'for', normalizedUrl);
+      return;
+    }
   });
 }
 
@@ -226,9 +251,10 @@ async function backfillKinds() {
       .filter((v) => v && v.kind !== 'short' && v.kind !== 'video' && WLEUrl.extractVideoId(v.url))
       .slice(0, CONFIG.KIND_BACKFILL_PER_PAGE);
 
-    // Sequentially: the point is to be unobtrusive, not fast.
+    // Sequentially: the point is to be unobtrusive, not fast. force, because
+    // here even an answer of 'video' is news — the record has no type at all.
     for (const entry of untyped) {
-      await confirmKindLater(entry.url, 'video');
+      await confirmKindLater(entry.url, 'video', { force: true });
     }
   } catch (error) {
     console.warn('WLE: could not work out the type of older saves:', error);
