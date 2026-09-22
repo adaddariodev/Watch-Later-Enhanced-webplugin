@@ -9,7 +9,7 @@
   <a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb">
     <img src="https://img.shields.io/badge/Available_on-Chrome_Web_Store-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Chrome Web Store" />
   </a>
-  <img src="https://img.shields.io/badge/Version-2.7.0-FF5A50?style=for-the-badge" alt="Version 2.7.0" />
+  <img src="https://img.shields.io/badge/Version-2.7.1-FF5A50?style=for-the-badge" alt="Version 2.7.1" />
   <img src="https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Dependencies-0-8FA6C4?style=for-the-badge" alt="Zero dependencies" />
   <img src="https://img.shields.io/badge/License-MIT-34A853?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License" />
@@ -46,14 +46,19 @@ Pop any video out of the browser into a floating mini player. Minimize the
 browser, move to another app, drag the window anywhere — it keeps playing.
 
 * **On a video page:** the mini-player button in YouTube's control bar, or
-  `Alt + Shift + D`.
+  `Alt + Shift + D`. This kind floats above every other application.
 * **From the popup:** the mini-player button on a saved video plays it
-  immediately in a dedicated window — no tab, nothing to confirm.
+  immediately in a dedicated window — no tab, nothing to confirm. **Pin on
+  top** in its corner promotes it to the floating kind.
 * **While detached:** `Space`/`K` play and pause, `←` `→` seek five seconds,
   `M` mutes, `Esc` closes, and a plain **✕** sits in the corner.
 
 Closing it — or navigating away — returns the player to the tab exactly where
 it was, still playing.
+
+> The pin is a button rather than a setting because it has to be: a browser
+> only grants an always-on-top window in response to a click inside the page,
+> so no preference can ask for one on your behalf.
 
 ### Organise it the way you think
 
@@ -63,14 +68,19 @@ it was, still playing.
 * **To Watch / Archive / Trash**, so finished videos leave the queue without
   disappearing, and deletions are recoverable.
 * **Video and Shorts labels**, with a filter that narrows the list to either.
+* **The channel** that published each video, beside its type.
 
 ### Know what you saved
 
-A **Video** or **Shorts** label sits under every title. Because YouTube serves
-the same Short behind both `/shorts/` and `/watch` links, the type is worked
-out from the URL, then from the page around the thumbnail, and finally — when
-neither settles it — by asking YouTube in the background and correcting the
-label a moment later.
+A **Video** or **Shorts** label and the **channel name** sit under every title.
+Because YouTube serves the same Short behind both `/shorts/` and `/watch`
+links, the type is worked out from the URL, then from the page around the
+thumbnail, and finally — when neither settles it — by asking YouTube in the
+background and correcting the label a moment later. The channel comes from the
+page when it is there and from YouTube's `oembed` payload when it is not.
+
+Items saved before a detail existed are filled in a few at a time while you
+browse YouTube, rather than left permanently blank.
 
 ### Read the manual without leaving the extension
 
@@ -84,7 +94,7 @@ It ships inside the extension, so it works offline.
 | --- | --- | --- |
 | `Alt + Click` | Any YouTube thumbnail | Saves it without opening it |
 | `Alt + Click` | The video player | Saves what you are watching |
-| `Alt + Shift + D` | Video pages | Opens / closes the mini player |
+| `Alt + Shift + D` | Video pages | Opens / closes the floating mini player |
 | `Space` or `K` | Mini player | Play / pause |
 | `←` / `→` | Mini player | Back / forward 5 seconds |
 | `M` | Mini player | Mute / unmute |
@@ -145,7 +155,9 @@ it runs.
   you scroll. Nothing to clean up, nothing to leak.
 * **Layered title extraction** — the page's own DOM first (with selectors for
   the Shorts view model, which stores its title somewhere else entirely), then
-  YouTube's `oembed` endpoint as a fallback.
+  YouTube's `oembed` endpoint as a fallback. Title and channel share one
+  memoised `oembed` call rather than one each, and everything is asked of the
+  page's own origin so it works on `m.youtube.com` too.
 * **Layered type detection** — the URL, then the DOM around the click, then a
   same-origin redirect check, memoised per video and bounded by a timeout.
 * **Optimistic writes with a snapshot guard** — every read-modify-write on the

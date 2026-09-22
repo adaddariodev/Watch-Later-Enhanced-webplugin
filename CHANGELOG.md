@@ -5,6 +5,49 @@ The top entry is written to be pasted straight into a GitHub Release.
 
 ---
 
+## v2.7.1 — pin the player, and see who published what
+
+### 📌 Keep the player on top of everything
+
+The mini player opened from the extension survives minimizing the browser, but
+it still slipped behind other windows. It now has a **Pin on top** button in
+its top-right corner: one click and it floats above every other application,
+whatever you are doing underneath.
+
+The button is there because it has to be — a browser only grants an
+always-on-top window in response to a click inside the page, so nothing can do
+this for you automatically. Opening the mini player from a video page, with
+`Alt + Shift + D` or the button in YouTube's control bar, has always given you
+the floating kind directly.
+
+While the video is pinned, the window it came from says so rather than sitting
+there black, and closing the pinned player hands the video straight back to it.
+
+### 📺 The channel, next to the title
+
+Every saved item now shows **who published it**, on the line under its title
+beside the Video / Shorts label. Long channel names are shortened with the full
+one on hover.
+
+Items you saved before this version get their channel filled in quietly in the
+background while you browse YouTube — the same way older items got their type
+in 2.7.0. Nothing to click, no re-saving.
+
+### 🎨 Calmer labels
+
+The **Shorts** label was red and the **Video** one grey, which made a list of
+Shorts look like a list of warnings. Both are now the same quiet slate: the
+word tells you which is which, and the colour is left to your own tags.
+
+### 🐛 Fixed
+
+* Titles never resolved on **m.youtube.com**: the lookup asked
+  `www.youtube.com` outright, which the browser blocks from the mobile site.
+* On a Shorts feed, the channel could be read from a neighbouring reel rather
+  than the one playing — the same mistake titles used to make.
+
+---
+
 ## v2.7.0 — mini player, Shorts, and a built-in guide
 
 ### 🪟 Watch anywhere: the detached mini player

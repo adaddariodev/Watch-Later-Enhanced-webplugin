@@ -340,19 +340,43 @@ li.video-item:hover {
   user-select: none;
 }
 
-/* Warm for Shorts, cool for videos: the pair differs in hue as well as in
-   wording, so the two never rely on colour alone. Both clear 6:1 on the card
-   and on its hover shade. */
-.kind-pill-short {
-  background: rgba(255, 70, 85, 0.16);
-  border-color: rgba(255, 70, 85, 0.34);
-  color: #ff9aa2;
-}
-
+/* Shorts and videos share one quiet slate: the word itself is the difference,
+   and a coloured label competes with the tags beside it for no gain. The
+   kind-pill-short / kind-pill-video classes stay as hooks for anyone who wants
+   to tell them apart again. Text clears 6.6:1 on the card and 6.1:1 on its
+   hover shade. */
+.kind-pill-short,
 .kind-pill-video {
   background: rgba(143, 166, 196, 0.14);
   border-color: rgba(143, 166, 196, 0.26);
   color: #aebaca;
+}
+
+/* =========================================
+   CHANNEL PILL — who published it
+   Beside the kind, and deliberately quieter than it: sentence case rather
+   than caps, because a channel is a name and not a category.
+   ========================================= */
+/* inline-block, not inline-flex: text-overflow only applies to a block
+   container, and on a flex box a long name is cut mid-letter with no ellipsis
+   to show that it was. */
+.channel-pill {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 45%;
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: #9aa0a6;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  user-select: none;
 }
 
 .video-title {

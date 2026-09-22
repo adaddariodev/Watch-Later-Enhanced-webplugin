@@ -11,8 +11,10 @@ const CONFIG = {
   // Working out video vs Short by asking YouTube
   KIND_PROBE_TIMEOUT: 5000,
   KIND_MEMO_MAX: 200,
-  KIND_BACKFILL_PER_PAGE: 3,
-  KIND_BACKFILL_DELAY: 4000
+  BACKFILL_PER_PAGE: 3,
+  BACKFILL_DELAY: 4000,
+  OEMBED_MEMO_MAX: 200,
+  CHANNEL_MAX_LENGTH: 100
 };
 
 // ============================================
@@ -81,6 +83,140 @@ function storageSet(values) {
     });
   });
 }
+
+// ============================================
+// OEMBED
+// YouTube answers with the title and the channel in one payload, so the two
+// are worth asking for together rather than once each. Memoised per URL: a
+// save resolves a title and a channel, and neither should cost its own
+// round trip.
+// ============================================
+const OEmbed = {
+  cache: new Map(),
+
+  get(url) {
+    if (!this.cache.has(url)) {
+      if (this.cache.size >= CONFIG.OEMBED_MEMO_MAX) this.cache.clear();
+
+      // A failure is not remembered: one bad moment must not stop the next
+      // save from asking.
+      this.cache.set(url, this.fetch(url).then((data) => {
+        if (!data) this.cache.delete(url);
+        return data;
+      }));
+    }
+    return this.cache.get(url);
+  },
+
+  async fetch(url) {
+    try {
+      // Same origin as the page this runs in. Hardcoding www.youtube.com made
+      // this a blocked cross-origin request on m.youtube.com — the extension
+      // holds no host permissions — so titles never resolved there.
+      const response = await fetch(
+        `${window.location.origin}/oembed?url=${encodeURIComponent(url)}&format=json`
+      );
+
+      if (!response.ok) {
+        throw new Error(`oEmbed request failed with status ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.warn('oEmbed fetch error:', error);
+      return null;
+    }
+  }
+};
+
+// ============================================
+// CHANNEL NAME
+// Who published the video. The page says so next to almost every thumbnail,
+// and oEmbed knows it for anything the page does not.
+// ============================================
+const ChannelExtractor = {
+  // Ordered widest-to-narrowest: the first that yields text wins.
+  SELECTORS: [
+    'ytd-channel-name a',
+    'ytd-channel-name #text',
+    '#channel-name a',
+    '#channel-name #text',
+    'yt-reel-channel-bar-view-model a',
+    '.ytReelChannelBarViewModelChannelName a',
+    '.yt-core-attributed-string__link[href*="/@"]',
+    'a[href*="/@"]',
+    'a[href*="/channel/"]'
+  ],
+
+  TILES: 'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ' +
+    'ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-reel-item-renderer, ' +
+    'ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2',
+
+  OWNERS: '#owner, ytd-video-owner-renderer, ytd-reel-player-header-renderer, ' +
+    'ytd-watch-metadata, yt-reel-channel-bar-view-model',
+
+  clean(name) {
+    const text = String(name || '').replace(/\s+/g, ' ').trim();
+    if (!text || text.length > CONFIG.CHANNEL_MAX_LENGTH) return null;
+    // "@handle" is what some layouts show instead of the display name; it is
+    // still the channel, so keep it, but a bare "YouTube" is the page chrome.
+    if (/^youtube$/i.test(text)) return null;
+    return text;
+  },
+
+  fromScope(scope) {
+    if (!scope) return null;
+    for (const selector of this.SELECTORS) {
+      const name = this.clean(scope.querySelector(selector)?.textContent);
+      if (name) return name;
+    }
+    return null;
+  },
+
+  /** The tile the click landed in, which names its own channel. */
+  fromContext(element) {
+    try {
+      return this.fromScope(element?.closest(this.TILES));
+    } catch (error) {
+      console.warn('WLE: could not read the channel from the page:', error);
+      return null;
+    }
+  },
+
+  /** The channel of the video this page is playing. */
+  fromCurrentPage() {
+    try {
+      // A Shorts feed keeps every reel it has scrolled through in the DOM, so
+      // document order would hand back a neighbour's channel. Only one reel is
+      // playing, and it says which.
+      const activeReel = document.querySelector('ytd-reel-video-renderer[is-active]');
+      if (activeReel) {
+        const name = this.fromScope(activeReel);
+        if (name) return name;
+      }
+
+      for (const owner of document.querySelectorAll(this.OWNERS)) {
+        // Same reason: an owner block inside a reel that is not playing
+        // belongs to a different video.
+        if (owner.closest('ytd-reel-video-renderer:not([is-active])')) continue;
+        const name = this.fromScope(owner);
+        if (name) return name;
+      }
+    } catch (error) {
+      console.warn('WLE: could not read the channel from the page:', error);
+    }
+    return null;
+  },
+
+  /** @returns {Promise<string|null>} */
+  async resolve(url, element, { fromPage = false } = {}) {
+    const fromDom = fromPage ? this.fromCurrentPage() : this.fromContext(element);
+    if (fromDom) return fromDom;
+
+    const data = await OEmbed.get(url);
+    return this.clean(data?.author_name);
+  }
+};
 
 // ============================================
 // KIND DETECTION (video or short)
@@ -234,30 +370,72 @@ async function confirmKindLater(normalizedUrl, assumedKind, { force = false } = 
 }
 
 /**
- * Records saved before types existed carry no kind at all. The popup cannot
- * ask YouTube about them — the extension holds no host permissions, so a fetch
- * from the extension page would be cross-origin — which leaves this content
- * script, on a YouTube tab, as the only place the question can be put.
- *
- * A few per page load, so it never looks like a crawl, and only ever for
- * records that have no type yet.
+ * Fill in the channel of a record saved before channels were stored. oEmbed
+ * knows it for any video id, so this needs no page around the video.
  */
-async function backfillKinds() {
+async function fillChannelLater(normalizedUrl) {
+  const channel = ChannelExtractor.clean((await OEmbed.get(normalizedUrl))?.author_name);
+  if (!channel) return;
+
+  return StorageQueue.enqueue(async () => {
+    for (let attempt = 0; attempt < CONFIG.WRITE_ATTEMPTS; attempt++) {
+      const data = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
+      const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
+      const rev = data[CONFIG.REV_KEY] || 0;
+      const snap = JSON.stringify(savedVideos);
+
+      const entry = savedVideos.find((v) => v && v.url === normalizedUrl);
+      if (!entry || entry.channel) return;
+
+      const latest = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
+      if (
+        JSON.stringify(latest.savedVideos || []) !== snap ||
+        (latest[CONFIG.REV_KEY] || 0) !== rev
+      ) {
+        await sleep(16 * (attempt + 1));
+        continue;
+      }
+
+      entry.channel = channel;
+      await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
+      return;
+    }
+  });
+}
+
+/**
+ * Records saved before this version are missing what did not exist then: a
+ * type, a channel, or both. The popup cannot ask YouTube about them — the
+ * extension holds no host permissions, so a fetch from the extension page
+ * would be cross-origin — which leaves this content script, on a YouTube tab,
+ * as the only place the question can be put.
+ *
+ * A few per page load, so it never looks like a crawl, and only ever for what
+ * is actually missing.
+ */
+async function backfillSaves() {
   try {
     const data = await storageGet({ savedVideos: [] });
     const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
 
-    const untyped = savedVideos
-      .filter((v) => v && v.kind !== 'short' && v.kind !== 'video' && WLEUrl.extractVideoId(v.url))
-      .slice(0, CONFIG.KIND_BACKFILL_PER_PAGE);
+    const stale = savedVideos
+      .filter((v) => {
+        if (!v || !WLEUrl.extractVideoId(v.url)) return false;
+        return (v.kind !== 'short' && v.kind !== 'video') || !v.channel;
+      })
+      .slice(0, CONFIG.BACKFILL_PER_PAGE);
 
-    // Sequentially: the point is to be unobtrusive, not fast. force, because
-    // here even an answer of 'video' is news — the record has no type at all.
-    for (const entry of untyped) {
-      await confirmKindLater(entry.url, 'video', { force: true });
+    // Sequentially: the point is to be unobtrusive, not fast.
+    for (const entry of stale) {
+      if (entry.kind !== 'short' && entry.kind !== 'video') {
+        // force, because here even an answer of 'video' is news — the record
+        // has no type at all.
+        await confirmKindLater(entry.url, 'video', { force: true });
+      }
+      if (!entry.channel) await fillChannelLater(entry.url);
     }
   } catch (error) {
-    console.warn('WLE: could not work out the type of older saves:', error);
+    console.warn('WLE: could not fill in the details of older saves:', error);
   }
 }
 
@@ -267,8 +445,9 @@ async function backfillKinds() {
 /**
  * @param {string} kind 'short' or 'video' — the stored link is always the
  *   canonical watch URL, so what it was saved from has to be recorded here.
+ * @param {string|null} channel who published it, when the page or oEmbed says
  */
-async function saveVideoToWLE(url, title, kind) {
+async function saveVideoToWLE(url, title, kind, channel) {
   const normalizedUrl = WLEUrl.normalizeUrl(url);
   if (!normalizedUrl) {
     console.warn('Invalid YouTube URL, not saving:', url);
@@ -310,8 +489,12 @@ async function saveVideoToWLE(url, title, kind) {
           // returns nothing to the caller, which silences that check entirely.
           const untyped = existing.kind !== 'short' && existing.kind !== 'video';
 
-          if (upgrade || untyped) {
-            existing.kind = upgrade ? 'short' : 'video';
+          // A record from before channels were stored gets one now, for free.
+          const learntChannel = Boolean(channel) && !existing.channel;
+          if (learntChannel) existing.channel = channel;
+
+          if (upgrade || untyped || learntChannel) {
+            if (upgrade || untyped) existing.kind = upgrade ? 'short' : 'video';
             await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
           }
 
@@ -321,7 +504,7 @@ async function saveVideoToWLE(url, title, kind) {
 
         const settledKind = kind === 'short' ? 'short' : 'video';
 
-        savedVideos.push({
+        const record = {
           url: normalizedUrl,
           title: title || 'Untitled Video',
           kind: settledKind,
@@ -329,7 +512,12 @@ async function saveVideoToWLE(url, title, kind) {
           watched: false,
           watchedAt: null,
           savedAt: Date.now()
-        });
+        };
+        // Absent rather than empty when unknown, so the backfill can tell
+        // "never looked" from "looked, and there is none".
+        if (channel) record.channel = channel;
+
+        savedVideos.push(record);
 
         await storageSet({
           savedVideos,
@@ -523,21 +711,8 @@ const TitleExtractor = {
    * Returns null on failure instead of a placeholder
    */
   async fetchTitleFromOEmbed(url) {
-    try {
-      const response = await fetch(
-        `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`oEmbed request failed with status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.title || null;
-    } catch (error) {
-      console.warn('oEmbed fetch error:', error);
-      return null;
-    }
+    const data = await OEmbed.get(url);
+    return data?.title || null;
   },
 
   /**
@@ -585,8 +760,11 @@ document.addEventListener('click', async (event) => {
       return;
     }
 
-    const title = await TitleExtractor.resolveTitle(normalizedUrl, videoLink);
-    await saveVideoToWLE(normalizedUrl, title, KindDetector.fromContext(url, videoLink));
+    const [title, channel] = await Promise.all([
+      TitleExtractor.resolveTitle(normalizedUrl, videoLink),
+      ChannelExtractor.resolve(normalizedUrl, videoLink)
+    ]);
+    await saveVideoToWLE(normalizedUrl, title, KindDetector.fromContext(url, videoLink), channel);
     return;
   }
 
@@ -603,8 +781,13 @@ document.addEventListener('click', async (event) => {
       return;
     }
 
-    const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
-    await saveVideoToWLE(normalizedUrl, title, KindDetector.fromContext(window.location.href, videoPlayer));
+    const [title, channel] = await Promise.all([
+      TitleExtractor.resolveCurrentPageTitle(normalizedUrl),
+      ChannelExtractor.resolve(normalizedUrl, videoPlayer, { fromPage: true })
+    ]);
+    await saveVideoToWLE(
+      normalizedUrl, title, KindDetector.fromContext(window.location.href, videoPlayer), channel
+    );
   }
 }, true); // Capture phase to intercept before YouTube handlers
 
@@ -649,8 +832,13 @@ const ButtonInjector = {
         return;
       }
 
-      const title = await TitleExtractor.resolveCurrentPageTitle(normalizedUrl);
-      await saveVideoToWLE(normalizedUrl, title, KindDetector.fromContext(window.location.href, null));
+      const [title, channel] = await Promise.all([
+        TitleExtractor.resolveCurrentPageTitle(normalizedUrl),
+        ChannelExtractor.resolve(normalizedUrl, null, { fromPage: true })
+      ]);
+      await saveVideoToWLE(
+        normalizedUrl, title, KindDetector.fromContext(window.location.href, null), channel
+      );
     });
   },
 
@@ -697,7 +885,7 @@ if (WLEUrl.isVideoPagePath(window.location.pathname)) {
 
 // Well after the page has settled, so it never competes with YouTube's own
 // loading. Once per content script, not once per SPA navigation.
-const backfillTimer = setTimeout(backfillKinds, CONFIG.KIND_BACKFILL_DELAY);
+const backfillTimer = setTimeout(backfillSaves, CONFIG.BACKFILL_DELAY);
 
 // ============================================
 // HUD (Heads-Up Display) MANAGEMENT

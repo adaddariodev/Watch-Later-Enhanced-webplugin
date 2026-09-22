@@ -288,6 +288,12 @@ const Utils = {
     // the content script fills it in when it can ask YouTube.
     if (video.kind !== 'short' && video.kind !== 'video') delete normalized.kind;
 
+    // Same reasoning for the channel: absent means "not looked up yet", which
+    // is what the backfill looks for. An empty string would hide it forever.
+    const channel = typeof video.channel === 'string' ? video.channel.trim() : '';
+    if (channel) normalized.channel = channel;
+    else delete normalized.channel;
+
     return normalized;
   },
 
@@ -635,6 +641,7 @@ const VideoItemFactory = {
       const tagRow = document.createElement('div');
       tagRow.className = 'tag-row';
       tagRow.appendChild(this.createKindPill(video.kind));
+      if (video.channel) tagRow.appendChild(this.createChannelPill(video.channel));
       (Array.isArray(video.tags) ? video.tags : [])
         .forEach((tag) => tagRow.appendChild(this.createReadonlyPill(tag)));
       li.appendChild(tagRow);
@@ -700,6 +707,22 @@ const VideoItemFactory = {
     return pill;
   },
 
+  /**
+   * Who published it. Only for records that carry a channel — the ones saved
+   * before this existed get theirs filled in from a YouTube tab, and until
+   * then showing an empty pill would be worse than showing none.
+   */
+  createChannelPill(channel) {
+    const pill = document.createElement('span');
+    pill.className = 'channel-pill';
+    pill.textContent = channel;
+    // The pill truncates when the name is long, so the full one stays
+    // readable on hover and to a screen reader.
+    pill.title = channel;
+    pill.setAttribute('aria-label', `Channel: ${channel}`);
+    return pill;
+  },
+
   makeIconButton(className, iconSrc, title) {
     const btn = document.createElement('button');
     btn.className = `icon-btn ${className}`;
@@ -756,8 +779,9 @@ const VideoItemFactory = {
     const tagRow = document.createElement('div');
     tagRow.className = 'tag-row';
 
-    // First in the row, so it reads as the row's subject rather than as a tag.
+    // First in the row, so they read as the row's subject rather than as tags.
     tagRow.appendChild(this.createKindPill(video.kind));
+    if (video.channel) tagRow.appendChild(this.createChannelPill(video.channel));
 
     const tags = Array.isArray(video.tags) ? video.tags : [];
 

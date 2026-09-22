@@ -129,7 +129,9 @@
       'M21 3l-7 7',
       'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'
     ],
-    close: ['M18 6 6 18', 'M6 6l12 12']
+    close: ['M18 6 6 18', 'M6 6l12 12'],
+    // A drawing pin seen from the side, pushed into the surface below it.
+    pin: ['M9 4h6', 'M10 4v7l-3 3v1h10v-1l-3-3V4', 'M12 15v5']
   };
 
   // ============================================
@@ -296,6 +298,9 @@
         this.movePlayer(player);
         this.attachWindowHandlers(pipWindow);
         this.syncPlayerSize();
+        // If this was pinned from the extension's own window, that window is
+        // now empty: tell it to say so instead of showing black.
+        MiniWindow.setPinned(true);
       } catch (error) {
         // Never leave the player stranded in a half-built window.
         this.restore();
@@ -567,6 +572,8 @@
 
     /** Put the player back where it came from. Safe to call twice. */
     restore() {
+      MiniWindow.setPinned(false);
+
       const player = this.player;
       const placeholder = this.placeholder;
 
@@ -710,6 +717,9 @@
     wanted: false,
     active: false,
     stage: null,
+    bar: null,
+    pinBtn: null,
+    note: null,
     interval: null,
     timeout: null,
     sizeTimer: null,
@@ -759,7 +769,13 @@
       document.documentElement.classList.add('wle-mini-window');
       this.stage = stage;
       this.active = true;
+      this.buildBar();
       this.watchSize();
+
+      // Warm the mini player stylesheet now. Pinning has to call
+      // requestWindow() inside the click that asked for it, and a cold fetch
+      // in between would spend the user activation it depends on.
+      PipStyles.load();
 
       // Leaving the marker in the address bar would let any page hand out a
       // link that strips YouTube down; dropping it also means a reload gives
@@ -778,6 +794,60 @@
       }
 
       return true;
+    },
+
+    /**
+     * A window opened by the extension is an ordinary browser window: it
+     * survives minimizing the browser, but it does not float above other
+     * applications. Only a document picture-in-picture window does, and a
+     * browser will only grant one inside a click on the page — which is
+     * exactly what this button is for.
+     */
+    buildBar() {
+      if (!Support.documentPip() || this.bar) return;
+
+      const bar = document.createElement('div');
+      bar.className = 'wle-mini-bar';
+
+      const pinBtn = document.createElement('button');
+      pinBtn.type = 'button';
+      pinBtn.className = 'wle-mini-pin';
+      pinBtn.title = 'Keep this player above every other window';
+      pinBtn.setAttribute('aria-label', 'Pin the player on top of other windows');
+      pinBtn.appendChild(createIcon(document, ICONS.pin));
+
+      const label = document.createElement('span');
+      label.className = 'wle-mini-pin-label';
+      label.textContent = 'Pin on top';
+      pinBtn.appendChild(label);
+
+      pinBtn.addEventListener('click', () => {
+        // Not awaited: the click's user activation has to reach
+        // requestWindow(), and anything awaited before it may spend it.
+        DetachedPlayer.open();
+      });
+
+      const note = document.createElement('div');
+      note.className = 'wle-mini-note';
+      note.textContent = 'Playing in the pinned player';
+      note.hidden = true;
+
+      bar.appendChild(pinBtn);
+      document.body.append(bar, note);
+
+      this.bar = bar;
+      this.pinBtn = pinBtn;
+      this.note = note;
+    },
+
+    /**
+     * While pinned the player lives in the floating window, so this one would
+     * otherwise be a black rectangle with no explanation.
+     */
+    setPinned(pinned) {
+      if (!this.active) return;
+      if (this.bar) this.bar.hidden = Boolean(pinned);
+      if (this.note) this.note.hidden = !pinned;
     },
 
     /**
@@ -839,6 +909,12 @@
       this.stage = null;
       this.active = false;
       document.documentElement.classList.remove('wle-mini-window');
+
+      this.bar?.remove();
+      this.note?.remove();
+      this.bar = null;
+      this.pinBtn = null;
+      this.note = null;
 
       if (!stage) return;
 

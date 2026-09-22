@@ -166,6 +166,86 @@ html.wle-mini-window body {
   overflow: hidden;
 }
 
+/* =========================================
+   PIN — promote this window to one that floats above everything
+   Over the stage, and out of the way until the pointer comes near: the
+   player's own controls live along the bottom, so this sits at the top.
+   ========================================= */
+.wle-mini-bar {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 2147483001;
+  opacity: 0.35;
+  transition: opacity 0.18s ease;
+}
+
+.wle-mini-bar:hover,
+.wle-mini-bar:focus-within,
+html.wle-mini-window:hover .wle-mini-bar {
+  opacity: 1;
+}
+
+.wle-mini-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(15, 15, 15, 0.82);
+  color: #f1f1f1;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.wle-mini-pin:hover {
+  background: rgba(35, 35, 35, 0.92);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.wle-mini-pin:focus-visible {
+  outline: 2px solid #3ea6ff;
+  outline-offset: 2px;
+}
+
+.wle-mini-pin .wle-pip-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* The stage is empty while the player floats in the pinned window, so this
+   stands in for it rather than leaving a black rectangle. */
+.wle-mini-note {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #0f0f0f;
+  color: #aaa;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  text-align: center;
+}
+
+.wle-mini-note[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wle-mini-bar {
+    transition: none;
+  }
+}
+
 .wle-mini-stage #movie_player,
 .wle-mini-stage .html5-video-player {
   position: absolute !important;
