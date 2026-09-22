@@ -25,7 +25,7 @@ const CONFIG = {
   // recorded carry no type, and most of them are videos.
   KINDS: {
     video: 'Video',
-    short: 'Reel'
+    short: 'Shorts'
   },
   MINI_WINDOW: {
     MARKER: 'wle-mini',   // detach.js recognises the window by this hash
@@ -672,7 +672,7 @@ const VideoItemFactory = {
     pill.textContent = label;
 
     // The space is not decoration: without it a screen reader runs the label
-    // into the title ("ReelOnly OGs Remember…").
+    // into the title ("ShortsOnly OGs Remember…").
     titleEl.append(pill, document.createTextNode(` ${title}`));
     return titleEl;
   },
@@ -1090,10 +1090,10 @@ async function displayVideos() {
       : taggedVideos.filter((v) => v.kind === AppState.typeFilter);
 
     if (filteredVideos.length === 0) {
-      const label = AppState.typeFilter === 'short' ? 'reels' : 'videos';
+      const label = AppState.typeFilter === 'short' ? 'Shorts' : 'videos';
       showTutorial(
         `No ${label} here`,
-        `Nothing in this list matches the <b>${label === 'reels' ? 'Reels' : 'Videos'}</b> filter.` +
+        `Nothing in this list matches the <b>${label === 'Shorts' ? 'Shorts' : 'Videos'}</b> filter.` +
         '<button type="button" class="tutorial-reset" id="reset-type-filter">Show everything</button>'
       );
       document.getElementById('reset-type-filter')?.addEventListener('click', () => {
@@ -1140,7 +1140,7 @@ function showTutorial(title, message, showHint = false) {
 }
 
 // ============================================
-// TYPE FILTER (All / Videos / Reels)
+// TYPE FILTER (All / Videos / Shorts)
 // A single-choice group, so radios rather than toggle buttons: arrow keys
 // move between the chips and only the selected one is a tab stop.
 // ============================================

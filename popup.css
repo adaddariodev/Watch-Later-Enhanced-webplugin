@@ -210,7 +210,7 @@ main {
 }
 
 /* =========================================
-   TYPE FILTER CHIPS (All / Videos / Reels)
+   TYPE FILTER CHIPS (All / Videos / Shorts)
    Chips rather than a second segmented bar: the view tabs above already own
    that shape, and two segmented rows read as competing navigations.
    ========================================= */

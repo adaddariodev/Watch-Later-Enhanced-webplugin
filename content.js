@@ -219,7 +219,7 @@ async function saveVideoToWLE(url, title, kind) {
           if (kind === 'short' && existing.kind !== 'short') {
             existing.kind = 'short';
             await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
-            showHud('Already saved — now marked as a Reel');
+            showHud('Already saved — now marked as a Short');
           } else {
             showHud('Already saved!');
           }
