@@ -37,6 +37,20 @@ Items you saved before this version get their channel filled in quietly in the
 background while you browse YouTube — the same way older items got their type
 in 2.7.0. Nothing to click, no re-saving.
 
+### 🔊 A mixer for the sounds
+
+Settings now has a small mixer. Each sound — the **click** in the popup and the
+**save** on YouTube — has its own switch and its own level, set by dragging the
+slider or typing a number beside it. Mute one and keep the other, or switch
+everything off with **All sounds**. Muting remembers the level you had.
+
+### 🗂 Settings that fold away
+
+The settings panel was a long scroll. **Sound**, **Mini player** and
+**JobsMatch banner** are now sections that open on click and stay shut
+otherwise, each showing its current state on the closed header. The user guide
+and the supporter code stay where they were, in plain sight.
+
 ### 🎨 Calmer labels
 
 The **Shorts** label was red and the **Video** one grey, which made a list of

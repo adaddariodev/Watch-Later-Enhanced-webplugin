@@ -19,7 +19,15 @@ const CONFIG = {
     DETACH: 'detachEnabled',
     MINI_WINDOW_SIZE: 'miniWindowSize',
     TYPE_FILTER: 'typeFilter',
+    AUDIO_MIX: 'audioMix',
     REV: 'wleRev'
+  },
+  // Per-sound level and on/off. 'click' plays here in the popup, 'save' plays
+  // on YouTube when a video is added — the content script reads the same key.
+  // soundEnabled stays the master switch over both.
+  AUDIO_DEFAULTS: {
+    click: { enabled: true, volume: 0.5 },
+    save: { enabled: true, volume: 0.5 }
   },
   // 'video' unless a record says otherwise: entries saved before the kind was
   // recorded carry no type, and most of them are videos.
@@ -51,15 +59,20 @@ const AudioManager = {
   init() {
     if (!this.clickAudio) {
       this.clickAudio = new Audio('sounds/click.mp3');
-      this.clickAudio.volume = CONFIG.AUDIO_VOLUME;
     }
     return this.clickAudio;
   },
 
-  play(soundEnabled) {
-    if (!soundEnabled) return;
+  /**
+   * @param {boolean} soundEnabled the master switch
+   * @param {number} [volume] 0-1, for previewing while the slider moves
+   */
+  play(soundEnabled, volume) {
+    const level = typeof volume === 'number' ? volume : AudioMix.levelFor('click');
+    if (!soundEnabled || level <= 0) return;
 
     const audio = this.init();
+    audio.volume = level;
     audio.currentTime = 0;
     audio.play().catch(e => console.warn("Audio play blocked:", e));
   },
@@ -70,6 +83,52 @@ const AudioManager = {
       this.clickAudio.currentTime = 0;
       this.clickAudio = null;
     }
+  }
+};
+
+// ============================================
+// SOUND MIXER STATE
+// One shape, read by the popup and by the content script, so a level set here
+// is the level heard on YouTube.
+// ============================================
+const AudioMix = {
+  mix: null,
+
+  /** Anything stored is user input from an older version or another tab. */
+  normalize(raw) {
+    const out = {};
+    Object.entries(CONFIG.AUDIO_DEFAULTS).forEach(([name, fallback]) => {
+      const stored = raw && typeof raw === 'object' ? raw[name] : null;
+      const volume = Number(stored?.volume);
+      out[name] = {
+        enabled: stored?.enabled !== false,
+        volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : fallback.volume
+      };
+    });
+    return out;
+  },
+
+  load(raw) {
+    this.mix = this.normalize(raw);
+    return this.mix;
+  },
+
+  get(name) {
+    if (!this.mix) this.mix = this.normalize(null);
+    return this.mix[name] || { ...CONFIG.AUDIO_DEFAULTS[name] };
+  },
+
+  /** The level to play at, or 0 when this sound is switched off. */
+  levelFor(name) {
+    const entry = this.get(name);
+    return entry.enabled ? entry.volume : 0;
+  },
+
+  set(name, patch) {
+    if (!this.mix) this.mix = this.normalize(null);
+    this.mix[name] = { ...this.get(name), ...patch };
+    chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.AUDIO_MIX]: this.mix });
+    return this.mix[name];
   }
 };
 
@@ -1479,10 +1538,104 @@ function setupSoundToggle() {
   DOMCache.soundBtn.addEventListener('click', () => {
     AppState.setSoundEnabled(!AppState.soundEnabled);
     updateSoundIcon();
+    updateMixerUI();
     if (AppState.soundEnabled) {
       AudioManager.play(true);
     }
   });
+}
+
+// ============================================
+// SOUND MIXER
+// Slider and number box are the same value in two shapes; each writes the
+// other. The master switch dims the lot without forgetting the levels.
+// ============================================
+function updateMixerUI() {
+  document.querySelectorAll('.mixer-row').forEach((row) => {
+    const name = row.dataset.sound;
+    const entry = AudioMix.get(name);
+    const percent = Math.round(entry.volume * 100);
+
+    const toggle = row.querySelector('[data-sound-toggle]');
+    const slider = row.querySelector('[data-sound-slider]');
+    const number = row.querySelector('[data-sound-number]');
+
+    if (toggle) toggle.setAttribute('aria-checked', entry.enabled ? 'true' : 'false');
+    if (slider && document.activeElement !== slider) slider.value = String(percent);
+    if (number && document.activeElement !== number) number.value = String(percent);
+
+    // Off on its own switch, or off because everything is.
+    row.classList.toggle('is-off', !entry.enabled || !AppState.soundEnabled);
+  });
+
+  updateGroupNotes();
+}
+
+function setupMixer() {
+  const mixer = document.getElementById('mixer');
+  if (!mixer) return;
+
+  // Previewing every pixel of a drag would stutter; on release is enough.
+  const preview = (name, volume) => {
+    if (!AppState.soundEnabled || !AudioMix.get(name).enabled || volume <= 0) return;
+    if (name === 'click') AudioManager.play(true, volume);
+  };
+
+  const setVolume = (name, percent, { play = false } = {}) => {
+    const clamped = Math.min(100, Math.max(0, Math.round(Number(percent) || 0)));
+    AudioMix.set(name, { volume: clamped / 100 });
+    updateMixerUI();
+    if (play) preview(name, clamped / 100);
+  };
+
+  mixer.addEventListener('input', (e) => {
+    const slider = e.target.closest('[data-sound-slider]');
+    if (slider) { setVolume(slider.dataset.soundSlider, slider.value); return; }
+
+    const number = e.target.closest('[data-sound-number]');
+    // Mid-typing the box can be empty or out of range; only mirror a usable
+    // number, and let change() settle whatever is left behind.
+    if (number && number.value !== '') setVolume(number.dataset.soundNumber, number.value);
+  });
+
+  mixer.addEventListener('change', (e) => {
+    const slider = e.target.closest('[data-sound-slider]');
+    if (slider) { setVolume(slider.dataset.soundSlider, slider.value, { play: true }); return; }
+
+    const number = e.target.closest('[data-sound-number]');
+    if (number) setVolume(number.dataset.soundNumber, number.value, { play: true });
+  });
+
+  mixer.addEventListener('click', (e) => {
+    const toggle = e.target.closest('[data-sound-toggle]');
+    if (!toggle) return;
+
+    const name = toggle.dataset.soundToggle;
+    const now = !AudioMix.get(name).enabled;
+    AudioMix.set(name, { enabled: now });
+    updateMixerUI();
+    if (now) preview(name, AudioMix.get(name).volume);
+  });
+}
+
+/**
+ * What a closed section holds, so it still says something when shut.
+ */
+function updateGroupNotes() {
+  const note = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  if (!AppState.soundEnabled) {
+    note('audio-group-summary', 'All muted');
+  } else {
+    const off = Object.keys(CONFIG.AUDIO_DEFAULTS).filter((n) => !AudioMix.get(n).enabled);
+    note('audio-group-summary', off.length ? `${off.length} muted` : 'On');
+  }
+
+  note('mini-player-group-summary', AppState.detachEnabled ? 'On' : 'Off');
+  note('banner-group-summary', AppState.hideJobsMatchBanner ? 'Hidden' : 'Shown');
 }
 
 // ============================================
@@ -1551,8 +1704,8 @@ function openMiniPlayerWindow(url) {
 
 function updateMiniPlayerSwitch() {
   const sw = DOMCache.miniPlayerSwitch;
-  if (!sw) return;
-  sw.setAttribute('aria-checked', AppState.detachEnabled ? 'true' : 'false');
+  if (sw) sw.setAttribute('aria-checked', AppState.detachEnabled ? 'true' : 'false');
+  updateGroupNotes();
 }
 
 function toggleMiniPlayer() {
@@ -1741,6 +1894,7 @@ function applyJobsMatchBanner() {
     banner.classList.toggle('hidden', !show);
   }
   updateHideBannerSwitch();
+  updateGroupNotes();
 }
 
 function updateHideBannerSwitch() {
@@ -1928,7 +2082,8 @@ async function init() {
         {
           [CONFIG.STORAGE_KEYS.SOUND]: true,
           [CONFIG.STORAGE_KEYS.DETACH]: true,
-          [CONFIG.STORAGE_KEYS.TYPE_FILTER]: 'all'
+          [CONFIG.STORAGE_KEYS.TYPE_FILTER]: 'all',
+          [CONFIG.STORAGE_KEYS.AUDIO_MIX]: null
         },
         (data) => resolve(data)
       );
@@ -1939,10 +2094,13 @@ async function init() {
     AppState.typeFilter = ['video', 'short'].includes(prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER])
       ? prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER]
       : 'all';
+    AudioMix.load(prefs[CONFIG.STORAGE_KEYS.AUDIO_MIX]);
     updateSoundIcon();
     updateMiniPlayerSwitch();
     updateTypeFilterUI();
+    updateMixerUI();
 
+    setupMixer();
     setupSoundToggle();
     setupMiniPlayerToggle();
     setupWikiButton();

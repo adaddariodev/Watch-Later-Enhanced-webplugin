@@ -69,6 +69,7 @@ it was, still playing.
   disappearing, and deletions are recoverable.
 * **Video and Shorts labels**, with a filter that narrows the list to either.
 * **The channel** that published each video, beside its type.
+* **A sound mixer** — a level and an on/off per sound, or silence for the lot.
 
 ### Know what you saved
 

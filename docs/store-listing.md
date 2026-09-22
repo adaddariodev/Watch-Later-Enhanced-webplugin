@@ -8,10 +8,10 @@ renders no Markdown, so the version below is written to read well as-is.
 ## Short description (132 characters max)
 
 ```
-Save any YouTube video with Alt+Click. Tag it, sort it, watch it in a floating window. 100% local — nothing leaves your PC.
+Save any YouTube video with Alt+Click. Tag it, sort it, watch it in a pinnable floating player. 100% local, no account.
 ```
 
-*(123 characters, leaving room under the 132 limit.)*
+*(119 characters, leaving room under the 132 limit.)*
 
 ---
 
@@ -38,10 +38,11 @@ WHAT YOU GET
   Alt + Click anything on YouTube. A small on-screen confirmation shows the
   video's real title. You never leave the page you were on.
 
-▸ A FLOATING MINI PLAYER
+▸ A MINI PLAYER YOU CAN PIN ON TOP
   Pop any video out of the browser into its own window. Minimize the browser,
   switch to another app, drag the window wherever you want — it keeps playing.
-  Play, pause, seek and mute from the keyboard.
+  Pin it and it stays above everything else on screen. Play, pause, seek and
+  mute from the keyboard.
 
 ▸ TAGS AND SEARCH
   Give videos colour-coded tags and find them again in one keystroke.
@@ -49,9 +50,13 @@ WHAT YOU GET
 ▸ YOUR ORDER, NOT AN ALGORITHM'S
   Drag and drop to prioritise your queue.
 
-▸ VIDEOS AND SHORTS, TOLD APART
-  Every item is labelled Video or Shorts, and one click narrows the list to
-  either.
+▸ KNOW WHAT YOU SAVED
+  Every item shows whether it is a Video or a Shorts, and which channel it
+  came from. One click narrows the list to either kind.
+
+▸ SOUNDS ON YOUR TERMS
+  A small mixer: set the volume of each sound with a slider or by typing a
+  number, mute one of them, or switch the lot off.
 
 ▸ TO WATCH, ARCHIVE, TRASH
   Finished videos leave your queue without disappearing. Deletions can be
@@ -84,7 +89,7 @@ WHY THIS ONE
 SHORTCUTS
 
   Alt + Click          Save a video
-  Alt + Shift + D      Open / close the mini player
+  Alt + Shift + D      Open / close the floating mini player
   Space or K           Play / pause
   Left / Right         Skip 5 seconds
   M                    Mute

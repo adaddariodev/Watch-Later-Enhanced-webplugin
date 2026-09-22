@@ -22,19 +22,35 @@ const CONFIG = {
 // ============================================
 const AudioManager = {
   successAudio: null,
-  
+
   init() {
     if (!this.successAudio) {
       this.successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
-      this.successAudio.volume = CONFIG.AUDIO_VOLUME;
     }
     return this.successAudio;
   },
-  
-  play(isSoundEnabled) {
+
+  /**
+   * The popup's mixer sets the level for this sound, so read what it stored
+   * rather than a constant. Anything missing or malformed falls back to the
+   * default, and the master switch still overrules all of it.
+   * @param {boolean} isSoundEnabled the master switch
+   * @param {object} [mix] the stored audioMix, as read alongside it
+   */
+  play(isSoundEnabled, mix) {
     if (!isSoundEnabled) return;
-    
+
+    const entry = mix && typeof mix === 'object' ? mix.save : null;
+    if (entry && entry.enabled === false) return;
+
+    const stored = Number(entry?.volume);
+    const volume = Number.isFinite(stored)
+      ? Math.min(1, Math.max(0, stored))
+      : CONFIG.AUDIO_VOLUME;
+    if (volume <= 0) return;
+
     const audio = this.init();
+    audio.volume = volume;
     audio.currentTime = 0;
     audio.play().catch((err) => console.warn('Audio play blocked:', err));
   },
@@ -461,12 +477,14 @@ async function saveVideoToWLE(url, title, kind, channel) {
         const data = await storageGet({
           savedVideos: [],
           soundEnabled: true,
+          audioMix: null,
           [CONFIG.REV_KEY]: 0
         });
         const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
         const snap = JSON.stringify(savedVideos);
         const rev = data[CONFIG.REV_KEY] || 0;
         const isSoundEnabled = data.soundEnabled ?? true;
+        const audioMix = data.audioMix;
 
         const latest = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
         if (
@@ -524,7 +542,7 @@ async function saveVideoToWLE(url, title, kind, channel) {
           [CONFIG.REV_KEY]: rev + 1
         });
 
-        AudioManager.play(isSoundEnabled);
+        AudioManager.play(isSoundEnabled, audioMix);
         showHud(title);
         return settledKind;
 
