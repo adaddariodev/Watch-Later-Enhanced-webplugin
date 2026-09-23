@@ -46,7 +46,8 @@ async function rememberMiniWindow(windowId, videoId) {
   await chrome.storage.session.set({ [OPEN_KEY]: { windowId, videoId } });
 }
 
-async function openMiniPlayer() {
+/** The mini player that is open, if one still is. */
+async function currentMiniPlayer() {
   const data = await chrome.storage.session.get(OPEN_KEY);
   const open = data?.[OPEN_KEY];
   if (!open) return null;
@@ -57,6 +58,23 @@ async function openMiniPlayer() {
 
   await chrome.storage.session.remove(OPEN_KEY);
   return null;
+}
+
+/**
+ * Requests are served one at a time.
+ *
+ * Two clicks in quick succession arrive as two messages, and both would look
+ * for an open window before either had made one — two windows for one video,
+ * which is the duplicate all of this exists to prevent, and the second
+ * soundtrack the user reported. Measured: two requests in one tick, two
+ * windows.
+ */
+let pending = Promise.resolve();
+
+function openMiniWindow(videoId, startAt) {
+  const run = pending.catch(() => {}).then(() => serveMiniWindow(videoId, startAt));
+  pending = run.catch(() => {});
+  return run;
 }
 
 /**
@@ -72,17 +90,19 @@ async function openMiniPlayer() {
  *   for this had got to, so the window picks the video up rather than
  *   restarting it.
  */
-async function openMiniWindow(videoId, startAt) {
+async function serveMiniWindow(videoId, startAt) {
   if (!VIDEO_ID.test(String(videoId || ''))) throw new Error('not a video id');
 
   // Every YouTube tab watches this, so the one playing the same video can
   // stop: the point of the mini player is to move a video, not to clone it.
-  await chrome.storage.local.set({ [MINI_WINDOW.OPENED_KEY]: { videoId, at: Date.now() } });
+  const announce = () =>
+    chrome.storage.local.set({ [MINI_WINDOW.OPENED_KEY]: { videoId, at: Date.now() } });
 
-  const open = await openMiniPlayer();
+  const open = await currentMiniPlayer();
   if (open) {
     if (open.videoId === videoId) {
       await chrome.windows.update(open.windowId, { focused: true });
+      await announce();
       return;
     }
     await chrome.windows.remove(open.windowId).catch(() => {});
@@ -108,6 +128,10 @@ async function openMiniWindow(videoId, startAt) {
   });
 
   if (typeof win?.id === 'number') await rememberMiniWindow(win.id, videoId);
+
+  // After the window exists, so that a create that failed does not leave a
+  // tab paused for a mini player that never opened.
+  await announce();
 }
 
 /** Where the window's pre-minimize state is parked, keyed by window id. */

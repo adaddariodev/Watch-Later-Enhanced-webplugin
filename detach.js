@@ -1543,6 +1543,19 @@
       DetachedPlayer.close();
     }
 
+    // Inside the mini player window there is nothing to pop out: it is the
+    // window. Its own bar carries the pin. Everything below would put a
+    // pop-out button in YouTube's control bar here and arm the gesture, and
+    // both only paused the video and brought this window to the front — a
+    // control that breaks what you are watching and does nothing else.
+    if (MiniWindow.wanted) {
+      if (!DetachState.enabled) return;
+      MiniWindow.start();
+      MiniWindow.reclaim();
+      MiniWindow.refreshTitle();
+      return;
+    }
+
     // The thumbnail button belongs to every page that has thumbnails on it:
     // the home page, a channel, search results, the sidebar of a video. The
     // early return below used to come first, so it was only ever wired up on
@@ -1561,9 +1574,6 @@
     if (!DetachState.enabled) return;
 
     DetachButton.start();
-    MiniWindow.start();
-    MiniWindow.reclaim();
-    MiniWindow.refreshTitle();
   }
 
   function applyEnabledState() {
