@@ -388,25 +388,24 @@
 
         <h3>Pinning it on top</h3>
         <p>
-          A mini player opened from a video page — the control-bar button, or
-          <kbd>Alt</kbd> + <kbd>Shift</kbd> + click on the player — already floats above every other
-          application. The window opened from the popup does not: it survives minimizing the
-          browser, but other windows can cover it.
+          The mini player is a window of its own, however you opened it. It
+          survives minimizing the browser and closing the page it came from,
+          but other windows can cover it.
         </p>
         <p>
-          To fix that, click <strong>Pin on top</strong> in the corner of that window. The
-          video moves into a floating player that stays above everything else, and the window
-          it came from minimizes itself so only one window is left on screen. Close the
-          pinned player and that window comes back with the video in it.
-        </p>
-        <p>
-          A player opened from a video page is the floating kind already, and shows a
-          <strong>Pinned</strong> badge next to the title to say so.
+          To put it above everything, click <strong>Pin on top</strong> in its
+          corner. The video moves into a floating player that stays on top of
+          every other application, and the window it came from minimizes itself
+          so only one window is left on screen. Close the pinned player and that
+          window comes back with the video in it.
         </p>
         <p class="wiki-note">
-          The old window is minimized rather than closed because it has to stay: a floating
-          player belongs to the window that opened it, and closing that window closes the
-          player with it.
+          That window is minimized rather than closed because it has to stay: a
+          floating player belongs to the window that opened it, and closing that
+          window closes the player with it. It is the same rule that decides
+          everything above — which is why opening the mini player from a video
+          page gives you a window rather than a floating player. One tied to the
+          tab would die the moment you closed it.
         </p>
         <p class="wiki-note">
           Pinning is a button rather than a setting on purpose: browsers only hand out an
@@ -416,8 +415,9 @@
 
         <h3>While it is open</h3>
         <ul>
-          <li>YouTube's real controls come along, so play, volume, captions, quality, chapters and the skip-ad button all keep working.</li>
-          <li>The YouTube tab shows a placeholder with a <strong>Bring the video back</strong> button where the player used to be.</li>
+          <li>YouTube's own controls are there, so play, volume, captions, quality, chapters and the skip-ad button all work as usual.</li>
+          <li>The page you opened it from stops playing, so you never end up with two soundtracks — one of them from a window you cannot see.</li>
+          <li>There is only ever one mini player. Asking for the video that is already in it brings that window forward; asking for another puts it in the same window.</li>
           <li>The window remembers the size you gave it and opens that way next time.</li>
           <li>
             The browser draws that window with its own small title bar, and that bar already
@@ -444,18 +444,21 @@
         </table>
 
         <h3>Closing it</h3>
-        <p>Any of these puts the video back into the YouTube tab, where it keeps playing:</p>
-        <ul>
-          <li>The buttons your browser draws on the floating window's own small
-            title bar: the <strong>×</strong> that closes it, and the one that
-            takes you back to the tab. The extension does not repeat them over
-            the video — what it draws there is the title and the Pinned badge,
-            and both fade away while you watch.</li>
-          <li><kbd>Esc</kbd>, the same button in YouTube's control bar, or
-            <kbd>Alt</kbd> + <kbd>Shift</kbd> + click again — on the player, or on the space it left
-            behind in the page.</li>
-          <li>Navigating to another page in the YouTube tab — the video returns automatically.</li>
-        </ul>
+        <p>
+          Close the mini player window the way you close any window — its own
+          <strong>×</strong>, or <kbd>Esc</kbd>. Nothing else has to be tidied
+          up: the page you opened it from kept its player, it just stopped
+          playing it.
+        </p>
+        <p>
+          A <strong>pinned</strong> player is the one exception, because it is a
+          floating player rather than a window: closing it hands the video back
+          to the mini player window it came from, which comes out of the taskbar
+          with it. The buttons for that are the ones your browser draws on its
+          own small title bar — the × and the one that goes back — so the
+          extension does not repeat them. What it draws over the video is the
+          title and the Pinned badge, and both fade away while you watch.
+        </p>
 
         <h3>What your browser needs</h3>
         <ul>

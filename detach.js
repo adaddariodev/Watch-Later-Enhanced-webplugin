@@ -16,7 +16,8 @@
     KEYS: {
       ENABLED: 'detachEnabled',
       SIZE: 'miniPlayerSize',        // the always-on-top window's inner size
-      WINDOW_SIZE: 'miniWindowSize'  // the popup's own browser window's size
+      WINDOW_SIZE: 'miniWindowSize', // the popup's own browser window's size
+      OPENED: 'miniOpened'           // the worker's note that one just opened
     },
     MINI_MARKER: 'wle-mini',     // hash the popup puts on the mini player window
     DEFAULT_WIDTH: 480,
@@ -96,11 +97,16 @@
    * itself, so the service worker does it — from an eleven-character id it
    * validates, never from a URL handed to it by a page.
    */
-  function openMiniWindow(videoId) {
+  function openMiniWindow(videoId, startAt) {
     if (!videoId) return;
 
+    // Whatever this page was playing, it is not what you are watching now.
+    // Two soundtracks, one of them from a window you cannot see, is the thing
+    // this feature must never do.
+    pausePlayback();
+
     try {
-      chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.OPEN, videoId }, (response) => {
+      chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.OPEN, videoId, startAt }, (response) => {
         if (chrome.runtime.lastError || !response?.ok) {
           notify('Could not open the mini player');
         }
@@ -108,6 +114,43 @@
     } catch (error) {
       console.info('WLE: could not reach the background worker —', error?.message);
     }
+  }
+
+  /** Stop this page's video, if it has one and it is playing. */
+  function pausePlayback() {
+    const video = DetachedPlayer.findVideo();
+    if (video && !video.paused) {
+      try {
+        video.pause();
+      } catch (error) {
+        console.info('WLE: could not pause this page —', error?.message);
+      }
+    }
+  }
+
+  /**
+   * The mini player for the video this page is showing.
+   *
+   * It opens a window of its own rather than handing this page's live player
+   * to a picture-in-picture window. A document's picture-in-picture window
+   * belongs to that document: close the tab and the floating player goes with
+   * it, which is not something to build a mini player on — and it was the one
+   * way in that behaved that way.
+   *
+   * What is given up is the hand-off. The window loads the video rather than
+   * receiving the one already decoded, so it starts at the second this page
+   * had reached and chooses its own quality. The pin inside it is what puts it
+   * above other windows, exactly as it does for every other way in.
+   */
+  function openMiniWindowForThisPage() {
+    const videoId = WLEUrl.extractVideoId(window.location.href);
+    if (!videoId) {
+      notify('No video to detach');
+      return;
+    }
+
+    const video = DetachedPlayer.findVideo();
+    openMiniWindow(videoId, Math.floor(video?.currentTime || 0));
   }
 
   function notify(message) {
@@ -716,7 +759,7 @@
       btn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        DetachedPlayer.toggle();
+        openMiniWindowForThisPage();
       });
 
       controls.insertBefore(btn, controls.firstChild);
@@ -1030,12 +1073,11 @@
         // for. The placeholder counts as the player: once the video is in the
         // floating window, the spot it left is all there is to click, and the
         // gesture has to undo itself the way the shortcut did.
-        const player = event.target.closest(
-          '#movie_player, .html5-video-player, .wle-detach-placeholder');
+        const player = event.target.closest('#movie_player, .html5-video-player');
         if (player && isWatchPage()) {
           event.preventDefault();
           event.stopPropagation();
-          DetachedPlayer.toggle();
+          openMiniWindowForThisPage();
         }
       }, true);
     }
@@ -1546,7 +1588,23 @@
     DetachState.enabled = data[DETACH.KEYS.ENABLED] !== false;
 
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local' || !changes[DETACH.KEYS.ENABLED]) return;
+      if (area !== 'local') return;
+
+      // A mini player just opened somewhere. If this tab is the same video, it
+      // is now playing it twice — and the copy you cannot see is the one still
+      // making noise. Only the same video: another tab's music is not this
+      // feature's business.
+      //
+      // Through storage because that is the one thing a worker and every
+      // content script already share; reaching tabs directly would mean host
+      // permissions this extension does not ask for.
+      const opened = changes[DETACH.KEYS.OPENED]?.newValue;
+      if (opened && !MiniWindow.wanted &&
+          opened.videoId === WLEUrl.extractVideoId(window.location.href)) {
+        pausePlayback();
+      }
+
+      if (!changes[DETACH.KEYS.ENABLED]) return;
       DetachState.enabled = changes[DETACH.KEYS.ENABLED].newValue !== false;
       applyEnabledState();
     });

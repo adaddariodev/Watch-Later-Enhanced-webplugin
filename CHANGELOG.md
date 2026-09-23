@@ -129,6 +129,32 @@ every time you scroll, since that strip stays pinned to the top.
   the line below, level with the pills. The title has about 100px more to work
   with, so far fewer of them are cut short.
 
+### 🪟 One mini player, and it outlives the page it came from
+
+Two fixes to the same root: opening the mini player from a video page did not
+open a window at all. It handed that page's live player to a floating player
+**owned by the tab** — so closing the tab closed the mini player with it, and
+the only way to have one that survived was to pin it first.
+
+It opens a window of its own now, exactly like every other way in. Close the
+page, close the tab, navigate away: the mini player stays, and **Pin on top**
+still puts it above everything when you want that.
+
+* **The page you opened it from stops playing.** It used to keep going, so you
+  had two soundtracks with one of them coming from a window you could not see.
+  A tab showing the same video stops too, wherever you opened the mini player
+  from.
+* **There is only one mini player.** Asking for the video already in it brings
+  that window forward; asking for another puts it in the same window, instead
+  of leaving a trail of windows all playing at once.
+* It **picks the video up where the page had got to** rather than starting it
+  again.
+
+What is given up is the hand-off: the window loads the video rather than
+receiving the one already decoded, so it chooses its own quality and any
+captions you had switched on need switching on again. A player that dies with
+the tab it came from is not worth that.
+
 ### 🔎 Search the titles too, and click a channel to filter by it
 
 The search box looked only at tags, which meant a video was findable only if

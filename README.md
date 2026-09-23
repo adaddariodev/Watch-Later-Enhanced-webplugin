@@ -50,9 +50,8 @@ browser, move to another app, drag the window anywhere — it keeps playing.
   the video's own ⋮ menu. Or hover the thumbnail and use the button in its
   top-left corner.
 * **On a video page:** `Alt + Shift + Click` the player, or the mini-player
-  button in YouTube's control bar. This kind hands the live player over — your
-  position, the captions, the quality you picked — and floats above every
-  other application.
+  button in YouTube's control bar. The window opens at the second the page had
+  reached, and the page stops playing — one video at a time, never two.
 * **From the popup:** the mini-player button on a saved video plays it
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
@@ -61,8 +60,9 @@ browser, move to another app, drag the window anywhere — it keeps playing.
   browser's own title bar on that window, so the overlay does not repeat them —
   it shows the video's title and a **Pinned** badge, and fades out of the way.
 
-Closing it — or navigating away — returns the player to the tab exactly where
-it was, still playing.
+There is only ever one mini player: asking for the video already in it brings
+that window forward, and asking for another puts it in the same window. It is a
+window of its own, so closing the page it came from leaves it playing.
 
 > The pin is a button rather than a setting because it has to be: a browser
 > only grants an always-on-top window in response to a click inside the page,

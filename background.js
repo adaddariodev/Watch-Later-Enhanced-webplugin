@@ -26,10 +26,12 @@ const MESSAGES = {
 const MINI_WINDOW = {
   MARKER: 'wle-mini',        // detach.js recognises the window by this hash
   SIZE_KEY: 'miniWindowSize',
+  OPENED_KEY: 'miniOpened',  // every YouTube tab watches this one
   WIDTH: 560,
   HEIGHT: 340,
   MIN_WIDTH: 320,
-  MIN_HEIGHT: 200
+  MIN_HEIGHT: 200,
+  MAX_START: 24 * 60 * 60    // a day, which no video is
 };
 
 // Same rule as url-utils.js: eleven characters of the YouTube id alphabet and
@@ -37,8 +39,54 @@ const MINI_WINDOW = {
 // rather than taken as one.
 const VIDEO_ID = /^[\w-]{11}$/;
 
-async function openMiniWindow(videoId) {
+/** Where the one open mini player is remembered, across worker restarts. */
+const OPEN_KEY = 'wleMiniWindow';
+
+async function rememberMiniWindow(windowId, videoId) {
+  await chrome.storage.session.set({ [OPEN_KEY]: { windowId, videoId } });
+}
+
+async function openMiniPlayer() {
+  const data = await chrome.storage.session.get(OPEN_KEY);
+  const open = data?.[OPEN_KEY];
+  if (!open) return null;
+
+  // It may have been closed by hand since.
+  const live = await chrome.windows.get(open.windowId).catch(() => null);
+  if (live) return open;
+
+  await chrome.storage.session.remove(OPEN_KEY);
+  return null;
+}
+
+/**
+ * One mini player, not one per click.
+ *
+ * A second window is a second soundtrack playing from somewhere you cannot
+ * see, and another window to hunt down and close. Asking for the video that is
+ * already in there brings that window forward; asking for another one puts it
+ * in the same window.
+ *
+ * @param {string} videoId
+ * @param {number} [startAt] seconds to resume from — where the page that asked
+ *   for this had got to, so the window picks the video up rather than
+ *   restarting it.
+ */
+async function openMiniWindow(videoId, startAt) {
   if (!VIDEO_ID.test(String(videoId || ''))) throw new Error('not a video id');
+
+  // Every YouTube tab watches this, so the one playing the same video can
+  // stop: the point of the mini player is to move a video, not to clone it.
+  await chrome.storage.local.set({ [MINI_WINDOW.OPENED_KEY]: { videoId, at: Date.now() } });
+
+  const open = await openMiniPlayer();
+  if (open) {
+    if (open.videoId === videoId) {
+      await chrome.windows.update(open.windowId, { focused: true });
+      return;
+    }
+    await chrome.windows.remove(open.windowId).catch(() => {});
+  }
 
   const data = await chrome.storage.local.get({ [MINI_WINDOW.SIZE_KEY]: null });
   const saved = data?.[MINI_WINDOW.SIZE_KEY];
@@ -47,13 +95,19 @@ async function openMiniWindow(videoId) {
   const height = Math.max(MINI_WINDOW.MIN_HEIGHT,
     Math.round(Number(saved?.height) || MINI_WINDOW.HEIGHT));
 
-  await chrome.windows.create({
-    url: `https://www.youtube.com/watch?v=${videoId}#${MINI_WINDOW.MARKER}`,
+  // Bounded and whole: it goes into a URL, and it arrived from a page.
+  const seconds = Math.min(MINI_WINDOW.MAX_START, Math.max(0, Math.floor(Number(startAt) || 0)));
+  const resume = seconds > 0 ? `&t=${seconds}s` : '';
+
+  const win = await chrome.windows.create({
+    url: `https://www.youtube.com/watch?v=${videoId}${resume}#${MINI_WINDOW.MARKER}`,
     type: 'popup',
     width,
     height,
     focused: true
   });
+
+  if (typeof win?.id === 'number') await rememberMiniWindow(win.id, videoId);
 }
 
 /** Where the window's pre-minimize state is parked, keyed by window id. */
@@ -94,7 +148,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // popup is an extension page with no sender.tab — so it is answered before
   // the window checks below, which are about moving an existing window.
   if (type === MESSAGES.OPEN) {
-    openMiniWindow(message.videoId).then(
+    openMiniWindow(message.videoId, message.startAt).then(
       () => sendResponse({ ok: true }),
       (error) => {
         console.info('WLE: could not open the mini player —', error?.message);
@@ -136,4 +190,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   );
 
   return true; // the response goes out after the promise settles
+});
+
+// A window closed by hand leaves a note behind saying it is open. Clearing it
+// is what lets the next click open a window instead of trying to focus one
+// that is not there.
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  const data = await chrome.storage.session.get(OPEN_KEY);
+  if (data?.[OPEN_KEY]?.windowId === windowId) {
+    await chrome.storage.session.remove(OPEN_KEY);
+  }
 });
