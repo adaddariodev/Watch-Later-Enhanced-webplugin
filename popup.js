@@ -269,6 +269,16 @@ const AppState = {
     this.tagQueryMode = mode;
   },
 
+  /**
+   * Whether what is on screen is a subset of the real list. Asked in one place
+   * because it was asked in two: reordering was switched off for a favourites
+   * filter while the drag handle still offered to reorder, the two conditions
+   * having been written out separately and then drifted apart.
+   */
+  isFiltered() {
+    return Boolean(this.tagQuery) || this.typeFilter !== 'all' || this.favouritesOnly;
+  },
+
   setView(view) {
     this.view = view;
   },
@@ -760,8 +770,7 @@ const VideoItemFactory = {
     const editable = mode !== 'trash';
     // Reordering writes positions in the full list, so it only makes sense
     // while the list on screen is the full list.
-    const isFiltered = Boolean(AppState.tagQuery) || AppState.typeFilter !== 'all' ||
-      AppState.favouritesOnly;
+    const isFiltered = AppState.isFiltered();
     const canDrag = mode === 'active' && !isFiltered;
     li.draggable = canDrag;
     if (mode === 'active' && isFiltered) li.classList.add('drag-disabled');
@@ -813,7 +822,7 @@ const VideoItemFactory = {
   createDragHandle() {
     const handle = document.createElement('div');
     handle.className = 'drag-handle';
-    handle.title = (AppState.tagQuery || AppState.typeFilter !== 'all')
+    handle.title = AppState.isFiltered()
       ? 'Clear the filters to reorder'
       : 'Hold and drag to reorder';
     handle.appendChild(Utils.createBtnIcon('icons/buttons/menu-burger.svg', ''));
@@ -1948,10 +1957,15 @@ const SearchBar = {
     const wrap = DOMCache.searchWrap;
     if (!wrap) return;
 
-    if (AppState.tagQuery || DOMCache.tagSearchInput?.value) {
+    // Only a query that reached the list costs a re-render. Typing and pressing
+    // Esc inside the debounce window leaves text in the box that never filtered
+    // anything, and rebuilding the list for that is 500ms of nothing on a long
+    // one.
+    const wasFiltering = Boolean(AppState.tagQuery);
+    if (wasFiltering || DOMCache.tagSearchInput?.value) {
       if (DOMCache.tagSearchInput) DOMCache.tagSearchInput.value = '';
       AppState.setTagQuery('', 'contains');
-      displayVideos();
+      if (wasFiltering) displayVideos();
     }
 
     wrap.classList.remove('search-open');
@@ -2019,6 +2033,10 @@ function setupSearch() {
   document.addEventListener('keydown', (e) => {
     if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
     if (DOMCache.settingsModal && !DOMCache.settingsModal.classList.contains('hidden')) return;
+    // The trash view hides the whole strip. Opening a field nobody can see
+    // would leave the button claiming aria-expanded="true" over nothing, and
+    // the field waiting open and empty on the way back.
+    if (!DOMCache.searchWrap || DOMCache.searchWrap.offsetParent === null) return;
     const el = e.target;
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.isContentEditable) return;
     e.preventDefault();

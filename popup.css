@@ -389,6 +389,13 @@ li.video-item:hover {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  /* Counts are not bounded. At four digits the chips, the heart and the search
+     button come to 389px of a 366px popup, and main's overflow-x: hidden then
+     cuts both ends off — the All chip and the search button among them.
+     Wrapping costs a line only at that point, and nothing is ever left
+     unreachable. */
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 
 .filter-row .type-filter {
@@ -451,9 +458,14 @@ li.video-item:hover .favourite-btn.is-favourite {
   outline-offset: 2px;
 }
 
+/* transform: none, because .btn-icon carries a scale(0.7) sized for the 18px
+   icons on a video row. Inherited here it drew these at 9.8px — a third
+   smaller than the 14 asked for, and a transform changes no layout, so the
+   button measured correct while the glyph was too small to read. */
 .filter-btn .btn-icon {
   width: 14px;
   height: 14px;
+  transform: none;
 }
 
 .fav-filter.is-on {
