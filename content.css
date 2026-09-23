@@ -200,6 +200,16 @@ html.wle-mini-window body {
   outline-offset: 2px;
 }
 
+/* The icon on the item added to YouTube's own menu. Sized to the row it was
+   cloned from; the white is YouTube's menu foreground. */
+.wle-menu-icon {
+  width: 24px;
+  height: 24px;
+  display: block;
+  filter: brightness(0) invert(1);
+  pointer-events: none;
+}
+
 /* 18 of the button's 32: the icon has to carry against whatever picture is
    underneath it, and 17 left it reading as a smudge on a busy thumbnail. */
 .wle-thumb-mini-icon {

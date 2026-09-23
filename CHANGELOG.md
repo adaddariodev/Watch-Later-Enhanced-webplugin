@@ -144,6 +144,18 @@ One thing did change on purpose: **changing a filter, or searching, takes you
 back to the top**. You were previously left at whatever height you happened to
 be at, inside a list you had not seen the top of.
 
+### ▶️ Two more ways into the mini player, neither of which can be hovered away
+
+The button on a thumbnail has to find its way around YouTube's own markup, and
+that markup is not ours to rely on. Two ways in that do not:
+
+* **`Alt` + `Shift` + click** any thumbnail — or its title — and it plays in
+  the mini player. It is the gesture that saves a video, with Shift, and it
+  asks nothing of YouTube's page beyond the link being a link.
+* **Play in mini player** is now the first item in the **⋮ menu** on every
+  video, beside "Save to Watch Later". The row is a copy of one of YouTube's
+  own, so it looks like the menu it is in.
+
 ### 🐛 The thumbnail button only worked on watch pages
 
 The button that plays a video in the mini player straight from its thumbnail

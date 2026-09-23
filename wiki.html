@@ -325,15 +325,44 @@
           it, and keep watching while the browser is minimized or you work in another program.
         </p>
 
-        <h3>Four ways to open it</h3>
+        <h3>Six ways to open it</h3>
+
+        <p><strong>A video you have not opened</strong> — anywhere its thumbnail
+        appears: the home page, a search, a channel, the sidebar beside another
+        video.</p>
         <ul>
-          <li>Click the mini player button in YouTube's own control bar, at the bottom right of the video. Careful not to confuse it with YouTube's own miniplayer button a few icons away, which only shrinks the video inside the tab: ours is <strong>two windows with a play symbol</strong>, YouTube's is a single screen with a small block in its corner.</li>
-          <li>Press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> on a video page.</li>
-          <li>Click the same two-window button on any row in the extension popup. The video starts playing right away in a small window of its own — no tab, nothing to confirm.</li>
-          <li>Hover any thumbnail on YouTube — on the home page, in a search, on a channel, in the sidebar of a video — and the same button appears in its <strong>top-left</strong> corner, opposite YouTube's own Watch later and queue buttons. Clicking it plays that video in the mini player without opening it and without leaving the page you are on. It stays put while YouTube's preview starts playing over the thumbnail, and follows the thumbnail while you scroll.</li>
+          <li><strong><kbd>Alt</kbd> + <kbd>Shift</kbd> + click</strong> it. The
+            same gesture that saves a video, with Shift, plays it in the mini
+            player instead — on the picture or on the title, either one. This is
+            the one that asks nothing of YouTube's own page furniture, so it is
+            the one to reach for if anything below is having a bad day after a
+            YouTube redesign.</li>
+          <li>Open the <strong>⋮ menu</strong> on the video — the same one that
+            holds "Save to Watch Later" — and pick <strong>Play in mini
+            player</strong> at the top.</li>
+          <li><strong>Hover</strong> the thumbnail: a button appears in its
+            <strong>top-left</strong> corner, opposite YouTube's own Watch later
+            and queue buttons. It stays put while YouTube's preview starts
+            playing over the thumbnail, and follows the thumbnail while you
+            scroll.</li>
         </ul>
+
+        <p><strong>The video you are watching</strong>, or one already on your
+        list:</p>
+        <ul>
+          <li>The mini player button in YouTube's own control bar, at the bottom
+            right of the video. Careful not to confuse it with YouTube's own
+            miniplayer button a few icons away, which only shrinks the video
+            inside the tab: ours is <strong>two windows with a play symbol</strong>,
+            YouTube's is a single screen with a small block in its corner.</li>
+          <li><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> on a video page.</li>
+          <li>The same two-window button on any row in the extension popup. The
+            video starts playing right away in a small window of its own — no
+            tab, nothing to confirm.</li>
+        </ul>
+
         <p>
-          All four are the same feature, so all of them carry the same icon: a
+          They are all the same feature, so they all carry the same icon: a
           player floating in front of a window, with a play symbol in it.
         </p>
 
@@ -434,6 +463,11 @@
               <td><kbd>Alt</kbd> + click</td>
               <td>The video player</td>
               <td>Saves the video you are watching</td>
+            </tr>
+            <tr>
+              <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + click</td>
+              <td>Any thumbnail or title on YouTube</td>
+              <td>Plays that video in the mini player, without opening it</td>
             </tr>
             <tr>
               <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd></td>
@@ -576,6 +610,22 @@
           <li>Reload the video page.</li>
           <li>Very old browsers have no support for floating windows at all — see the requirements above.</li>
         </ul>
+
+        <h3>No button appears when I hover a thumbnail</h3>
+        <p>
+          First: reload the YouTube tab. A tab that was already open when the
+          extension updated keeps running the old version until it is reloaded,
+          and that alone accounts for most of it.
+        </p>
+        <p>
+          If it still does not appear, YouTube has most likely changed how it
+          builds that part of the page. The hover button is the only way in
+          that has to find its way around YouTube's own markup — so use
+          <kbd>Alt</kbd> + <kbd>Shift</kbd> + click, or <strong>Play in mini
+          player</strong> in the video's ⋮ menu, both of which work the same on
+          every page. A bug report with the page you were on is welcome; it is
+          how that button gets fixed for everyone.
+        </p>
 
         <h3>I clicked the mini player button in the popup and it only opened the video</h3>
         <p>

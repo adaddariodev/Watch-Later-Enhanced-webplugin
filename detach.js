@@ -89,6 +89,27 @@
   // ============================================
   // HELPERS
   // ============================================
+  /**
+   * Play a video in the dedicated mini window. The one way in for all three
+   * things that offer it: the button on a thumbnail, Alt + Shift + click, and
+   * the item in YouTube's own menu. A content script cannot open a window
+   * itself, so the service worker does it — from an eleven-character id it
+   * validates, never from a URL handed to it by a page.
+   */
+  function openMiniWindow(videoId) {
+    if (!videoId) return;
+
+    try {
+      chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.OPEN, videoId }, (response) => {
+        if (chrome.runtime.lastError || !response?.ok) {
+          notify('Could not open the mini player');
+        }
+      });
+    } catch (error) {
+      console.info('WLE: could not reach the background worker —', error?.message);
+    }
+  }
+
   function notify(message) {
     // showHud() is declared by content.js, which loads first in the same world.
     if (typeof showHud === 'function') showHud(message);
@@ -813,19 +834,10 @@
     },
 
     play() {
+      if (!this.videoId) return;
       const videoId = this.videoId;
-      if (!videoId) return;
-
       this.hide();
-      try {
-        chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.OPEN, videoId }, (response) => {
-          if (chrome.runtime.lastError || !response?.ok) {
-            notify('Could not open the mini player');
-          }
-        });
-      } catch (error) {
-        console.info('WLE: could not reach the background worker —', error?.message);
-      }
+      openMiniWindow(videoId);
     },
 
     /**
@@ -974,6 +986,191 @@
       this.button?.remove();
       this.button = null;
       this.videoId = null;
+    }
+  };
+
+  // ============================================
+  // ALT + SHIFT + CLICK
+  // Alt + click saves a video; Alt + Shift + D pops the one you are watching
+  // into the mini player. This is the two put together: the same gesture that
+  // saves, with Shift, plays it in the mini player instead. It asks nothing of
+  // YouTube's markup beyond the link being a link, which makes it the one way
+  // in that cannot be taken away by a redesign.
+  // ============================================
+  const ModifierClick = {
+    wired: false,
+
+    start() {
+      if (this.wired) return;
+      this.wired = true;
+
+      document.addEventListener('click', (event) => {
+        if (!DetachState.enabled) return;
+        if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey) return;
+
+        const link = event.target instanceof Element
+          ? event.target.closest('a[href*="/watch?v="]')
+          : null;
+        const videoId = WLEUrl.extractVideoId(link?.href || '');
+        if (!videoId) return;
+
+        // Any link to the video, not only its picture: the title counts too.
+        event.preventDefault();
+        event.stopPropagation();
+        openMiniWindow(videoId);
+      }, true);
+    }
+  };
+
+  // ============================================
+  // THE ITEM IN YOUTUBE'S OWN MENU
+  // A hover button is at the mercy of whatever YouTube floats over a
+  // thumbnail, and of the pointer ever being there at all. The menu behind
+  // the ⋮ on every video is neither: it is a deliberate click, it is the same
+  // menu on every surface, and it is where someone looks for "what else can I
+  // do with this video".
+  // ============================================
+  const MenuItem = {
+    ID: 'wle-menu-item',
+    LABEL: 'Play in mini player',
+    // How long YouTube takes to build the menu after the click. Polled rather
+    // than observed: the popup is one element it refills and moves, so there
+    // is no reliable insertion to watch for.
+    RETRY_MS: 60,
+    MAX_TRIES: 10,
+
+    videoId: null,
+    wired: false,
+    tries: 0,
+
+    start() {
+      if (this.wired) return;
+      this.wired = true;
+
+      // Which video a menu belongs to is written nowhere in the menu. So the
+      // card the click came from is remembered before the menu opens.
+      document.addEventListener('pointerdown', (event) => {
+        if (!DetachState.enabled) return;
+        this.remember(event.target);
+      }, true);
+    },
+
+    remember(target) {
+      if (!(target instanceof Element)) return;
+      // Menus are opened by buttons. Anything else is a click on the page.
+      if (!target.closest('button, [role="button"]')) return;
+
+      // Walk out to the nearest thing that holds a link to a video: the card.
+      // Structural, because the name of the card's component is not something
+      // to depend on — it is different on the home page, in a sidebar and on
+      // a channel, and changes without notice.
+      let node = target.parentElement;
+      for (let depth = 0; node && depth < 10; depth++, node = node.parentElement) {
+        const link = node.querySelector('a[href*="/watch?v="]');
+        if (!link) continue;
+
+        const videoId = WLEUrl.extractVideoId(link.href);
+        if (videoId) {
+          this.videoId = videoId;
+          this.scheduleInject();
+        }
+        return;
+      }
+    },
+
+    scheduleInject() {
+      this.tries = 0;
+      const attempt = () => {
+        if (this.inject() || ++this.tries >= this.MAX_TRIES) return;
+        setTimeout(attempt, this.RETRY_MS);
+      };
+      setTimeout(attempt, this.RETRY_MS);
+    },
+
+    /** The menu that is open, if one is. @returns {Element|null} */
+    openMenu() {
+      // role="menu" is an ARIA contract. The class names around it are not.
+      for (const menu of document.querySelectorAll('[role="menu"]')) {
+        const rect = menu.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return menu;
+      }
+      return null;
+    },
+
+    /** @returns {boolean} whether a menu was found and now carries the item. */
+    inject() {
+      const menu = this.openMenu();
+      if (!menu || !this.videoId) return false;
+
+      const existing = menu.querySelector(`#${this.ID}`);
+      if (existing) {
+        // Same menu, another video: it is one popup, refilled.
+        existing.dataset.videoId = this.videoId;
+        return true;
+      }
+
+      const template = [...menu.children].find((child) => child.querySelector('[role="menuitem"]'));
+      if (!template) return false;
+
+      const item = this.buildFrom(template);
+      if (!item) return false;
+
+      menu.insertBefore(item, menu.firstChild);
+      return true;
+    },
+
+    /**
+     * Built by cloning one of YouTube's own rows. Copying the markup is what
+     * keeps the item looking like the menu it is in, through whatever theme,
+     * density or redesign the rest of the menu is wearing — and a clone
+     * carries no listeners with it, so nothing of YouTube's comes along.
+     */
+    buildFrom(template) {
+      const item = template.cloneNode(true);
+      item.id = this.ID;
+      item.dataset.videoId = this.videoId;
+
+      const label = item.querySelector('[role="menuitem"]') || item;
+      const text = this.firstTextNode(label);
+      if (text) text.nodeValue = this.LABEL;
+      else label.textContent = this.LABEL;
+
+      // The cloned row brings the icon of whatever it was cloned from.
+      const glyph = item.querySelector('svg, img');
+      if (glyph) {
+        const icon = document.createElement('img');
+        icon.src = chrome.runtime.getURL('icons/buttons/mini-player.svg');
+        icon.alt = '';
+        icon.className = 'wle-menu-icon';
+        glyph.replaceWith(icon);
+      }
+
+      // The clone may carry ids from the row it came from, and a duplicate id
+      // in the page is a lookup that returns the wrong element later.
+      item.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+
+      item.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openMiniWindow(item.dataset.videoId);
+        this.closeMenu();
+      }, true);
+
+      return item;
+    },
+
+    firstTextNode(root) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node && !node.nodeValue.trim()) node = walker.nextNode();
+      return node;
+    },
+
+    /** Escape is what YouTube's own dropdown listens for. */
+    closeMenu() {
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true
+      }));
     }
   };
 
@@ -1273,7 +1470,11 @@
     // the home page, a channel, search results, the sidebar of a video. The
     // early return below used to come first, so it was only ever wired up on
     // a watch page — which is also the only page the tests opened.
-    if (DetachState.enabled) ThumbButton.start();
+    if (DetachState.enabled) {
+      ThumbButton.start();
+      MenuItem.start();
+      ModifierClick.start();
+    }
 
     if (!isWatchPage()) {
       DetachButton.stop();

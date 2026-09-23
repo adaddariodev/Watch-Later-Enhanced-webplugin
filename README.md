@@ -45,13 +45,15 @@ YouTube's oEmbed endpoint if the page does not offer one.
 Pop any video out of the browser into a floating mini player. Minimize the
 browser, move to another app, drag the window anywhere — it keeps playing.
 
+* **From any thumbnail, without opening it:** `Alt + Shift + Click` it — the
+  gesture that saves a video, with Shift. Or pick **Play in mini player** from
+  the video's own ⋮ menu. Or hover the thumbnail and use the button in its
+  top-left corner.
 * **On a video page:** the mini-player button in YouTube's control bar, or
   `Alt + Shift + D`. This kind floats above every other application.
 * **From the popup:** the mini-player button on a saved video plays it
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
-* **From a thumbnail:** hover any thumbnail on YouTube and a button appears in
-  its corner, which plays that video in the mini player without opening it.
 * **While detached:** `Space`/`K` play and pause, `←` `→` seek five seconds,
   `M` mutes, `Esc` closes. Closing and returning to the tab also sit in the
   browser's own title bar on that window, so the overlay does not repeat them —
@@ -103,6 +105,7 @@ It ships inside the extension, so it works offline.
 | --- | --- | --- |
 | `Alt + Click` | Any YouTube thumbnail | Saves it without opening it |
 | `Alt + Click` | The video player | Saves what you are watching |
+| `Alt + Shift + Click` | Any thumbnail or title | Plays it in the mini player, without opening it |
 | `/` | The popup | Opens the tag search |
 | `Esc` | Tag search | Clears it and folds it away |
 | `Alt + Shift + D` | Video pages | Opens / closes the floating mini player |
@@ -164,6 +167,13 @@ it runs.
 * **One delegated listener** on `document` handles every thumbnail on the page,
   rather than binding to each of the hundreds YouTube creates and destroys as
   you scroll. Nothing to clean up, nothing to leak.
+* **Structural matching, not component names** — a thumbnail is recognised as a
+  link to a video at the size and shape of a picture, never as
+  `ytd-thumbnail` or `ytLockupViewModelContentImage`. Those names differ per
+  surface and change without notice; that shape does not. Where something has
+  to be found inside YouTube's own UI, it is found by its ARIA role — the ⋮
+  menu is `[role="menu"]`, and the row added to it is a clone of one of its
+  own, so it inherits whatever styling that menu is wearing.
 * **Layered title extraction** — the page's own DOM first (with selectors for
   the Shorts view model, which stores its title somewhere else entirely), then
   YouTube's `oembed` endpoint as a fallback. Title and channel share one

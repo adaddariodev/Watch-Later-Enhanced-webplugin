@@ -763,7 +763,9 @@ const TitleExtractor = {
 // GLOBAL CLICK LISTENER (Alt+Click Handler)
 // ============================================
 document.addEventListener('click', async (event) => {
-  if (!event.altKey) return;
+  // Alt + Shift + click belongs to the mini player, in detach.js. Without this
+  // the same click would both save the video and play it.
+  if (!event.altKey || event.shiftKey) return;
 
   // CASE A: Click on a thumbnail link
   const videoLink = event.target.closest('a[href*="/watch?v="], a[href*="/shorts/"]');

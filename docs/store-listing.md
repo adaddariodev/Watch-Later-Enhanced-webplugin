@@ -31,6 +31,9 @@ HOW IT WORKS
 2. It's saved instantly. No new tab, no dropdown, no page reload.
 3. Open the extension from your toolbar, on any website, and watch it.
 
+Add SHIFT to that same click and the video plays in a floating mini player
+instead, without opening it.
+
 
 WHAT YOU GET
 
@@ -44,8 +47,11 @@ WHAT YOU GET
   Pin it and it stays above everything else on screen. Play, pause, seek and
   mute from the keyboard.
 
-  You don't have to open a video first: hover any thumbnail on YouTube and a
-  small button sends it straight to the mini player.
+  You don't have to open a video first. Anywhere a thumbnail appears — the
+  home page, a search, a channel, the sidebar of another video — three ways
+  send it straight to the mini player: ALT + SHIFT + CLICK it, pick "Play in
+  mini player" from the video's own menu, or use the button that appears when
+  you hover it.
 
 ▸ FAVOURITES
   Mark the ones worth coming back to with a heart, and show only those with
@@ -97,6 +103,7 @@ WHY THIS ONE
 SHORTCUTS
 
   Alt + Click          Save a video
+  Alt + Shift + Click  Play a video in the mini player, without opening it
   Alt + Shift + D      Open / close the floating mini player
   Space or K           Play / pause
   Left / Right         Skip 5 seconds
