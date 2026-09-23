@@ -270,6 +270,16 @@ const AppState = {
   },
 
   /**
+   * The channel the list is narrowed to, lowercased, or '' when it is not
+   * narrowed to one. Worked out from the query rather than kept beside it:
+   * one of them would otherwise go stale.
+   */
+  activeChannel() {
+    const query = Query.parse(this.query);
+    return query.field === 'channel' ? query.value : '';
+  },
+
+  /**
    * Whether what is on screen is a subset of the real list. Asked in one place
    * because it was asked in two: reordering was switched off for a favourites
    * filter while the drag handle still offered to reorder, the two conditions
@@ -418,14 +428,23 @@ const Query = {
 };
 
 const Utils = {
-  colorFromTagName(name) {
+  /**
+   * A name's own colour. The same word always comes out the same colour, on
+   * this machine and anyone else's, because it is the letters that decide —
+   * there is nothing stored and nothing to keep in step. Tags have used this
+   * since they existed; a channel picks its highlight the same way.
+   */
+  hueFromName(name) {
     const s = String(name || '').trim().toLowerCase();
     let hash = 0;
     for (let i = 0; i < s.length; i++) {
       hash = (hash * 31 + s.charCodeAt(i)) | 0;
     }
-    const h = Math.abs(hash) % 360;
-    return `hsl(${h} 70% 45%)`;
+    return Math.abs(hash) % 360;
+  },
+
+  colorFromName(name) {
+    return `hsl(${Utils.hueFromName(name)} 70% 45%)`;
   },
 
   /**
@@ -433,7 +452,7 @@ const Utils = {
    * IMPORTANT: tag colors are ALWAYS recomputed from the tag name and never
    * trusted from storage — this keeps imported data safe (a hostile `color`
    * field such as `url(...)` could otherwise trigger a network request).
-   * Uses Utils.colorFromTagName (not this.) because it runs as a .map() callback.
+   * Uses Utils.colorFromName (not this.) because it runs as a .map() callback.
    */
   normalizeVideo(video) {
     if (!video || typeof video !== 'object') {
@@ -445,7 +464,7 @@ const Utils = {
       .filter((t) => t && typeof t.name === 'string' && t.name.trim().length > 0)
       .map((t) => ({
         name: String(t.name).trim(),
-        color: Utils.colorFromTagName(t.name),
+        color: Utils.colorFromName(t.name),
       }));
 
     const normalized = {
@@ -913,6 +932,19 @@ const VideoItemFactory = {
     const pill = document.createElement('span');
     pill.className = 'channel-pill';
     pill.textContent = channel;
+
+    // Lit while it is the filter, in the colour its own name gives it — the
+    // same way a tag gets one. The list is only this channel while the filter
+    // holds, so every pill on screen lights up together, and the colour is
+    // computed here rather than read from storage for the same reason a tag's
+    // is: nothing about a channel's name should be able to become a style.
+    if (AppState.activeChannel() === String(channel).toLowerCase()) {
+      const hue = Utils.hueFromName(channel);
+      pill.classList.add('is-active');
+      pill.style.borderColor = `hsl(${hue} 70% 45%)`;
+      pill.style.background = `hsl(${hue} 70% 45% / 0.16)`;
+      pill.style.color = `hsl(${hue} 70% 80%)`;
+    }
     // The pill truncates when the name is long, so the full name stays
     // readable on hover — and says what clicking it does while it is there.
     pill.title = `${channel} — show only this channel`;
@@ -1136,7 +1168,7 @@ const VideoItemFactory = {
         return true; // already present — treat as success
       }
 
-      const newTag = { name: clean, color: Utils.colorFromTagName(clean) };
+      const newTag = { name: clean, color: Utils.colorFromName(clean) };
       return await StorageManager.updateVideoByUrl(videoUrl, {
         tags: [...existing, newTag]
       });
@@ -1219,7 +1251,7 @@ const VideoItemFactory = {
 
         const dot = document.createElement('span');
         dot.className = 'tag-suggestion-dot';
-        dot.style.background = Utils.colorFromTagName(name);
+        dot.style.background = Utils.colorFromName(name);
 
         const label = document.createElement('span');
         label.className = 'tag-suggestion-label';

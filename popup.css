@@ -586,6 +586,12 @@ li.video-item:hover .favourite-btn.is-favourite {
   outline-offset: 2px;
 }
 
+/* The colours are set on the element, from the channel's name — this is the
+   weight that says the pill is doing something rather than labelling. */
+.channel-pill.is-active {
+  font-weight: 600;
+}
+
 .video-title {
   font-size: 13px;
   line-height: 1.4;

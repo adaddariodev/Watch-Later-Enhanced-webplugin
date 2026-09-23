@@ -136,7 +136,9 @@ you had thought to tag it. It now matches the **title** as well — the other
 thing anyone remembers about something they saved.
 
 **Channel names under each video are now clickable**: one click and the list
-is only what you saved from that channel.
+is only what you saved from that channel. The pill stays lit for as long as
+the filter holds, in a colour the channel's own name decides — the same way a
+tag gets its colour, so the same channel is the same colour every time.
 
 Clicking a channel or a tag writes what it did into the search box —
 `channel:Fireship`, `tag:music` — rather than filtering behind it. You can type
