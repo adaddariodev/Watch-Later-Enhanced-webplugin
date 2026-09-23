@@ -757,13 +757,31 @@
   // planted inside them is torn out again within seconds.
   // ============================================
   const ThumbButton = {
-    THUMBS: 'a#thumbnail[href*="/watch?v="], a.ytd-thumbnail[href*="/watch?v="], ' +
-      'ytm-shorts-lockup-view-model a[href*="/watch?v="], ' +
-      'a.yt-lockup-view-model__content-image[href*="/watch?v="]',
+    // Any link to a video. What makes one a thumbnail rather than a title is
+    // decided by its shape, below.
+    //
+    // This used to name the components YouTube builds its pages out of —
+    // ytd-thumbnail, yt-lockup-view-model and so on. That means re-guessing
+    // those names after every redesign, being wrong silently in between, and
+    // being wrong differently on the home page, the sidebar and a channel,
+    // which is exactly what happened. A link to a video wrapping a picture is
+    // true of all of them and stays true.
+    LINK: 'a[href*="/watch?v="]',
+    MIN_WIDTH: 120,
+    MIN_HEIGHT: 68,
+    // 16:9 is 1.78. Wide enough to rule a wrapped title block out, loose
+    // enough to keep a squarer thumbnail in.
+    MIN_RATIO: 1.2,
+    MAX_RATIO: 2.6,
 
     button: null,
-    anchor: null,
+    videoId: null,
     hideTimer: null,
+    // Where the pointer was last seen, so a scroll can work out what is under
+    // it now without waiting for the pointer to move.
+    pointer: { x: -1, y: -1 },
+    frame: null,
+    moveFrame: null,
 
     build() {
       if (this.button) return this.button;
@@ -795,7 +813,7 @@
     },
 
     play() {
-      const videoId = WLEUrl.extractVideoId(this.anchor?.href || '');
+      const videoId = this.videoId;
       if (!videoId) return;
 
       this.hide();
@@ -810,26 +828,67 @@
       }
     },
 
-    /** @returns {boolean} whether this thumbnail is one worth offering. */
-    showOn(anchor) {
-      const rect = anchor.getBoundingClientRect();
-      // A thumbnail too small to sit a button on is a channel avatar or an
-      // icon, not something worth covering.
-      if (rect.width < 120 || rect.height < 68) return false;
+    /**
+     * Is this link a picture of a video rather than its title? Size rules out
+     * channel avatars and icons; the ratio rules out a title that has wrapped
+     * onto enough lines to be as tall as a thumbnail.
+     */
+    qualifies(anchor) {
+      if (!anchor || !WLEUrl.extractVideoId(anchor.href || '')) return false;
 
+      const rect = anchor.getBoundingClientRect();
+      if (rect.width < this.MIN_WIDTH || rect.height < this.MIN_HEIGHT) return false;
+
+      const ratio = rect.width / rect.height;
+      return ratio >= this.MIN_RATIO && ratio <= this.MAX_RATIO;
+    },
+
+    /**
+     * The thumbnail under the pointer.
+     *
+     * The direct path is the cheap one. The hit test is for when YouTube has
+     * floated something over the picture — its own hover buttons, or the
+     * preview player it starts about a second after you arrive, which is when
+     * the button used to vanish from under the pointer reaching for it. The
+     * link is still there underneath, and elementsFromPoint returns what is
+     * beneath the top element as well as the top element itself.
+     */
+    thumbnailUnder(target, x, y, { deep = false } = {}) {
+      const direct = target instanceof Element ? target.closest(this.LINK) : null;
+      if (this.qualifies(direct)) return direct;
+      if (!deep) return null;
+
+      for (const el of document.elementsFromPoint(x, y)) {
+        const anchor = el.closest?.(this.LINK);
+        if (this.qualifies(anchor)) return anchor;
+      }
+      return null;
+    },
+
+    showOn(anchor) {
       clearTimeout(this.hideTimer);
-      this.anchor = anchor;
+
+      const rect = anchor.getBoundingClientRect();
+      // Read the id now rather than on the click: by then YouTube may have
+      // replaced what is under the pointer with its preview player.
+      this.videoId = WLEUrl.extractVideoId(anchor.href);
 
       const btn = this.build();
+      // Top left. Top right is where YouTube puts its own "Watch later" and
+      // "Add to queue" buttons on the same hover: sitting on top of them
+      // covers what they are and makes them unclickable.
       btn.style.top = `${Math.round(rect.top + 8)}px`;
-      btn.style.left = `${Math.round(rect.right - 40)}px`;
+      btn.style.left = `${Math.round(rect.left + 8)}px`;
       btn.classList.add('visible');
-      return true;
     },
 
     hide() {
-      this.anchor = null;
+      this.videoId = null;
       this.button?.classList.remove('visible');
+    },
+
+    get showing() {
+      return this.button?.classList.contains('visible') === true;
     },
 
     start() {
@@ -838,33 +897,83 @@
 
       // Delegated, and only over: the button follows the pointer rather than
       // being planted in a list YouTube keeps rebuilding.
-      document.addEventListener('pointerover', (event) => {
-        if (!DetachState.enabled || !Support.documentPip()) return;
+      //
+      // No Document PiP check here. This button opens an ordinary browser
+      // window through the service worker and has never needed picture-in-
+      // picture for anything — the gate only meant the button could not exist
+      // at all on a browser without it, Firefox included.
+      const onPointer = (event, { deep = false } = {}) => {
+        if (!DetachState.enabled) return;
 
         const target = event.target;
         if (target instanceof Element && target.closest('#wle-thumb-mini')) return;
 
-        const anchor = target instanceof Element ? target.closest(this.THUMBS) : null;
-        // A match too small to carry the button counts as no match: leaving it
-        // where it was would strand it over the thumbnail before.
-        if (anchor && this.showOn(anchor)) return;
+        this.pointer = { x: event.clientX, y: event.clientY };
+
+        const anchor = this.thumbnailUnder(target, event.clientX, event.clientY, { deep });
+        if (anchor) {
+          this.showOn(anchor);
+          return;
+        }
 
         // Left the thumbnail and its button: give the pointer a moment to
         // cross the gap between them before taking it away.
         clearTimeout(this.hideTimer);
         this.hideTimer = setTimeout(() => this.hide(), 120);
+      };
+
+      // Crossing into a new element: the cheap path, answered from the event's
+      // own target.
+      document.addEventListener('pointerover', onPointer, true);
+
+      // Moving at all. Two things make this necessary rather than a
+      // duplicate:
+      //
+      // pointerover only fires when the element under the pointer changes, so
+      // a pointer already sitting where a thumbnail appears — every time
+      // YouTube's router swaps a grid in under a still cursor, which is what
+      // navigating home does — never produces one, and the button would wait
+      // to be jiggled at.
+      //
+      // And this is where the hit test runs. If YouTube's preview player got
+      // over the thumbnail before we ever drew a button, the cheap path can
+      // no longer see the link at all: every event comes from inside the
+      // preview. Throttled to one frame, so the test happens at most as often
+      // as the browser does its own hover hit-testing.
+      document.addEventListener('pointermove', (event) => {
+        if (this.moveFrame) return;
+        this.moveFrame = requestAnimationFrame(() => {
+          this.moveFrame = null;
+          onPointer(event, { deep: true });
+        });
       }, true);
 
-      // Anything that moves the page moves the thumbnail out from under it.
-      window.addEventListener('scroll', () => this.hide(), { passive: true, capture: true });
-      window.addEventListener('resize', () => this.hide(), { passive: true });
+      // Anything that moves the page moves the thumbnail the button is pinned
+      // to. Hiding was the wrong answer: a scroll event landing just after the
+      // pointer settles — which is what happens every time you scroll to a
+      // video and then reach for it, and what the page itself does when it
+      // brings something into view — took the button away until the pointer
+      // moved again. Follow the thumbnail instead, and hide only once there
+      // is no longer one under the pointer.
+      const reanchor = () => {
+        if (!this.showing || this.frame) return;
+        this.frame = requestAnimationFrame(() => {
+          this.frame = null;
+          const { x, y } = this.pointer;
+          const anchor = this.thumbnailUnder(document.elementFromPoint(x, y), x, y, { deep: true });
+          if (anchor) this.showOn(anchor);
+          else this.hide();
+        });
+      };
+      window.addEventListener('scroll', reanchor, { passive: true, capture: true });
+      window.addEventListener('resize', reanchor, { passive: true });
     },
 
     remove() {
       clearTimeout(this.hideTimer);
       this.button?.remove();
       this.button = null;
-      this.anchor = null;
+      this.videoId = null;
     }
   };
 
@@ -1160,6 +1269,12 @@
       DetachedPlayer.close();
     }
 
+    // The thumbnail button belongs to every page that has thumbnails on it:
+    // the home page, a channel, search results, the sidebar of a video. The
+    // early return below used to come first, so it was only ever wired up on
+    // a watch page — which is also the only page the tests opened.
+    if (DetachState.enabled) ThumbButton.start();
+
     if (!isWatchPage()) {
       DetachButton.stop();
       return;
@@ -1168,7 +1283,6 @@
     if (!DetachState.enabled) return;
 
     DetachButton.start();
-    ThumbButton.start();
     MiniWindow.start();
     MiniWindow.reclaim();
     MiniWindow.refreshTitle();

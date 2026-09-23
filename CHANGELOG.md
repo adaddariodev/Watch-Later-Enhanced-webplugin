@@ -144,6 +144,31 @@ One thing did change on purpose: **changing a filter, or searching, takes you
 back to the top**. You were previously left at whatever height you happened to
 be at, inside a list you had not seen the top of.
 
+### 🐛 The thumbnail button only worked on watch pages
+
+The button that plays a video in the mini player straight from its thumbnail
+was wired up only on a video page, so it appeared in the sidebar beside a
+video you were already watching and nowhere else — not on the home page, not
+on a channel, not in search. It is on every page with thumbnails now.
+
+Three other things were keeping it from showing even where it was wired:
+
+* It only recognised thumbnails by the names of the components YouTube builds
+  its pages out of, which differ per surface and change without notice. It now
+  recognises them by what they are: a link to a video, the size and shape of a
+  picture.
+* YouTube starts playing a preview over the thumbnail about a second after you
+  get there, and every pointer event after that comes from inside that
+  preview — so the button vanished exactly as you reached for it. It now finds
+  the video underneath whatever YouTube has floated on top.
+* Scrolling took the button away until the mouse was moved again, which
+  included the scroll a page does to bring a video into view. It follows the
+  thumbnail instead, and goes when the thumbnail does.
+
+It has also moved to the **top-left** of the thumbnail. It was sitting on top
+of YouTube's own Watch later and Add to queue buttons, which are top-right on
+the same hover — covering what they are and making them unclickable.
+
 ### ✨ Smaller things
 
 * **One icon for the mini player.** The three buttons that open it — in
