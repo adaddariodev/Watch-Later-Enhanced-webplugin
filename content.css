@@ -210,6 +210,26 @@ html.wle-mini-window body {
   pointer-events: none;
 }
 
+/* The row highlights under the pointer like the ones around it.
+   A clone carries YouTube's markup but not its behaviour, and that highlight
+   turns out to be behaviour — so the row sat there dead while its neighbours
+   lit up. --yt-spec-10-percent-layer is YouTube's own token for exactly this
+   shade, so the row follows their light and dark themes; the fallback is for
+   the day they rename it. The child, not the host: the host is the row's
+   whole slot, the child is the part with the rounded corners. */
+#wle-menu-item {
+  cursor: pointer;
+}
+
+#wle-menu-item > * {
+  transition: background-color 0.1s ease;
+}
+
+#wle-menu-item:hover > *,
+#wle-menu-item:focus-within > * {
+  background-color: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+}
+
 /* 18 of the button's 32: the icon has to carry against whatever picture is
    underneath it, and 17 left it reading as a smudge on a busy thumbnail. */
 .wle-thumb-mini-icon {

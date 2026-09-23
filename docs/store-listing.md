@@ -103,8 +103,8 @@ WHY THIS ONE
 SHORTCUTS
 
   Alt + Click          Save a video
-  Alt + Shift + Click  Play a video in the mini player, without opening it
-  Alt + Shift + D      Open / close the floating mini player
+  Alt + Shift + Click  Play a video in the mini player — on a thumbnail, or
+                       on the player itself to pop out what you're watching
   Space or K           Play / pause
   Left / Right         Skip 5 seconds
   M                    Mute

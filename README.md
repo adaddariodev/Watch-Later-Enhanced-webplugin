@@ -49,8 +49,10 @@ browser, move to another app, drag the window anywhere — it keeps playing.
   gesture that saves a video, with Shift. Or pick **Play in mini player** from
   the video's own ⋮ menu. Or hover the thumbnail and use the button in its
   top-left corner.
-* **On a video page:** the mini-player button in YouTube's control bar, or
-  `Alt + Shift + D`. This kind floats above every other application.
+* **On a video page:** `Alt + Shift + Click` the player, or the mini-player
+  button in YouTube's control bar. This kind hands the live player over — your
+  position, the captions, the quality you picked — and floats above every
+  other application.
 * **From the popup:** the mini-player button on a saved video plays it
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
@@ -106,9 +108,9 @@ It ships inside the extension, so it works offline.
 | `Alt + Click` | Any YouTube thumbnail | Saves it without opening it |
 | `Alt + Click` | The video player | Saves what you are watching |
 | `Alt + Shift + Click` | Any thumbnail or title | Plays it in the mini player, without opening it |
+| `Alt + Shift + Click` | The player on a video page | Hands the video to the floating mini player, and back |
 | `/` | The popup | Opens the tag search |
 | `Esc` | Tag search | Clears it and folds it away |
-| `Alt + Shift + D` | Video pages | Opens / closes the floating mini player |
 | `Space` or `K` | Mini player | Play / pause |
 | `←` / `→` | Mini player | Back / forward 5 seconds |
 | `M` | Mini player | Mute / unmute |

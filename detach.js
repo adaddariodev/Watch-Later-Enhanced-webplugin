@@ -144,13 +144,6 @@
     return WLEUrl.isVideoPagePath(window.location.pathname);
   }
 
-  function isTypingTarget(node) {
-    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
-    if (node.isContentEditable) return true;
-    const tag = node.tagName;
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-  }
-
   /**
    * Build an icon with the same stroke style as the bundled SVGs. Inline SVG
    * rather than an <img>: these buttons colour their icon with currentColor,
@@ -705,7 +698,7 @@
       btn.className = 'ytp-button wle-ytp-detach-btn';
       // Named apart from YouTube's own miniplayer button, which sits a few
       // pixels away in the same control bar.
-      btn.title = 'Pop out into the WLE mini player (Alt+Shift+D)';
+      btn.title = 'Pop out into the WLE mini player (Alt+Shift+click)';
       btn.setAttribute('aria-label', 'Pop out into the Watch Later Enhanced mini player');
 
       // The same icon every way into the mini player carries: this button, the
@@ -990,12 +983,19 @@
   };
 
   // ============================================
-  // ALT + SHIFT + CLICK
-  // Alt + click saves a video; Alt + Shift + D pops the one you are watching
-  // into the mini player. This is the two put together: the same gesture that
-  // saves, with Shift, plays it in the mini player instead. It asks nothing of
-  // YouTube's markup beyond the link being a link, which makes it the one way
-  // in that cannot be taken away by a redesign.
+  // ALT + SHIFT + CLICK — the one way into the mini player
+  //
+  // It mirrors Alt + click, which saves: on a thumbnail it acts on that video,
+  // on the player it acts on the one you are watching. Adding Shift plays
+  // instead of saving. One gesture, the same everywhere, and it asks nothing
+  // of YouTube's markup beyond a link being a link — which is what makes it
+  // the way in a redesign cannot take away.
+  //
+  // What it does differs by where you are, because the better answer differs.
+  // On a video you have open, the live player is handed over to a floating
+  // window: the position, the captions, the quality you picked all come along.
+  // Off one, there is no player to hand over, so a window is opened on the
+  // video instead.
   // ============================================
   const ModifierClick = {
     wired: false,
@@ -1007,17 +1007,29 @@
       document.addEventListener('click', (event) => {
         if (!DetachState.enabled) return;
         if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey) return;
+        if (!(event.target instanceof Element)) return;
 
-        const link = event.target instanceof Element
-          ? event.target.closest('a[href*="/watch?v="]')
-          : null;
+        // A link to a video: its picture, or its title.
+        const link = event.target.closest('a[href*="/watch?v="]');
         const videoId = WLEUrl.extractVideoId(link?.href || '');
-        if (!videoId) return;
+        if (videoId) {
+          event.preventDefault();
+          event.stopPropagation();
+          openMiniWindow(videoId);
+          return;
+        }
 
-        // Any link to the video, not only its picture: the title counts too.
-        event.preventDefault();
-        event.stopPropagation();
-        openMiniWindow(videoId);
+        // The player itself, which is what this replaced a keyboard shortcut
+        // for. The placeholder counts as the player: once the video is in the
+        // floating window, the spot it left is all there is to click, and the
+        // gesture has to undo itself the way the shortcut did.
+        const player = event.target.closest(
+          '#movie_player, .html5-video-player, .wle-detach-placeholder');
+        if (player && isWatchPage()) {
+          event.preventDefault();
+          event.stopPropagation();
+          DetachedPlayer.toggle();
+        }
       }, true);
     }
   };
@@ -1446,18 +1458,6 @@
   // ============================================
   // PAGE WIRING
   // ============================================
-  function handleKeydown(event) {
-    if (!DetachState.enabled) return;
-    if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey) return;
-    if (event.code !== 'KeyD' && (event.key || '').toLowerCase() !== 'd') return;
-    if (isTypingTarget(event.target)) return;
-    if (!isWatchPage()) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    DetachedPlayer.toggle();
-  }
-
   function onPageReady() {
     // A navigation that slipped past yt-navigate-start: the tab is on another
     // video now, so hand the player back before YouTube comes looking for it.
@@ -1509,8 +1509,6 @@
 
     const data = await readStorage({ [DETACH.KEYS.ENABLED]: true });
     DetachState.enabled = data[DETACH.KEYS.ENABLED] !== false;
-
-    document.addEventListener('keydown', handleKeydown, true);
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local' || !changes[DETACH.KEYS.ENABLED]) return;

@@ -144,17 +144,27 @@ One thing did change on purpose: **changing a filter, or searching, takes you
 back to the top**. You were previously left at whatever height you happened to
 be at, inside a list you had not seen the top of.
 
-### ▶️ Two more ways into the mini player, neither of which can be hovered away
+### ▶️ One gesture for the mini player: `Alt` + `Shift` + click
 
-The button on a thumbnail has to find its way around YouTube's own markup, and
-that markup is not ours to rely on. Two ways in that do not:
+`Alt` + click saves a video. **`Alt` + `Shift` + click plays it in the mini
+player** — and it now means that everywhere, which it did not before.
 
-* **`Alt` + `Shift` + click** any thumbnail — or its title — and it plays in
-  the mini player. It is the gesture that saves a video, with Shift, and it
-  asks nothing of YouTube's page beyond the link being a link.
-* **Play in mini player** is now the first item in the **⋮ menu** on every
-  video, beside "Save to Watch Later". The row is a copy of one of YouTube's
-  own, so it looks like the menu it is in.
+* On a **thumbnail or its title**, anywhere one appears: the home page, a
+  search, a channel, the sidebar of another video. The video plays in the mini
+  player without being opened.
+* On the **player itself**, where it hands the live player over to a floating
+  window — your position, the captions, the quality you picked all come with
+  it. Again, and the video goes back.
+
+**`Alt` + `Shift` + `D` is gone.** It did only the second of those, and having
+a key for one case and a click for the others was two things to remember for
+one feature. The keyboard is one way short as a result; everything it did is a
+click away, and the mini player's own keys are unchanged once it is open.
+
+There is also a third way in that asks nothing of a gesture: **Play in mini
+player** is now the first item in the **⋮ menu** on every video, beside "Save
+to Watch Later". The row is a copy of one of YouTube's own, so it looks and
+now highlights like the menu it sits in.
 
 ### 🐛 The thumbnail button only worked on watch pages
 
