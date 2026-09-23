@@ -131,6 +131,13 @@ every time you scroll, since that strip stays pinned to the top.
 
 ### ✨ Smaller things
 
+* **One icon for the mini player.** The three buttons that open it — in
+  YouTube's control bar, on a thumbnail, on a saved video — were carrying two
+  different glyphs, and neither said "mini player". They now share one: a
+  player floating in front of a window, with a play symbol in it. It also
+  reads clearly at the size a thumbnail button uses, where the old one turned
+  into a smudge, and it is deliberately unlike YouTube's own miniplayer icon
+  sitting a few pixels away in the same control bar.
 * The favourites toggle now matches the type chips it sits with, and the whole
   set — chips, favourites, search — is centred rather than pushed to the edges.
 * The **JobsMatch** strip reads better: its line sits beside the arrow it

@@ -899,8 +899,9 @@ const VideoItemFactory = {
 
     // active / archive
     if (AppState.detachEnabled) {
-      // A screen with a play symbol: here the action is "start playing it in a
-      // small window", not "pop out what is already playing".
+      // A player floating in front of a window: the same icon this action
+      // carries everywhere else — on a YouTube thumbnail, and in the player's
+      // own control bar.
       const miniBtn = this.makeIconButton(
         'mini-player-btn',
         'icons/buttons/mini-player.svg',

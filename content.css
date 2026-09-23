@@ -200,9 +200,11 @@ html.wle-mini-window body {
   outline-offset: 2px;
 }
 
+/* 18 of the button's 32: the icon has to carry against whatever picture is
+   underneath it, and 17 left it reading as a smudge on a busy thumbnail. */
 .wle-thumb-mini-icon {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
   filter: brightness(0) invert(1);
   pointer-events: none;

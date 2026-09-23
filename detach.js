@@ -687,9 +687,14 @@
       btn.title = 'Pop out into the WLE mini player (Alt+Shift+D)';
       btn.setAttribute('aria-label', 'Pop out into the Watch Later Enhanced mini player');
 
+      // The same icon every way into the mini player carries: this button, the
+      // one on a thumbnail, and the one on a saved video in the popup. It is
+      // deliberately not YouTube's own miniplayer glyph — a screen with a
+      // block in the corner — which sits a few pixels away in this same bar
+      // and does something else.
       const icon = document.createElement('img');
       icon.className = 'wle-ytp-detach-icon';
-      icon.src = chrome.runtime.getURL('icons/buttons/detach.svg');
+      icon.src = chrome.runtime.getURL('icons/buttons/mini-player.svg');
       icon.alt = '';
 
       btn.appendChild(icon);
