@@ -27,7 +27,8 @@ close: a floating player belongs to the window that opened it, and would go
 down with it.
 
 It comes back **without interrupting you**. A player that closes because you
-asked — the ✕, `Esc`, the back button — brings its window up with it. One that
+asked — `Esc`, or the browser's own buttons on that window — brings its window
+up with it. One that
 closes on its own, because autoplay moved to the next video, quietly hands the
 video back without pulling you out of whatever you were working in.
 
@@ -38,6 +39,13 @@ badge beside its title. It always floated above other windows; nothing said so,
 which made it look like the one feature the video-page button was missing. Both
 windows now carry the video's title, and the same bar, so the two ways in look
 like one feature rather than two.
+
+That bar is also **lighter than it was**. The browser draws the floating window
+with its own small title bar, which already carries a close button and a way
+back to the tab — and Watch Later Enhanced was drawing its own copies of both
+directly underneath. They are gone. What is left over the video is the title
+and the Pinned badge, and both fade away while you watch, leaving nothing but
+the picture.
 
 ### 📺 The channel, next to the title
 
@@ -115,8 +123,7 @@ like — the video keeps playing.
   straight away**, in a small window of its own. No new tab, nothing to
   confirm.
 * While it is detached: `Space` or `K` to play and pause, `←` `→` to skip five
-  seconds, `M` to mute, `Esc` to close. There is also a plain **✕** in the
-  top-right corner.
+  seconds, `M` to mute, `Esc` to close.
 * Closing the window — or clicking away to another video — puts the player back
   exactly where it was, still playing.
 

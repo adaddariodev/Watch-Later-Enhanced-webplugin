@@ -103,21 +103,15 @@ body.wle-pip-body {
   pointer-events: none;
 }
 
-.wle-pip-title,
-.wle-pip-btn {
-  opacity: 1;
-  transition: opacity 0.25s ease, background 0.15s ease, transform 0.15s ease;
-}
-
-/* Idle: the bar fades out, but the close button stays put — a mini player
-   must always have a reachable "X" in its top-right corner. */
+/* Idle: the whole bar goes, leaving nothing but the video. Closing and going
+   back to the tab live in the browser's own title bar above this window, so
+   there is no control down here that has to stay reachable. */
 .wle-pip-bar.idle {
   background: transparent;
 }
 
 .wle-pip-bar.idle .wle-pip-title,
-.wle-pip-bar.idle .wle-pip-pinned,
-.wle-pip-bar.idle .wle-pip-back {
+.wle-pip-bar.idle .wle-pip-pinned {
   opacity: 0;
 }
 
@@ -149,18 +143,11 @@ body.wle-pip-body {
   height: 13px;
 }
 
-.wle-pip-bar.idle .wle-pip-close {
-  opacity: 0.55;
-}
-
-.wle-pip-bar.idle .wle-pip-close:hover,
-.wle-pip-bar.idle .wle-pip-close:focus-visible {
-  opacity: 1;
-}
-
 .wle-pip-title {
   flex: 1 1 auto;
   min-width: 0;
+  opacity: 1;
+  transition: opacity 0.25s ease;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.3;
@@ -168,46 +155,6 @@ body.wle-pip-body {
   overflow: hidden;
   text-overflow: ellipsis;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-}
-
-.wle-pip-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-  pointer-events: auto;
-}
-
-.wle-pip-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
-}
-
-.wle-pip-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
-}
-
-/* The classic close affordance reads as one: red on hover. */
-.wle-pip-close:hover {
-  background: #e53935;
-}
-
-.wle-pip-btn:active {
-  transform: scale(0.92);
-}
-
-.wle-pip-btn:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
 }
 
 .wle-pip-icon {
@@ -218,7 +165,7 @@ body.wle-pip-body {
 @media (prefers-reduced-motion: reduce) {
   .wle-pip-bar,
   .wle-pip-title,
-  .wle-pip-btn {
+  .wle-pip-pinned {
     transition: none;
   }
 }

@@ -154,16 +154,10 @@
     return svg;
   }
 
-  // The pair reads as one idea: the same window, with the arrow leaving it on
-  // the control bar's pop-out button and coming back into it here.
+  // Closing and returning to the tab belong to the browser's own title bar on
+  // the floating window, so this file no longer draws either — a drawing pin,
+  // seen from the side, is all that is left.
   const ICONS = {
-    backToTab: [
-      'M20 10h-6V4',
-      'M21 3l-7 7',
-      'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'
-    ],
-    close: ['M18 6 6 18', 'M6 6l12 12'],
-    // A drawing pin seen from the side, pushed into the surface below it.
     pin: ['M9 4h6', 'M10 4v7l-3 3v1h10v-1l-3-3V4', 'M12 15v5']
   };
 
@@ -378,13 +372,13 @@
       title.textContent = this.currentTitle();
       title.title = title.textContent;
 
-      const actions = doc.createElement('div');
-      actions.className = 'wle-pip-actions';
-
-      // This window already floats above everything — that is what a document
-      // picture-in-picture window is. Saying so is the point: without it the
-      // window opened from the popup looks like the only one that can pin,
-      // and this one looks like it is missing the feature.
+      // No close or back-to-tab button here. This window is drawn by the
+      // browser with its own title bar, and that bar already carries both —
+      // ours sat directly underneath them, saying the same thing twice. Esc
+      // still closes it, and the browser's own X fires the same teardown.
+      //
+      // What the browser's bar does not say is which video this is, or that
+      // the window floats above the others, so that is all this one adds.
       const pinState = doc.createElement('span');
       pinState.className = 'wle-pip-pinned';
       pinState.appendChild(createIcon(doc, ICONS.pin));
@@ -394,27 +388,7 @@
       pinState.appendChild(pinText);
       pinState.title = 'This player stays above your other windows';
 
-      const backBtn = doc.createElement('button');
-      backBtn.type = 'button';
-      backBtn.className = 'wle-pip-btn wle-pip-back';
-      backBtn.title = 'Back to the YouTube tab';
-      backBtn.setAttribute('aria-label', 'Back to the YouTube tab');
-      backBtn.appendChild(createIcon(doc, ICONS.backToTab));
-      backBtn.addEventListener('click', () => {
-        try { window.focus(); } catch { /* focus may be refused */ }
-        this.close({ focus: true });
-      });
-
-      const closeBtn = doc.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'wle-pip-btn wle-pip-close';
-      closeBtn.title = 'Close mini player (Esc)';
-      closeBtn.setAttribute('aria-label', 'Close mini player');
-      closeBtn.appendChild(createIcon(doc, ICONS.close));
-      closeBtn.addEventListener('click', () => this.close({ focus: true }));
-
-      actions.append(pinState, backBtn, closeBtn);
-      bar.append(title, actions);
+      bar.append(title, pinState);
 
       return bar;
     },

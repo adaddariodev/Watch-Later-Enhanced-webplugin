@@ -51,7 +51,9 @@ browser, move to another app, drag the window anywhere — it keeps playing.
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
 * **While detached:** `Space`/`K` play and pause, `←` `→` seek five seconds,
-  `M` mutes, `Esc` closes, and a plain **✕** sits in the corner.
+  `M` mutes, `Esc` closes. Closing and returning to the tab also sit in the
+  browser's own title bar on that window, so the overlay does not repeat them —
+  it shows the video's title and a **Pinned** badge, and fades out of the way.
 
 Closing it — or navigating away — returns the player to the tab exactly where
 it was, still playing.
