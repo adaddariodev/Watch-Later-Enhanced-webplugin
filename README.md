@@ -67,7 +67,8 @@ it was, still playing.
 ### Organise it the way you think
 
 * **Tags**, colour-derived from their own name, with autocomplete and
-  search-by-tag.
+  search-by-tag. The search box folds into the filter row when nothing is
+  being searched for, and never while it is filtering.
 * **Drag and drop** to set your own order.
 * **To Watch / Archive / Trash**, so finished videos leave the queue without
   disappearing, and deletions are recoverable.
@@ -102,6 +103,8 @@ It ships inside the extension, so it works offline.
 | --- | --- | --- |
 | `Alt + Click` | Any YouTube thumbnail | Saves it without opening it |
 | `Alt + Click` | The video player | Saves what you are watching |
+| `/` | The popup | Opens the tag search |
+| `Esc` | Tag search | Clears it and folds it away |
 | `Alt + Shift + D` | Video pages | Opens / closes the floating mini player |
 | `Space` or `K` | Mini player | Play / pause |
 | `←` / `→` | Mini player | Back / forward 5 seconds |

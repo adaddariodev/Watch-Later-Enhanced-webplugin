@@ -179,10 +179,10 @@
           crowd each other.
         </p>
         <p>
-          Under the search box, three chips narrow the list to <strong>All</strong>,
+          Under the tabs, three chips narrow the list to <strong>All</strong>,
           <strong>Videos</strong> or <strong>Shorts</strong>, each with a count of how many
-          there are. The choice sticks until you change it, and works alongside the tag
-          search.
+          there are. The choice sticks until you change it, and works alongside the
+          favourites toggle and the tag search that share the line with them.
         </p>
         <p>
           The type is worked out from the page a video was saved from, and then
@@ -281,9 +281,17 @@
         <h3>Finding videos again</h3>
         <ul>
           <li><strong>Click a tag</strong> on any row to show only the videos carrying exactly that tag.</li>
-          <li><strong>Type in the search box</strong> at the top to filter by tag name as you type — partial words are fine.</li>
-          <li>Clear the search box to see the whole list again.</li>
+          <li><strong>Click the magnifying glass</strong> at the end of the filter row — or press <kbd>/</kbd> — and a search box opens underneath. It filters by tag name as you type; partial words are fine.</li>
+          <li>Press <kbd>Esc</kbd>, or click the magnifying glass again, to clear the search and fold the box away.</li>
         </ul>
+
+        <div class="wiki-note">
+          The box is folded away when nothing is being searched for, which leaves room for
+          about half a video more in the list. It never folds away while it is filtering:
+          if a search is active — because you typed one, or because you clicked a tag —
+          the box stays open with the text in it, so the list can never be quietly
+          filtered by something you cannot see.
+        </div>
 
         <h3>Removing a tag</h3>
         <p>Click the small <strong>×</strong> inside the tag itself. It only affects that one video.</p>
@@ -304,7 +312,7 @@
         </p>
         <p>
           Dragging is switched off while a tag search is active — otherwise the positions you
-          see would not match the real list. Clear the search box and the handles come back.
+          see would not match the real list. Clear the search and the handles come back.
         </p>
       </section>
 
@@ -444,6 +452,16 @@
               <td><kbd>Esc</kbd></td>
               <td>Mini player window</td>
               <td>Closes it and returns the video to the tab</td>
+            </tr>
+            <tr>
+              <td><kbd>/</kbd></td>
+              <td>The popup</td>
+              <td>Opens the tag search and puts the caret in it</td>
+            </tr>
+            <tr>
+              <td><kbd>Esc</kbd></td>
+              <td>Tag search in the popup</td>
+              <td>Clears the search and folds the box away</td>
             </tr>
             <tr>
               <td><kbd>Enter</kbd></td>

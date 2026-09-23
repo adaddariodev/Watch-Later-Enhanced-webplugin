@@ -210,6 +210,7 @@ const DOMCache = {
   wikiBtn: null,
   typeFilter: null,
   favouritesFilter: null,
+  searchToggle: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -239,6 +240,7 @@ const DOMCache = {
     this.wikiBtn = document.getElementById('open-wiki');
     this.typeFilter = document.getElementById('type-filter');
     this.favouritesFilter = document.getElementById('favourites-filter');
+    this.searchToggle = document.getElementById('search-toggle');
   }
 };
 
@@ -1018,6 +1020,9 @@ const VideoItemFactory = {
         DOMCache.tagSearchInput.value = tag.name;
       }
       AppState.setTagQuery(tag.name, 'exact');
+      // Unfold it without taking the focus: the list is now filtered by this
+      // tag, and the only place that says so is the field.
+      SearchBar.open({ focus: false });
       displayVideos();
     });
 
@@ -1918,16 +1923,105 @@ function setupMiniPlayerToggle() {
 // ============================================
 // SEARCH HANDLING
 // ============================================
+
+/**
+ * The search field folds away when it is not in use, which is most of the
+ * time: an empty 35px box was the single tallest thing between the popup's
+ * edge and the first video.
+ *
+ * The one rule that governs the whole thing: it is never folded while it is
+ * filtering. A query you cannot see is a list that looks broken, so anything
+ * that would close it on a non-empty field clears the field first.
+ */
+const SearchBar = {
+  open({ focus = true } = {}) {
+    const wrap = DOMCache.searchWrap;
+    if (!wrap) return;
+    wrap.classList.add('search-open');
+    DOMCache.searchToggle?.setAttribute('aria-expanded', 'true');
+    if (focus) DOMCache.tagSearchInput?.focus();
+  },
+
+  /** Folds it away, taking any query with it. */
+  close({ focusToggle = false } = {}) {
+    const wrap = DOMCache.searchWrap;
+    if (!wrap) return;
+
+    if (AppState.tagQuery || DOMCache.tagSearchInput?.value) {
+      if (DOMCache.tagSearchInput) DOMCache.tagSearchInput.value = '';
+      AppState.setTagQuery('', 'contains');
+      displayVideos();
+    }
+
+    wrap.classList.remove('search-open');
+    DOMCache.searchToggle?.setAttribute('aria-expanded', 'false');
+
+    if (focusToggle) DOMCache.searchToggle?.focus();
+    // Nothing keeps the focus inside a folded field: it is about to become
+    // visibility: hidden, and a caret in an invisible box is a dead keyboard.
+    else if (document.activeElement === DOMCache.tagSearchInput) DOMCache.tagSearchInput.blur();
+  },
+
+  get isOpen() {
+    return DOMCache.searchWrap?.classList.contains('search-open') === true;
+  }
+};
+
 function setupSearch() {
   if (!DOMCache.tagSearchInput) return;
 
   const debouncedSearch = Utils.debounce((value) => {
+    // A keystroke can land after Esc has already folded the field away. Left
+    // to run, it would put the query back with nothing on screen saying so —
+    // the one state this must never reach.
+    if (!SearchBar.isOpen) return;
     AppState.setTagQuery(value, 'contains');
     displayVideos();
   }, CONFIG.DEBOUNCE_DELAY);
 
   DOMCache.tagSearchInput.addEventListener('input', (e) => {
     debouncedSearch(e.target.value || '');
+  });
+
+  // Esc gives the field back rather than closing the popup, which is what a
+  // stray Esc in a Chrome popup otherwise does.
+  DOMCache.tagSearchInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    SearchBar.close({ focusToggle: true });
+  });
+
+  // Clicking away from an empty field folds it back. A field with something in
+  // it stays: it is filtering the list, and the list has to say so.
+  DOMCache.tagSearchInput.addEventListener('blur', (e) => {
+    if (DOMCache.tagSearchInput.value.trim()) return;
+    if (e.relatedTarget === DOMCache.searchToggle) return; // the toggle closes it itself
+    SearchBar.close();
+  });
+
+  // Pressing the button must not move the focus out of the field first: that
+  // blur would fold an empty field away, and the click landing afterwards
+  // would read it as closed and open it straight back up. Browsers disagree
+  // about whether a click focuses a button at all, so this does not depend on
+  // it either way.
+  DOMCache.searchToggle?.addEventListener('mousedown', (e) => e.preventDefault());
+
+  DOMCache.searchToggle?.addEventListener('click', () => {
+    AudioManager.play(AppState.soundEnabled);
+    if (SearchBar.isOpen) SearchBar.close();
+    else SearchBar.open();
+  });
+
+  // '/' is what YouTube itself uses. Only when nothing else is taking typing,
+  // and never over the settings dialog.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (DOMCache.settingsModal && !DOMCache.settingsModal.classList.contains('hidden')) return;
+    const el = e.target;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el?.isContentEditable) return;
+    e.preventDefault();
+    SearchBar.open();
   });
 }
 

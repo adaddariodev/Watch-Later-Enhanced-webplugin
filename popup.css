@@ -231,7 +231,7 @@ main {
   top: 0;
   z-index: 20;
   background: var(--bg-color);
-  padding-top: 10px; /* Spazio sopra (prima era sul main) */
+  padding-top: 8px;
   padding-bottom: 8px;
   margin-bottom: 0;
 }
@@ -379,16 +379,16 @@ li.video-item:hover {
   color: #aebaca;
 }
 
-/* The type chips and the favourites toggle share one line, centred in the
-   popup as a single group. The row carries the margin, not the chips: on a
-   flex item a top margin offsets it from the centre line, which is what used
-   to leave the heart sitting 8px above the chips. */
+/* The type chips, the favourites toggle and the search button share one line,
+   centred in the popup as a single group. None of them carries a top margin:
+   on a flex item a top margin offsets it from the centre line, which is what
+   used to leave the heart sitting 8px above the chips. The space above the
+   line belongs to .searchbar-wrap. */
 .filter-row {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 8px;
 }
 
 .filter-row .type-filter {
@@ -417,13 +417,14 @@ li.video-item:hover .favourite-btn.is-favourite {
   background: rgba(255, 77, 94, 0.24);
 }
 
-/* The filter beside the type chips. Not one of them — a Short can be a
-   favourite too, so this narrows whatever they are showing — but the same
-   height, padding and radius, so the row reads as one set of controls. What
-   sets it apart is the heart and the colour it takes when it is on. */
-.fav-filter {
+/* The buttons that share the chips' line. Not chips — a Short can be a
+   favourite too, and search is not a type at all — but the same height,
+   padding and radius, so the row reads as one set of controls. What sets each
+   apart is its icon and the colour it takes when it is on. */
+.filter-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   flex: 0 0 auto;
   height: 28px;
@@ -440,9 +441,19 @@ li.video-item:hover .favourite-btn.is-favourite {
   transition: background 0.18s, border-color 0.18s, color 0.18s;
 }
 
-.fav-filter:hover {
+.filter-btn:hover {
   background: rgba(255, 255, 255, 0.09);
   color: var(--text-main);
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.filter-btn .btn-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .fav-filter.is-on {
@@ -451,14 +462,48 @@ li.video-item:hover .favourite-btn.is-favourite {
   color: #ff9aa2;
 }
 
-.fav-filter:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* Icon only, so it is square rather than pill-wide. */
+.search-toggle {
+  padding: 0 9px;
 }
 
-.fav-filter .btn-icon {
-  width: 14px;
-  height: 14px;
+/* Open is a state worth showing: the field below is the only other sign, and
+   it scrolls away with the list on a long one. */
+.search-toggle[aria-expanded="true"] {
+  background: rgba(255, 208, 0, 0.14);
+  border-color: rgba(255, 208, 0, 0.40);
+}
+
+/* =========================================
+   THE SEARCH FIELD, FOLDED AWAY
+   35px of the popup's 500 sat empty whenever nobody was searching. It now
+   unfolds under the filters on demand. The 0fr → 1fr grid row is what makes
+   that animatable: a height cannot transition to auto, and a fixed max-height
+   would either clip the field or leave slack. visibility does the rest —
+   while it is folded the input cannot be tabbed into or read out, which
+   display: none would also do but would take the animation with it.
+   ========================================= */
+.search-field {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.18s ease, visibility 0s linear 0.18s;
+}
+
+.searchbar-wrap.search-open .search-field {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows 0.18s ease, visibility 0s;
+}
+
+.search-field-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Inside the collapsing row, so the gap folds away with the field. */
+.searchbar-wrap.search-open .search-field-inner {
+  padding-top: 8px;
 }
 
 /* Same size as the count on a chip, so the four controls line up on their
@@ -1680,6 +1725,13 @@ li.video-item.drop-target {
   .wle-switch,
   .wle-switch-thumb {
     transition: none;
+  }
+
+  /* The field still folds, it just stops sliding. visibility keeps its delay
+     so it does not flash in before the row has height. */
+  .search-field,
+  .searchbar-wrap.search-open .search-field {
+    transition: visibility 0s;
   }
 }
 

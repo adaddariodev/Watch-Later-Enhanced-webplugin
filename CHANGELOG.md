@@ -111,14 +111,28 @@ Scrollbars, in the popup and in the guide, go from a solid grey bar to a
 hairline that firms up as you reach for it — still easy to grab, far quieter
 when you are not using it.
 
-### ✨ Smaller things
+### 📐 Room for the list
 
+Nearly half the popup was taken up before the first video began. Two changes
+give 45px of it back — about half a video more on screen, and the same again
+every time you scroll, since that strip stays pinned to the top.
+
+* **The search box folds away.** It was the tallest single thing in the popup
+  and empty almost always. It is now a magnifying glass at the end of the
+  filter row; clicking it — or pressing `/` — unfolds the box underneath,
+  below the filters, so nothing that was already on screen moves. `Esc` gives
+  it back. It never folds while it is filtering: if you searched for something,
+  or clicked a tag, the box stays open with the text in it, so the list is
+  never quietly filtered by something you cannot see.
 * **Titles get their width back.** The row of buttons on each card is now two
   shorter rows — what plays the video beside the title, what files it away on
   the line below, level with the pills. The title has about 100px more to work
   with, so far fewer of them are cut short.
+
+### ✨ Smaller things
+
 * The favourites toggle now matches the type chips it sits with, and the whole
-  set is centred under the search box instead of being pushed to either edge.
+  set — chips, favourites, search — is centred rather than pushed to the edges.
 * The **JobsMatch** strip reads better: its line sits beside the arrow it
   points at instead of trailing the logo across an empty gap.
 * A number typed above the maximum in the mixer is corrected on screen, not
