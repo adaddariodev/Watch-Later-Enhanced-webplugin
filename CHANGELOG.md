@@ -5,7 +5,28 @@ The top entry is written to be pasted straight into a GitHub Release.
 
 ---
 
-## v2.7.2 — pin the player, and see who published what
+## v2.7.2 — favourites, pin the player, and see who published what
+
+### ❤️ Favourites
+
+Every saved video has a **heart**. Fill it in for the ones worth coming back
+to, and the toggle beside the type chips shows only those — with a count of
+how many it would leave.
+
+It is not a fourth kind of video: it narrows whatever you are already looking
+at, so you can ask for your favourite Shorts, or your favourites tagged
+*music*, without giving up either filter.
+
+### ▶️ The mini player, without opening the video first
+
+Hover any thumbnail on YouTube — the home page, a search, a channel, the
+sidebar — and a small button appears in its corner. One click and that video
+plays in the mini player, with nothing opened and nothing navigated away from.
+
+It is a single button that follows your pointer rather than one planted in
+every thumbnail: YouTube builds and destroys those by the hundred as you
+scroll, and anything left inside them is torn out again seconds later.
+
 
 ### 📌 Keep the player on top of everything
 

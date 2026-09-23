@@ -67,6 +67,7 @@
         aria-label="Search videos by tag"
       />
 
+      <div class="filter-row">
       <div id="type-filter" class="type-filter" role="radiogroup" aria-label="Filter by type">
         <button class="type-chip" type="button" role="radio" data-type="all" aria-checked="true" tabindex="0">
           All<span class="type-chip-count" data-count-for-type="all"></span>
@@ -77,6 +78,21 @@
         <button class="type-chip" type="button" role="radio" data-type="short" aria-checked="false" tabindex="-1">
           Shorts<span class="type-chip-count" data-count-for-type="short"></span>
         </button>
+      </div>
+
+      <!-- Not a fourth type: a video can be a favourite and a Short at once,
+           so this narrows whatever the chips are already showing. -->
+      <button
+        id="favourites-filter"
+        class="fav-filter"
+        type="button"
+        aria-pressed="false"
+        title="Show only favourites"
+        aria-label="Show only favourites"
+      >
+        <img class="btn-icon" src="icons/buttons/heart.svg" alt="" />
+        <span class="fav-filter-count" data-count-for-type="favourite"></span>
+      </button>
       </div>
     </div>
 

@@ -38,7 +38,8 @@
   // service worker share no module, so the strings are written twice.
   const WINDOW_MESSAGES = {
     HIDE: 'wle-mini-window-hide',
-    SHOW: 'wle-mini-window-show'
+    SHOW: 'wle-mini-window-show',
+    OPEN: 'wle-mini-window-open'
   };
 
   // Set once the page is on its way out, so teardown does not ask the worker
@@ -740,6 +741,128 @@
   // around it (masthead, comments, recommendations) never shows: no dependence
   // on YouTube's layout classes, only on the player element itself.
   // ============================================
+  // ============================================
+  // THUMBNAIL MINI PLAYER
+  // A video does not have to be open to be watched in the mini player: this
+  // puts a button on whatever thumbnail the pointer is over, and hands the id
+  // to the service worker, which opens the same window the popup's button does.
+  //
+  // One button, moved about, rather than one injected per thumbnail: YouTube
+  // builds and destroys those by the hundred as the page scrolls, and anything
+  // planted inside them is torn out again within seconds.
+  // ============================================
+  const ThumbButton = {
+    THUMBS: 'a#thumbnail[href*="/watch?v="], a.ytd-thumbnail[href*="/watch?v="], ' +
+      'ytm-shorts-lockup-view-model a[href*="/watch?v="], ' +
+      'a.yt-lockup-view-model__content-image[href*="/watch?v="]',
+
+    button: null,
+    anchor: null,
+    hideTimer: null,
+
+    build() {
+      if (this.button) return this.button;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'wle-thumb-mini';
+      btn.className = 'wle-thumb-mini';
+      btn.title = 'Play in the mini player';
+      btn.setAttribute('aria-label', 'Play in the Watch Later Enhanced mini player');
+
+      const icon = document.createElement('img');
+      icon.src = chrome.runtime.getURL('icons/buttons/mini-player.svg');
+      icon.alt = '';
+      icon.className = 'wle-thumb-mini-icon';
+      btn.appendChild(icon);
+
+      btn.addEventListener('click', (event) => {
+        // The thumbnail underneath is a link: opening the video is exactly
+        // what this button is for avoiding.
+        event.preventDefault();
+        event.stopPropagation();
+        this.play();
+      });
+
+      document.body.appendChild(btn);
+      this.button = btn;
+      return btn;
+    },
+
+    play() {
+      const videoId = WLEUrl.extractVideoId(this.anchor?.href || '');
+      if (!videoId) return;
+
+      this.hide();
+      try {
+        chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.OPEN, videoId }, (response) => {
+          if (chrome.runtime.lastError || !response?.ok) {
+            notify('Could not open the mini player');
+          }
+        });
+      } catch (error) {
+        console.info('WLE: could not reach the background worker —', error?.message);
+      }
+    },
+
+    /** @returns {boolean} whether this thumbnail is one worth offering. */
+    showOn(anchor) {
+      const rect = anchor.getBoundingClientRect();
+      // A thumbnail too small to sit a button on is a channel avatar or an
+      // icon, not something worth covering.
+      if (rect.width < 120 || rect.height < 68) return false;
+
+      clearTimeout(this.hideTimer);
+      this.anchor = anchor;
+
+      const btn = this.build();
+      btn.style.top = `${Math.round(rect.top + 8)}px`;
+      btn.style.left = `${Math.round(rect.right - 40)}px`;
+      btn.classList.add('visible');
+      return true;
+    },
+
+    hide() {
+      this.anchor = null;
+      this.button?.classList.remove('visible');
+    },
+
+    start() {
+      if (this.wired) return;
+      this.wired = true;
+
+      // Delegated, and only over: the button follows the pointer rather than
+      // being planted in a list YouTube keeps rebuilding.
+      document.addEventListener('pointerover', (event) => {
+        if (!DetachState.enabled || !Support.documentPip()) return;
+
+        const target = event.target;
+        if (target instanceof Element && target.closest('#wle-thumb-mini')) return;
+
+        const anchor = target instanceof Element ? target.closest(this.THUMBS) : null;
+        // A match too small to carry the button counts as no match: leaving it
+        // where it was would strand it over the thumbnail before.
+        if (anchor && this.showOn(anchor)) return;
+
+        // Left the thumbnail and its button: give the pointer a moment to
+        // cross the gap between them before taking it away.
+        clearTimeout(this.hideTimer);
+        this.hideTimer = setTimeout(() => this.hide(), 120);
+      }, true);
+
+      // Anything that moves the page moves the thumbnail out from under it.
+      window.addEventListener('scroll', () => this.hide(), { passive: true, capture: true });
+      window.addEventListener('resize', () => this.hide(), { passive: true });
+    },
+
+    remove() {
+      clearTimeout(this.hideTimer);
+      this.button?.remove();
+      this.button = null;
+      this.anchor = null;
+    }
+  };
+
   const MiniWindow = {
     wanted: false,
     active: false,
@@ -1040,6 +1163,7 @@
     if (!DetachState.enabled) return;
 
     DetachButton.start();
+    ThumbButton.start();
     MiniWindow.start();
     MiniWindow.reclaim();
     MiniWindow.refreshTitle();
@@ -1052,6 +1176,7 @@
     }
 
     DetachButton.remove();
+    ThumbButton.remove();
     DetachedPlayer.close();
     // Leaving the stage up would strip the page with no way back out of it.
     MiniWindow.teardown();

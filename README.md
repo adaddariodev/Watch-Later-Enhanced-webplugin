@@ -50,6 +50,8 @@ browser, move to another app, drag the window anywhere — it keeps playing.
 * **From the popup:** the mini-player button on a saved video plays it
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
+* **From a thumbnail:** hover any thumbnail on YouTube and a button appears in
+  its corner, which plays that video in the mini player without opening it.
 * **While detached:** `Space`/`K` play and pause, `←` `→` seek five seconds,
   `M` mutes, `Esc` closes. Closing and returning to the tab also sit in the
   browser's own title bar on that window, so the overlay does not repeat them —
@@ -71,6 +73,8 @@ it was, still playing.
   disappearing, and deletions are recoverable.
 * **Video and Shorts labels**, with a filter that narrows the list to either.
 * **The channel** that published each video, beside its type.
+* **Favourites** — a heart per row, and a filter that narrows whatever the
+  type chips and the tag search are already showing.
 * **A sound mixer** — a level and an on/off per sound, or silence for the lot.
 
 ### Know what you saved

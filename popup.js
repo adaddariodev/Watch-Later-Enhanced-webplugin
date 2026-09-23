@@ -19,6 +19,7 @@ const CONFIG = {
     DETACH: 'detachEnabled',
     MINI_WINDOW_SIZE: 'miniWindowSize',
     TYPE_FILTER: 'typeFilter',
+    FAVOURITES_ONLY: 'favouritesOnly',
     AUDIO_MIX: 'audioMix',
     REV: 'wleRev'
   },
@@ -38,10 +39,9 @@ const CONFIG = {
   },
   MINI_WINDOW: {
     MARKER: 'wle-mini',   // detach.js recognises the window by this hash
-    WIDTH: 560,
-    HEIGHT: 360,
-    MIN_WIDTH: 320,
-    MIN_HEIGHT: 220
+    // The service worker owns the size and the window itself; this is only
+    // the message that asks it to. Kept in step with MESSAGES in background.js.
+    OPEN: 'wle-mini-window-open'
   },
   WRITE_ATTEMPTS: 6,
   // Peppered SHA-256 of supporter unlock material. Plaintext is not in this repository.
@@ -209,6 +209,7 @@ const DOMCache = {
   wikiRow: null,
   wikiBtn: null,
   typeFilter: null,
+  favouritesFilter: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -237,6 +238,7 @@ const DOMCache = {
     this.wikiRow = document.getElementById('wiki-row');
     this.wikiBtn = document.getElementById('open-wiki');
     this.typeFilter = document.getElementById('type-filter');
+    this.favouritesFilter = document.getElementById('favourites-filter');
   }
 };
 
@@ -248,6 +250,7 @@ const AppState = {
   tagQuery: '',
   tagQueryMode: 'contains',
   typeFilter: 'all', // 'all' | 'video' | 'short'
+  favouritesOnly: false,
   draggedItemIndex: null,
   view: 'active', // 'active' | 'archive' | 'trash'
   supporter: false,
@@ -266,6 +269,11 @@ const AppState = {
 
   setView(view) {
     this.view = view;
+  },
+
+  setFavouritesOnly(value) {
+    this.favouritesOnly = value === true;
+    chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.FAVOURITES_ONLY]: this.favouritesOnly });
   },
 
   setTypeFilter(value) {
@@ -385,6 +393,7 @@ const Utils = {
       watched: video.watched === true,
       watchedAt: typeof video.watchedAt === 'number' ? video.watchedAt : null,
       savedAt: typeof video.savedAt === 'number' ? video.savedAt : null,
+      favourite: video.favourite === true,
     };
 
     // Unknown is not 'video'. A record saved before types existed has no type
@@ -571,6 +580,24 @@ const StorageManager = {
     }
   },
 
+  async toggleFavourite(url) {
+    try {
+      return await this.mutateLists((ctx) => {
+        const idx = ctx.videos.findIndex((v) => v.url === url);
+        if (idx === -1) {
+          ctx.result = { ok: false };
+          return;
+        }
+        const favourite = !ctx.videos[idx].favourite;
+        ctx.videos[idx] = { ...ctx.videos[idx], favourite };
+        ctx.result = { ok: true, favourite };
+      });
+    } catch (error) {
+      this.notifyWriteError(error);
+      return { ok: false };
+    }
+  },
+
   async toggleWatched(url) {
     try {
       return await this.mutateLists((ctx) => {
@@ -731,7 +758,8 @@ const VideoItemFactory = {
     const editable = mode !== 'trash';
     // Reordering writes positions in the full list, so it only makes sense
     // while the list on screen is the full list.
-    const isFiltered = Boolean(AppState.tagQuery) || AppState.typeFilter !== 'all';
+    const isFiltered = Boolean(AppState.tagQuery) || AppState.typeFilter !== 'all' ||
+      AppState.favouritesOnly;
     const canDrag = mode === 'active' && !isFiltered;
     li.draggable = canDrag;
     if (mode === 'active' && isFiltered) li.classList.add('drag-disabled');
@@ -861,6 +889,17 @@ const VideoItemFactory = {
       );
       actions.appendChild(miniBtn);
     }
+
+    // Filled and red when it is a favourite, an outline when it is not — the
+    // state is the icon, so the button says which it is without being read.
+    const favBtn = this.makeIconButton(
+      'favourite-btn',
+      video.favourite ? 'icons/buttons/heart-filled.svg' : 'icons/buttons/heart.svg',
+      video.favourite ? 'Remove from favourites' : 'Add to favourites'
+    );
+    favBtn.classList.toggle('is-favourite', video.favourite === true);
+    favBtn.setAttribute('aria-pressed', video.favourite ? 'true' : 'false');
+    actions.appendChild(favBtn);
 
     if (mode === 'archive') {
       const unwatchBtn = this.makeIconButton('watch-toggle-btn', 'icons/buttons/rotate-left.svg', 'Move back to To Watch');
@@ -1259,16 +1298,27 @@ async function displayVideos() {
 
     // 'video' means "not a Short", so records with no type yet are counted
     // and filtered the same way they are labelled.
-    const filteredVideos = AppState.typeFilter === 'all'
+    const byType = AppState.typeFilter === 'all'
       ? taggedVideos
       : taggedVideos.filter((v) =>
           AppState.typeFilter === 'short' ? Utils.isShort(v) : !Utils.isShort(v));
 
+    // Favourites is not a fourth type — a Short can be one too — so it narrows
+    // whatever the chips are already showing rather than replacing it.
+    const filteredVideos = AppState.favouritesOnly
+      ? byType.filter((v) => v.favourite === true)
+      : byType;
+
     if (filteredVideos.length === 0) {
       const label = AppState.typeFilter === 'short' ? 'Shorts' : 'Videos';
+      const what = AppState.favouritesOnly
+        ? (AppState.typeFilter === 'all' ? 'favourites' : `favourite ${label.toLowerCase()}`)
+        : (AppState.typeFilter === 'short' ? 'Shorts' : 'videos');
       showTutorial(
-        `No ${AppState.typeFilter === 'short' ? 'Shorts' : 'videos'} here`,
-        `Nothing in this list matches the <b>${label}</b> filter.`
+        `No ${what} here`,
+        AppState.favouritesOnly
+          ? 'Nothing in this list is a favourite yet.'
+          : `Nothing in this list matches the <b>${label}</b> filter.`
       );
 
       // A node, not markup: nothing YouTube supplies should ever reach
@@ -1281,7 +1331,9 @@ async function displayVideos() {
       reset.addEventListener('click', () => {
         AudioManager.play(AppState.soundEnabled);
         AppState.setTypeFilter('all');
+        AppState.setFavouritesOnly(false);
         updateTypeFilterUI();
+        updateFavouriteFilterUI();
         displayVideos();
       });
       document.getElementById('tutorial-text')?.appendChild(reset);
@@ -1336,6 +1388,37 @@ function updateTypeCounts(videos) {
   Object.entries(counts).forEach(([type, n]) => {
     const el = document.querySelector(`.type-chip-count[data-count-for-type="${type}"]`);
     if (el) el.textContent = String(n);
+  });
+
+  // Counted after the chips, so the heart says what pressing it would leave.
+  const inType = AppState.typeFilter === 'all'
+    ? videos
+    : videos.filter((v) => (AppState.typeFilter === 'short' ? Utils.isShort(v) : !Utils.isShort(v)));
+  const favCount = document.querySelector('.fav-filter-count');
+  if (favCount) favCount.textContent = String(inType.filter((v) => v.favourite === true).length);
+}
+
+function updateFavouriteFilterUI() {
+  const btn = DOMCache.favouritesFilter;
+  if (!btn) return;
+
+  const on = AppState.favouritesOnly;
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.classList.toggle('is-on', on);
+  btn.title = on ? 'Showing only favourites' : 'Show only favourites';
+  const icon = btn.querySelector('img.btn-icon');
+  if (icon) icon.src = on ? 'icons/buttons/heart-filled.svg' : 'icons/buttons/heart.svg';
+}
+
+function setupFavouriteFilter() {
+  const btn = DOMCache.favouritesFilter;
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    AudioManager.play(AppState.soundEnabled);
+    AppState.setFavouritesOnly(!AppState.favouritesOnly);
+    updateFavouriteFilterUI();
+    displayVideos();
   });
 }
 
@@ -1458,6 +1541,17 @@ function setupVideoListHandlers() {
       if (!WLEUrl.isSafeOpenUrl(url)) return;
       AudioManager.play(AppState.soundEnabled);
       openMiniPlayerWindow(url);
+      return;
+    }
+
+    // Favourite / not
+    if (e.target.closest('.favourite-btn')) {
+      e.stopPropagation();
+      if (!url) return;
+      AudioManager.play(AppState.soundEnabled);
+      const result = await StorageManager.toggleFavourite(url);
+      displayVideos();
+      if (!result || !result.ok) showToast('Could not update favourites');
       return;
     }
 
@@ -1737,36 +1831,27 @@ function setupWikiButton() {
 // no tab, no confirmation, and it survives minimizing the main window. From
 // there the player's pop-out button promotes it to always-on-top.
 // ============================================
+/**
+ * The window is opened by the service worker, which is also what a YouTube
+ * thumbnail's button talks to — one implementation of the size, the marker and
+ * the fallback, rather than the same thing written twice.
+ */
 function openMiniPlayerWindow(url) {
   const videoId = WLEUrl.extractVideoId(url);
   if (!videoId) return;
 
-  const target = `https://www.youtube.com/watch?v=${videoId}#${CONFIG.MINI_WINDOW.MARKER}`;
-
-  // The size the mini player window was last left at, written by that window
-  // itself — so no guessing at how tall a title bar is.
-  chrome.storage.local.get({ [CONFIG.STORAGE_KEYS.MINI_WINDOW_SIZE]: null }, (data) => {
-    const saved = data?.[CONFIG.STORAGE_KEYS.MINI_WINDOW_SIZE];
-    const width = Math.max(
-      CONFIG.MINI_WINDOW.MIN_WIDTH,
-      Math.round(Number(saved?.width) || CONFIG.MINI_WINDOW.WIDTH)
-    );
-    const height = Math.max(
-      CONFIG.MINI_WINDOW.MIN_HEIGHT,
-      Math.round(Number(saved?.height) || CONFIG.MINI_WINDOW.HEIGHT)
-    );
-
-    if (!chrome.windows || typeof chrome.windows.create !== 'function') {
-      window.open(target, '_blank', 'noopener,noreferrer');
-      return;
+  chrome.runtime.sendMessage({ type: CONFIG.MINI_WINDOW.OPEN, videoId }, (response) => {
+    if (chrome.runtime.lastError || !response?.ok) {
+      // No worker (an older browser, or one that has just been torn down):
+      // a plain window still plays the video.
+      console.warn('Could not open the mini player window:',
+        chrome.runtime.lastError?.message || response?.reason);
+      window.open(
+        `https://www.youtube.com/watch?v=${videoId}#${CONFIG.MINI_WINDOW.MARKER}`,
+        '_blank',
+        'noopener,noreferrer'
+      );
     }
-
-    chrome.windows.create({ url: target, type: 'popup', width, height, focused: true }, () => {
-      if (chrome.runtime.lastError) {
-        console.warn('Could not open the mini player window:', chrome.runtime.lastError);
-        window.open(target, '_blank', 'noopener,noreferrer');
-      }
-    });
   });
 }
 
@@ -2151,6 +2236,7 @@ async function init() {
           [CONFIG.STORAGE_KEYS.SOUND]: true,
           [CONFIG.STORAGE_KEYS.DETACH]: true,
           [CONFIG.STORAGE_KEYS.TYPE_FILTER]: 'all',
+          [CONFIG.STORAGE_KEYS.FAVOURITES_ONLY]: false,
           [CONFIG.STORAGE_KEYS.AUDIO_MIX]: null
         },
         (data) => resolve(data)
@@ -2162,10 +2248,12 @@ async function init() {
     AppState.typeFilter = ['video', 'short'].includes(prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER])
       ? prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER]
       : 'all';
+    AppState.favouritesOnly = prefs[CONFIG.STORAGE_KEYS.FAVOURITES_ONLY] === true;
     AudioMix.load(prefs[CONFIG.STORAGE_KEYS.AUDIO_MIX]);
     updateSoundIcon();
     updateMiniPlayerSwitch();
     updateTypeFilterUI();
+    updateFavouriteFilterUI();
     updateMixerUI();
 
     setupMixer();
@@ -2173,6 +2261,7 @@ async function init() {
     setupMiniPlayerToggle();
     setupWikiButton();
     setupTypeFilter();
+    setupFavouriteFilter();
     setupSearch();
     setupModal();
     setupTrashActions();

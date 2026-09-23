@@ -379,6 +379,84 @@ li.video-item:hover {
   color: #aebaca;
 }
 
+/* The type chips and the favourites toggle share one line. */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-row .type-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* =========================================
+   FAVOURITES
+   The heart is the state: filled and red when it is one, an outline when it
+   is not. Nothing else in the row changes, so a list of favourites still
+   reads as the same list.
+   ========================================= */
+.favourite-btn.is-favourite {
+  background: rgba(255, 77, 94, 0.16);
+}
+
+/* .btn-icon forces every icon to white; the filled heart is the one place
+   the artwork's own colour has to come through. */
+.favourite-btn.is-favourite .btn-icon,
+.fav-filter.is-on .btn-icon {
+  filter: none;
+  opacity: 1;
+}
+
+li.video-item:hover .favourite-btn.is-favourite {
+  background: rgba(255, 77, 94, 0.24);
+}
+
+/* The filter beside the type chips. Not one of them: a Short can be a
+   favourite too, so this narrows whatever they are showing. */
+.fav-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.fav-filter:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fav-filter.is-on {
+  background: rgba(255, 77, 94, 0.16);
+  border-color: rgba(255, 77, 94, 0.38);
+  color: #ff9aa2;
+}
+
+.fav-filter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.fav-filter .btn-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.fav-filter-count {
+  font-variant-numeric: tabular-nums;
+}
+
 /* =========================================
    CHANNEL PILL — who published it
    Beside the kind, and deliberately quieter than it: sentence case rather

@@ -8,10 +8,10 @@ renders no Markdown, so the version below is written to read well as-is.
 ## Short description (132 characters max)
 
 ```
-Save any YouTube video with Alt+Click. Tag it, sort it, watch it in a pinnable floating player. 100% local, no account.
+Save any YouTube video with Alt+Click. Favourite it, tag it, and watch it in a pinnable floating player. 100% local.
 ```
 
-*(119 characters, leaving room under the 132 limit.)*
+*(115 characters, leaving room under the 132 limit.)*
 
 ---
 
@@ -43,6 +43,14 @@ WHAT YOU GET
   switch to another app, drag the window wherever you want — it keeps playing.
   Pin it and it stays above everything else on screen. Play, pause, seek and
   mute from the keyboard.
+
+  You don't have to open a video first: hover any thumbnail on YouTube and a
+  small button sends it straight to the mini player.
+
+▸ FAVOURITES
+  Mark the ones worth coming back to with a heart, and show only those with
+  one click. It narrows whatever you are already looking at, so you can see
+  your favourite Shorts, or your favourites tagged "music".
 
 ▸ TAGS AND SEARCH
   Give videos colour-coded tags and find them again in one keystroke.

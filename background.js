@@ -19,8 +19,42 @@
 // content script share no module, so the strings are written twice.
 const MESSAGES = {
   HIDE: 'wle-mini-window-hide',
-  SHOW: 'wle-mini-window-show'
+  SHOW: 'wle-mini-window-show',
+  OPEN: 'wle-mini-window-open'
 };
+
+const MINI_WINDOW = {
+  MARKER: 'wle-mini',        // detach.js recognises the window by this hash
+  SIZE_KEY: 'miniWindowSize',
+  WIDTH: 560,
+  HEIGHT: 340,
+  MIN_WIDTH: 320,
+  MIN_HEIGHT: 200
+};
+
+// Same rule as url-utils.js: eleven characters of the YouTube id alphabet and
+// nothing else. The id arrives from a page, so it is built into a URL here
+// rather than taken as one.
+const VIDEO_ID = /^[\w-]{11}$/;
+
+async function openMiniWindow(videoId) {
+  if (!VIDEO_ID.test(String(videoId || ''))) throw new Error('not a video id');
+
+  const data = await chrome.storage.local.get({ [MINI_WINDOW.SIZE_KEY]: null });
+  const saved = data?.[MINI_WINDOW.SIZE_KEY];
+  const width = Math.max(MINI_WINDOW.MIN_WIDTH,
+    Math.round(Number(saved?.width) || MINI_WINDOW.WIDTH));
+  const height = Math.max(MINI_WINDOW.MIN_HEIGHT,
+    Math.round(Number(saved?.height) || MINI_WINDOW.HEIGHT));
+
+  await chrome.windows.create({
+    url: `https://www.youtube.com/watch?v=${videoId}#${MINI_WINDOW.MARKER}`,
+    type: 'popup',
+    width,
+    height,
+    focused: true
+  });
+}
 
 /** Where the window's pre-minimize state is parked, keyed by window id. */
 const stateKey = (windowId) => `wleWinState:${windowId}`;
@@ -55,6 +89,21 @@ async function showWindow(windowId, focused) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const type = message && message.type;
+
+  // Opening a mini player is the one thing the popup asks for too, and the
+  // popup is an extension page with no sender.tab — so it is answered before
+  // the window checks below, which are about moving an existing window.
+  if (type === MESSAGES.OPEN) {
+    openMiniWindow(message.videoId).then(
+      () => sendResponse({ ok: true }),
+      (error) => {
+        console.info('WLE: could not open the mini player —', error?.message);
+        sendResponse({ ok: false, reason: error?.message || 'failed' });
+      }
+    );
+    return true;
+  }
+
   if (type !== MESSAGES.HIDE && type !== MESSAGES.SHOW) return false;
 
   // Only the content script on a YouTube page has any business moving a
