@@ -568,8 +568,22 @@ li.video-item:hover .favourite-btn.is-favourite {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: default;
+  cursor: pointer;
   user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+/* It filters the list to this channel, so it answers to the pointer like the
+   tag pills do. */
+.channel-pill:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #d0d4d8;
+}
+
+.channel-pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .video-title {

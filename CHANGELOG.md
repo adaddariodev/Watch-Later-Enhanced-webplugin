@@ -129,6 +129,20 @@ every time you scroll, since that strip stays pinned to the top.
   the line below, level with the pills. The title has about 100px more to work
   with, so far fewer of them are cut short.
 
+### 🔎 Search the titles too, and click a channel to filter by it
+
+The search box looked only at tags, which meant a video was findable only if
+you had thought to tag it. It now matches the **title** as well — the other
+thing anyone remembers about something they saved.
+
+**Channel names under each video are now clickable**: one click and the list
+is only what you saved from that channel.
+
+Clicking a channel or a tag writes what it did into the search box —
+`channel:Fireship`, `tag:music` — rather than filtering behind it. You can type
+those yourself, edit them, or clear them like any other search. They match the
+whole name, so `channel:Lofi` does not also bring in *Lofi Girl*.
+
 ### ⚡ Long lists open at once
 
 The popup used to build every saved video before it would show you any of
@@ -190,6 +204,21 @@ Three other things were keeping it from showing even where it was wired:
 It has also moved to the **top-left** of the thumbnail. It was sitting on top
 of YouTube's own Watch later and Add to queue buttons, which are top-right on
 the same hover — covering what they are and making them unclickable.
+
+### 🧹 Lighter on the page it is a guest on
+
+* The extension had an **`unload` listener** on every YouTube page. A page with
+  one cannot be kept in the browser's back/forward cache, which turns every
+  Back out of a video into a full page load instead of an instant restore. The
+  teardown it was doing has its own modern event, `pagehide`, which costs the
+  page nothing.
+* Filling in the details of older saves now waits for the browser to be
+  **idle** rather than for a fixed four seconds, so it cannot land in the
+  middle of a video starting.
+* The hit test that keeps the thumbnail button visible under YouTube's preview
+  ran on **every frame** the pointer moved. It measures 250µs on a page the
+  size of a scrolled home page; it now runs eight times a second instead of
+  sixty, which is still far more often than anyone can react to.
 
 ### ✨ Smaller things
 

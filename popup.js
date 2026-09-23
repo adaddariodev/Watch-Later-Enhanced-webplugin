@@ -251,8 +251,7 @@ const DOMCache = {
 // ============================================
 const AppState = {
   soundEnabled: true,
-  tagQuery: '',
-  tagQueryMode: 'contains',
+  query: '',
   typeFilter: 'all', // 'all' | 'video' | 'short'
   favouritesOnly: false,
   draggedItemIndex: null,
@@ -266,9 +265,8 @@ const AppState = {
     chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.SOUND]: value });
   },
 
-  setTagQuery(value, mode = 'contains') {
-    this.tagQuery = value.trim().toLowerCase();
-    this.tagQueryMode = mode;
+  setQuery(value) {
+    this.query = String(value || '').trim().toLowerCase();
   },
 
   /**
@@ -278,7 +276,7 @@ const AppState = {
    * having been written out separately and then drifted apart.
    */
   isFiltered() {
-    return Boolean(this.tagQuery) || this.typeFilter !== 'all' || this.favouritesOnly;
+    return Boolean(this.query) || this.typeFilter !== 'all' || this.favouritesOnly;
   },
 
   setView(view) {
@@ -368,6 +366,57 @@ const DragScroller = {
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
+// ============================================
+// WHAT THE SEARCH BOX MEANS
+// ============================================
+/**
+ * Free text matches a video's **title or any of its tags** — the two things
+ * anyone actually remembers about something they saved.
+ *
+ * `field:value` matches that one field exactly: `channel:fireship`,
+ * `tag:music`. The pills write that form into the box rather than filtering
+ * behind it, which is the same rule the box already lives by: whatever the
+ * list is narrowed by is readable in one place, and is cleared by clearing
+ * text like anything else typed there.
+ */
+const Query = {
+  FIELDS: ['channel', 'tag'],
+
+  parse(raw) {
+    const text = String(raw || '').trim().toLowerCase();
+    const colon = text.indexOf(':');
+    const field = colon > 0 ? text.slice(0, colon) : '';
+
+    // A title with a colon in it is a title, not a field nobody defined.
+    if (!this.FIELDS.includes(field)) return { field: 'any', value: text };
+    return { field, value: text.slice(colon + 1).trim() };
+  },
+
+  /** The text that asks for exactly this channel, or this tag. */
+  text(field, value) {
+    return `${field}:${value}`;
+  },
+
+  matches(video, query) {
+    if (!query.value) return true;
+
+    const tags = Array.isArray(video.tags) ? video.tags : [];
+
+    // A field asks for one thing by name, so it is matched whole: a click on
+    // "Lofi" that also returned "Lofi Girl" would not be the filter it looks
+    // like.
+    if (query.field === 'channel') {
+      return String(video.channel || '').toLowerCase() === query.value;
+    }
+    if (query.field === 'tag') {
+      return tags.some((tag) => tag.name.toLowerCase() === query.value);
+    }
+
+    return String(video.title || '').toLowerCase().includes(query.value) ||
+      tags.some((tag) => tag.name.toLowerCase().includes(query.value));
+  }
+};
+
 const Utils = {
   colorFromTagName(name) {
     const s = String(name || '').trim().toLowerCase();
@@ -855,18 +904,33 @@ const VideoItemFactory = {
   },
 
   /**
-   * Who published it. Only for records that carry a channel — the ones saved
-   * before this existed get theirs filled in from a YouTube tab, and until
-   * then showing an empty pill would be worse than showing none.
+   * Who published it, and a way to see the rest of them. Only for records that
+   * carry a channel — the ones saved before this existed get theirs filled in
+   * from a YouTube tab, and until then showing an empty pill would be worse
+   * than showing none.
    */
   createChannelPill(channel) {
     const pill = document.createElement('span');
     pill.className = 'channel-pill';
     pill.textContent = channel;
-    // The pill truncates when the name is long, so the full one stays
-    // readable on hover and to a screen reader.
-    pill.title = channel;
-    pill.setAttribute('aria-label', `Channel: ${channel}`);
+    // The pill truncates when the name is long, so the full name stays
+    // readable on hover — and says what clicking it does while it is there.
+    pill.title = `${channel} — show only this channel`;
+    pill.setAttribute('role', 'button');
+    pill.tabIndex = 0;
+    pill.setAttribute('aria-label', `Show only videos from ${channel}`);
+
+    const filter = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      searchFor(Query.text('channel', channel));
+    };
+
+    pill.addEventListener('click', filter);
+    pill.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') filter(e);
+    });
+
     return pill;
   },
 
@@ -1027,15 +1091,7 @@ const VideoItemFactory = {
       if (e.target?.closest('.tag-pill-remove')) return;
       e.preventDefault();
       e.stopPropagation();
-
-      if (DOMCache.tagSearchInput) {
-        DOMCache.tagSearchInput.value = tag.name;
-      }
-      AppState.setTagQuery(tag.name, 'exact');
-      // Unfold it without taking the focus: the list is now filtered by this
-      // tag, and the only place that says so is the field.
-      SearchBar.open({ focus: false });
-      displayVideos();
+      searchFor(Query.text('tag', tag.name));
     });
 
     pillRemove.addEventListener('click', async (e) => {
@@ -1225,7 +1281,7 @@ const VideoItemFactory = {
 
   attachDragListeners(li) {
     li.addEventListener('dragstart', () => {
-      if (AppState.tagQuery) return;
+      if (AppState.query) return;
       AppState.draggedItemIndex = parseInt(li.dataset.index, 10);
       DragScroller.start();
       setTimeout(() => li.classList.add('dragging'), 0);
@@ -1238,7 +1294,7 @@ const VideoItemFactory = {
     });
 
     li.addEventListener('dragover', (e) => {
-      if (AppState.tagQuery) return;
+      if (AppState.query) return;
       e.preventDefault();
       const targetIndex = parseInt(li.dataset.index, 10);
       if (AppState.draggedItemIndex !== null && AppState.draggedItemIndex !== targetIndex) {
@@ -1251,7 +1307,7 @@ const VideoItemFactory = {
     });
 
     li.addEventListener('drop', async (e) => {
-      if (AppState.tagQuery) return;
+      if (AppState.query) return;
       e.preventDefault();
       li.classList.remove('drop-target');
 
@@ -1428,29 +1484,28 @@ async function displayVideos() {
       return;
     }
 
-    const taggedVideos = AppState.tagQuery
-      ? source.filter((v) =>
-          (v.tags || []).some((t) => {
-            const n = t.name.toLowerCase();
-            return AppState.tagQueryMode === 'exact' ? n === AppState.tagQuery : n.includes(AppState.tagQuery);
-          })
-        )
-      : source;
+    // Parsed once, not once per video.
+    const query = Query.parse(AppState.query);
+    const found = AppState.query ? source.filter((v) => Query.matches(v, query)) : source;
 
-    // Counts are taken after the tag search, so each chip predicts exactly
-    // what selecting it would show.
-    updateTypeCounts(taggedVideos);
+    // Counts are taken after the search, so each chip predicts exactly what
+    // selecting it would show.
+    updateTypeCounts(found);
 
-    if (taggedVideos.length === 0) {
-      showTutorial('No results', 'No videos match this tag search.');
+    if (found.length === 0) {
+      // The channel's name is not put in this message: it comes from YouTube,
+      // and showTutorial writes its message as HTML.
+      showTutorial('No results', query.field === 'channel'
+        ? 'Nothing saved from that channel.'
+        : 'No saved video has that in its title or its tags.');
       return;
     }
 
     // 'video' means "not a Short", so records with no type yet are counted
     // and filtered the same way they are labelled.
     const byType = AppState.typeFilter === 'all'
-      ? taggedVideos
-      : taggedVideos.filter((v) =>
+      ? found
+      : found.filter((v) =>
           AppState.typeFilter === 'short' ? Utils.isShort(v) : !Utils.isShort(v));
 
     // Favourites is not a fourth type — a Short can be one too — so it narrows
@@ -1499,7 +1554,7 @@ async function displayVideos() {
     // Everything that decides which videos these are, so that changing any of
     // them starts the window at the top again and changing none of them — a
     // heart, a delete — leaves your place alone.
-    ListWindow.sync(`${AppState.view}|${AppState.typeFilter}|${AppState.favouritesOnly}|${AppState.tagQuery}`);
+    ListWindow.sync(`${AppState.view}|${AppState.typeFilter}|${AppState.favouritesOnly}|${AppState.query}`);
     ListWindow.render(filteredVideos, { mode: AppState.view, indexByUrl });
   } catch (error) {
     console.error('Error displaying videos:', error);
@@ -2065,10 +2120,10 @@ const SearchBar = {
     // Esc inside the debounce window leaves text in the box that never filtered
     // anything, and rebuilding the list for that is 500ms of nothing on a long
     // one.
-    const wasFiltering = Boolean(AppState.tagQuery);
+    const wasFiltering = Boolean(AppState.query);
     if (wasFiltering || DOMCache.tagSearchInput?.value) {
       if (DOMCache.tagSearchInput) DOMCache.tagSearchInput.value = '';
-      AppState.setTagQuery('', 'contains');
+      AppState.setQuery('');
       if (wasFiltering) displayVideos();
     }
 
@@ -2086,6 +2141,18 @@ const SearchBar = {
   }
 };
 
+/**
+ * Filter by something clicked rather than typed. The text goes into the box
+ * and the box is unfolded without taking the focus: the list is narrowed now,
+ * and the box is the only thing that says by what.
+ */
+function searchFor(text) {
+  if (DOMCache.tagSearchInput) DOMCache.tagSearchInput.value = text;
+  AppState.setQuery(text);
+  SearchBar.open({ focus: false });
+  displayVideos();
+}
+
 function setupSearch() {
   if (!DOMCache.tagSearchInput) return;
 
@@ -2094,7 +2161,7 @@ function setupSearch() {
     // to run, it would put the query back with nothing on screen saying so —
     // the one state this must never reach.
     if (!SearchBar.isOpen) return;
-    AppState.setTagQuery(value, 'contains');
+    AppState.setQuery(value);
     displayVideos();
   }, CONFIG.DEBOUNCE_DELAY);
 

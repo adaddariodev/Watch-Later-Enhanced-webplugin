@@ -58,8 +58,10 @@ WHAT YOU GET
   one click. It narrows whatever you are already looking at, so you can see
   your favourite Shorts, or your favourites tagged "music".
 
-▸ TAGS AND SEARCH
-  Give videos colour-coded tags and find them again in one keystroke.
+▸ FIND IT AGAIN IN ONE KEYSTROKE
+  Search looks at video titles and at your own tags at the same time. Click a
+  channel name to see everything you saved from it. Give videos colour-coded
+  tags for the things their titles don't say.
 
 ▸ YOUR ORDER, NOT AN ALGORITHM'S
   Drag and drop to prioritise your queue.

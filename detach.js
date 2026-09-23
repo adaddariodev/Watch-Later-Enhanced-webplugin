@@ -795,7 +795,9 @@
     // it now without waiting for the pointer to move.
     pointer: { x: -1, y: -1 },
     frame: null,
-    moveFrame: null,
+    // How often the hit test may run while the pointer moves, in ms.
+    DEEP_INTERVAL: 120,
+    lastDeep: 0,
 
     build() {
       if (this.button) return this.button;
@@ -943,14 +945,19 @@
       // And this is where the hit test runs. If YouTube's preview player got
       // over the thumbnail before we ever drew a button, the cheap path can
       // no longer see the link at all: every event comes from inside the
-      // preview. Throttled to one frame, so the test happens at most as often
-      // as the browser does its own hover hit-testing.
+      // preview.
+      //
+      // Eight times a second, not sixty. elementsFromPoint measures 250µs on
+      // a page the size of a scrolled home page, which at frame rate is 15ms
+      // of every second spent moving the mouse — small, and still nothing to
+      // spend on noticing something a tenth of a second sooner than anyone
+      // can react to it. Crossing onto a thumbnail is unaffected: that is the
+      // cheap path above, and it still answers immediately.
       document.addEventListener('pointermove', (event) => {
-        if (this.moveFrame) return;
-        this.moveFrame = requestAnimationFrame(() => {
-          this.moveFrame = null;
-          onPointer(event, { deep: true });
-        });
+        const now = performance.now();
+        if (now - this.lastDeep < this.DEEP_INTERVAL) return;
+        this.lastDeep = now;
+        onPointer(event, { deep: true });
       }, true);
 
       // Anything that moves the page moves the thumbnail the button is pinned
@@ -1067,6 +1074,10 @@
       }, true);
     },
 
+    // A menu button sits three or four levels inside its card. Walking
+    // further only reaches the container the cards are in.
+    MAX_DEPTH: 6,
+
     remember(target) {
       if (!(target instanceof Element)) return;
       // Menus are opened by buttons. Anything else is a click on the page.
@@ -1077,17 +1088,32 @@
       // to depend on — it is different on the home page, in a sidebar and on
       // a channel, and changes without notice.
       let node = target.parentElement;
-      for (let depth = 0; node && depth < 10; depth++, node = node.parentElement) {
-        const link = node.querySelector('a[href*="/watch?v="]');
-        if (!link) continue;
+      for (let depth = 0; node && depth < this.MAX_DEPTH; depth++, node = node.parentElement) {
+        const links = node.querySelectorAll('a[href*="/watch?v="]');
+        if (!links.length) continue;
 
-        const videoId = WLEUrl.extractVideoId(link.href);
-        if (videoId) {
-          this.videoId = videoId;
-          this.scheduleInject();
+        // Every link in a card points at the same video — its picture and its
+        // title. More than one video in here means the walk has gone past the
+        // card into whatever holds them all, and the answer would be whichever
+        // video happens to come first in the page. Taking the first link
+        // without this check is exactly what a click on YouTube's own avatar
+        // or search button used to do.
+        const ids = new Set();
+        for (const link of links) {
+          const id = WLEUrl.extractVideoId(link.href);
+          if (id) ids.add(id);
         }
+
+        this.videoId = ids.size === 1 ? [...ids][0] : null;
+        this.scheduleInject();
         return;
       }
+
+      // Nothing within reach: whatever this button opens, it is not a video's
+      // menu. Said out loud, so the row is taken out of a menu it does not
+      // belong in rather than left pointing at the last video clicked.
+      this.videoId = null;
+      this.scheduleInject();
     },
 
     scheduleInject() {
@@ -1112,9 +1138,18 @@
     /** @returns {boolean} whether a menu was found and now carries the item. */
     inject() {
       const menu = this.openMenu();
-      if (!menu || !this.videoId) return false;
+      if (!menu) return false;
 
       const existing = menu.querySelector(`#${this.ID}`);
+
+      // Not a video's menu. It is one popup that YouTube refills, so a row
+      // left from the last video would sit in the account menu offering to
+      // play it.
+      if (!this.videoId) {
+        existing?.remove();
+        return true;
+      }
+
       if (existing) {
         // Same menu, another video: it is one popup, refilled.
         existing.dataset.videoId = this.videoId;

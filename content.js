@@ -903,9 +903,23 @@ if (WLEUrl.isVideoPagePath(window.location.pathname)) {
   ButtonInjector.startInjection();
 }
 
-// Well after the page has settled, so it never competes with YouTube's own
-// loading. Once per content script, not once per SPA navigation.
-const backfillTimer = setTimeout(backfillSaves, CONFIG.BACKFILL_DELAY);
+// When the page has nothing better to do, so it never competes with YouTube's
+// own loading — it reads storage and asks YouTube two questions, and neither
+// is worth a millisecond of a video starting. The timeout is the promise that
+// it happens at all on a page that never goes idle; the plain timer is for
+// browsers without requestIdleCallback. Once per content script, not once per
+// SPA navigation.
+const canIdle = typeof requestIdleCallback === 'function';
+const backfillHandle = canIdle
+  ? requestIdleCallback(backfillSaves, { timeout: CONFIG.BACKFILL_DELAY })
+  : setTimeout(backfillSaves, CONFIG.BACKFILL_DELAY);
+
+// The two take handles from different pools, and cancelling one with the
+// other's function would cancel whatever unrelated thing holds that number.
+function cancelBackfill() {
+  if (canIdle) cancelIdleCallback(backfillHandle);
+  else clearTimeout(backfillHandle);
+}
 
 // ============================================
 // HUD (Heads-Up Display) MANAGEMENT
@@ -937,10 +951,15 @@ function showHud(message) {
 // ============================================
 // CLEANUP ON PAGE UNLOAD
 // ============================================
-window.addEventListener('unload', () => {
+// pagehide, not unload. An unload listener makes a page ineligible for the
+// browser's back/forward cache, so every Back out of a YouTube video would be
+// a full page load instead of an instant restore — the extension slowing down
+// the site it is a guest on, for a teardown that has a modern event of its
+// own. pagehide fires everywhere unload does.
+window.addEventListener('pagehide', () => {
   AudioManager.cleanup();
   ButtonInjector.stopInjection();
-  clearTimeout(backfillTimer);
+  cancelBackfill();
 
   if (hudTimeout) {
     clearTimeout(hudTimeout);

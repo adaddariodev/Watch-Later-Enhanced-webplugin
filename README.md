@@ -70,14 +70,18 @@ it was, still playing.
 
 ### Organise it the way you think
 
-* **Tags**, colour-derived from their own name, with autocomplete and
-  search-by-tag. The search box folds into the filter row when nothing is
-  being searched for, and never while it is filtering.
+* **Search that looks at titles and tags** at once, for the two things anyone
+  remembers about a saved video. The box folds into the filter row when nothing
+  is being searched for, and never while it is filtering.
+* **Click a channel name** under any video to see only what you saved from it —
+  or a tag, to see only what carries it. Either writes what it did into the
+  search box (`channel:Fireship`, `tag:music`), which you can also type.
+* **Tags**, colour-derived from their own name, with autocomplete.
 * **Drag and drop** to set your own order.
 * **To Watch / Archive / Trash**, so finished videos leave the queue without
   disappearing, and deletions are recoverable.
 * **Video and Shorts labels**, with a filter that narrows the list to either.
-* **The channel** that published each video, beside its type.
+* **The channel** that published each video, beside its type — and clickable.
 * **Favourites** — a heart per row, and a filter that narrows whatever the
   type chips and the tag search are already showing.
 * **A sound mixer** — a level and an on/off per sound, or silence for the lot.
