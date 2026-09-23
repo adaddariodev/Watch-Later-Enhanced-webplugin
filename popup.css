@@ -241,10 +241,10 @@ main {
    Chips rather than a second segmented bar: the view tabs above already own
    that shape, and two segmented rows read as competing navigations.
    ========================================= */
+/* The spacing above lives on .filter-row, which owns the whole line. */
 .type-filter {
   display: flex;
   gap: 6px;
-  margin-top: 8px;
 }
 
 .type-chip {
@@ -346,7 +346,7 @@ li.video-item:hover {
 
 /* =========================================
    KIND PILL — what was saved, at a glance
-   It sits under the title, first in the tag row, so the title keeps both of
+   It sits under the title, first on the meta row, so the title keeps both of
    its lines to itself. Squarer and smaller than a tag pill on purpose: the
    shape says "this is not a tag you can remove".
    ========================================= */
@@ -379,16 +379,20 @@ li.video-item:hover {
   color: #aebaca;
 }
 
-/* The type chips and the favourites toggle share one line. */
+/* The type chips and the favourites toggle share one line, centred in the
+   popup as a single group. The row carries the margin, not the chips: on a
+   flex item a top margin offsets it from the centre line, which is what used
+   to leave the heart sitting 8px above the chips. */
 .filter-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  margin-top: 8px;
 }
 
 .filter-row .type-filter {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
 }
 
 /* =========================================
@@ -413,16 +417,19 @@ li.video-item:hover .favourite-btn.is-favourite {
   background: rgba(255, 77, 94, 0.24);
 }
 
-/* The filter beside the type chips. Not one of them: a Short can be a
-   favourite too, so this narrows whatever they are showing. */
+/* The filter beside the type chips. Not one of them — a Short can be a
+   favourite too, so this narrows whatever they are showing — but the same
+   height, padding and radius, so the row reads as one set of controls. What
+   sets it apart is the heart and the colour it takes when it is on. */
 .fav-filter {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  padding: 5px 10px;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-dim);
   font-family: inherit;
@@ -430,11 +437,12 @@ li.video-item:hover .favourite-btn.is-favourite {
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
 }
 
 .fav-filter:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text-main);
 }
 
 .fav-filter.is-on {
@@ -453,8 +461,16 @@ li.video-item:hover .favourite-btn.is-favourite {
   height: 14px;
 }
 
+/* Same size as the count on a chip, so the four controls line up on their
+   numbers as well as their edges. */
 .fav-filter-count {
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.fav-filter.is-on .fav-filter-count {
+  color: inherit;
 }
 
 /* =========================================
@@ -464,11 +480,15 @@ li.video-item:hover .favourite-btn.is-favourite {
    ========================================= */
 /* inline-block, not inline-flex: text-overflow only applies to a block
    container, and on a flex box a long name is cut mid-letter with no ellipsis
-   to show that it was. */
+   to show that it was.
+   min-width: 0 is what lets it shrink at all — a flex item refuses to go under
+   its min-content width by default, and with nowrap text that is the whole
+   name, so without this a long channel pushes the buttons off the card. */
 .channel-pill {
   display: inline-block;
   vertical-align: middle;
-  max-width: 45%;
+  min-width: 0;
+  max-width: 100%;
   padding: 1px 8px;
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -527,6 +547,12 @@ li.video-item:hover .favourite-btn.is-favourite {
   align-items: center;
 }
 
+/* Trash has no primary action, and the mini player can be switched off: a
+   group with nothing in it would still claim the row's gap beside the title. */
+.video-actions:empty {
+  display: none;
+}
+
 .video-actions .icon-btn {
   background: rgba(255, 255, 255, 0.06);
   opacity: 0.88;
@@ -537,15 +563,36 @@ li.video-item:hover .video-actions .icon-btn {
   opacity: 1;
 }
 
-/* Two rows under the title: what the video is, then what you called it.
-   Keeping them apart stops a long channel name and a pile of tags from
-   fighting over the same line. */
-.meta-row,
+/* Your own tags, on a row of their own: a long channel name and a pile of
+   tags used to fight over the same line. This one wraps — there can be any
+   number of them, and none of them may be cut. */
 .tag-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+/* The pills share this line with the second row of buttons, so it does not
+   wrap: the buttons stay put and the channel name truncates instead. */
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.meta-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Hard right on its row, level with the pills. */
+.video-actions-secondary {
+  margin-left: auto;
 }
 
 /* A tag row with no tags holds only the closed editor. Out of the layout

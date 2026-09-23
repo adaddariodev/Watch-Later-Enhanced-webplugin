@@ -113,6 +113,12 @@ when you are not using it.
 
 ### ✨ Smaller things
 
+* **Titles get their width back.** The row of buttons on each card is now two
+  shorter rows — what plays the video beside the title, what files it away on
+  the line below, level with the pills. The title has about 100px more to work
+  with, so far fewer of them are cut short.
+* The favourites toggle now matches the type chips it sits with, and the whole
+  set is centred under the search box instead of being pushed to either edge.
 * The **JobsMatch** strip reads better: its line sits beside the arrow it
   points at instead of trailing the logo across an empty gap.
 * A number typed above the maximum in the mixer is corrected on screen, not

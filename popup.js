@@ -764,12 +764,13 @@ const VideoItemFactory = {
     li.draggable = canDrag;
     if (mode === 'active' && isFiltered) li.classList.add('drag-disabled');
 
-    const { row, tagAddBtn } = this.createVideoRow(video, index, mode, canDrag);
+    const { row, tagAddBtn, secondaryActions } = this.createVideoRow(video, index, mode, canDrag);
     li.appendChild(row);
 
     // What the video is, then what you called it: one row each, so a long
-    // channel name and a pile of tags never share a line.
-    li.appendChild(this.createMetaRow(video));
+    // channel name and a pile of tags never share a line. The second half of
+    // the buttons rides along on the first of those rows.
+    li.appendChild(this.createMetaRow(video, secondaryActions));
 
     if (editable) {
       li.appendChild(this.createTagRow(video, li, tagAddBtn));
@@ -801,10 +802,10 @@ const VideoItemFactory = {
 
     left.appendChild(this.createTitle(video.title));
 
-    const { actions, tagAddBtn } = this.createActions(index, mode, video);
-    row.append(left, actions);
+    const { primary, secondary, tagAddBtn } = this.createActions(index, mode, video);
+    row.append(left, primary);
 
-    return { row, tagAddBtn };
+    return { row, tagAddBtn, secondaryActions: secondary };
   },
 
   createDragHandle() {
@@ -825,7 +826,7 @@ const VideoItemFactory = {
   },
 
   /**
-   * The Video/Shorts label. It lives under the title, in the tag row, so it
+   * The Video/Shorts label. It lives under the title, on the meta row, so it
    * never eats into the two lines the title gets.
    */
   createKindPill(kind) {
@@ -866,16 +867,32 @@ const VideoItemFactory = {
     return btn;
   },
 
+  /** One row of the buttons. Both keep the class the click handler looks for. */
+  makeActionGroup(modifier) {
+    const group = document.createElement('div');
+    group.className = `video-actions ${modifier}`;
+    return group;
+  },
+
+  /**
+   * The buttons, over two rows rather than one. Five of them in a line take
+   * about 170px of a 400px popup away from the title on every card, which is
+   * what was clipping titles at a word or two.
+   *
+   * What plays the video sits beside the title; what files it away sits on the
+   * row below, level with the pills. An empty group is hidden in CSS, so trash
+   * — which has no primary action — gives the title the whole width.
+   */
   createActions(index, mode, video) {
-    const actions = document.createElement('div');
-    actions.className = 'video-actions';
+    const primary = this.makeActionGroup('video-actions-primary');
+    const secondary = this.makeActionGroup('video-actions-secondary');
     let tagAddBtn = null;
 
     if (mode === 'trash') {
       const restoreBtn = this.makeIconButton('restore-btn', 'icons/buttons/rotate-left.svg', 'Restore video');
       const permaBtn = this.makeIconButton('perma-delete-btn', 'icons/buttons/trash-xmark.svg', 'Delete permanently');
-      actions.append(restoreBtn, permaBtn);
-      return { actions, tagAddBtn };
+      secondary.append(restoreBtn, permaBtn);
+      return { primary, secondary, tagAddBtn };
     }
 
     // active / archive
@@ -887,7 +904,7 @@ const VideoItemFactory = {
         'icons/buttons/mini-player.svg',
         'Play in a mini player window'
       );
-      actions.appendChild(miniBtn);
+      primary.appendChild(miniBtn);
     }
 
     // Filled and red when it is a favourite, an outline when it is not — the
@@ -899,32 +916,45 @@ const VideoItemFactory = {
     );
     favBtn.classList.toggle('is-favourite', video.favourite === true);
     favBtn.setAttribute('aria-pressed', video.favourite ? 'true' : 'false');
-    actions.appendChild(favBtn);
+    primary.appendChild(favBtn);
 
     if (mode === 'archive') {
       const unwatchBtn = this.makeIconButton('watch-toggle-btn', 'icons/buttons/rotate-left.svg', 'Move back to To Watch');
-      actions.appendChild(unwatchBtn);
+      secondary.appendChild(unwatchBtn);
     } else {
       const watchedBtn = this.makeIconButton('watch-toggle-btn', 'icons/buttons/check.svg', 'Mark as watched');
-      actions.appendChild(watchedBtn);
+      secondary.appendChild(watchedBtn);
     }
 
     tagAddBtn = this.makeIconButton('tag-add-btn', 'icons/buttons/tags.svg', 'Add tag');
-    actions.appendChild(tagAddBtn);
+    secondary.appendChild(tagAddBtn);
 
     const delBtn = this.makeIconButton('delete-btn', 'icons/buttons/cross-small.svg', 'Remove video');
     delBtn.dataset.index = String(index);
-    actions.appendChild(delBtn);
+    secondary.appendChild(delBtn);
 
-    return { actions, tagAddBtn };
+    return { primary, secondary, tagAddBtn };
   },
 
-  /** What YouTube says about the video: its type, and who published it. */
-  createMetaRow(video) {
+  /**
+   * What YouTube says about the video: its type, and who published it — with
+   * the second row of buttons on the same line, hard right.
+   * @param {HTMLElement} [actions] the secondary button group
+   */
+  createMetaRow(video, actions) {
     const row = document.createElement('div');
     row.className = 'meta-row';
-    row.appendChild(this.createKindPill(video.kind));
-    if (video.channel) row.appendChild(this.createChannelPill(video.channel));
+
+    // The pills live in their own box so they wrap against each other and not
+    // against the buttons, which stay on one line whatever the channel is
+    // called.
+    const pills = document.createElement('div');
+    pills.className = 'meta-pills';
+    pills.appendChild(this.createKindPill(video.kind));
+    if (video.channel) pills.appendChild(this.createChannelPill(video.channel));
+    row.appendChild(pills);
+
+    if (actions) row.appendChild(actions);
     return row;
   },
 
