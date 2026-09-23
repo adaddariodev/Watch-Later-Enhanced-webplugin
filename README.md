@@ -174,6 +174,12 @@ it runs.
 * **Optimistic writes with a snapshot guard** — every read-modify-write on the
   list re-reads before committing and retries on conflict, so the popup and a
   YouTube tab saving at the same moment cannot drop each other's changes.
+* **A render window** — the list is drawn a chunk at a time, the next fetched
+  by an `IntersectionObserver` a screen ahead of the fold, so the cost of the
+  full rebuild each change triggers is the cost of what is on screen rather
+  than of everything saved. The window never shrinks while the list is the
+  same one, because the browser keeps your scroll position across a rebuild
+  only while the content is still as tall.
 * **Cross-document player hand-off** — the mini player re-parents YouTube's
   live `<video>` element into a
   [Document Picture-in-Picture](https://developer.chrome.com/docs/web-platform/document-picture-in-picture)

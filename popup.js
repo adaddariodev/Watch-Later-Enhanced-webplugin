@@ -6,6 +6,8 @@ const CONFIG = {
   TAG_MAX_LENGTH: 22,
   DEBOUNCE_DELAY: 300,
   TRASH_CAP: 50,           // max items kept in the trash (oldest are purged)
+  RENDER_CHUNK: 50,        // rows built per pass; the rest follow as you scroll
+  RENDER_AHEAD: '600px',   // how far below the fold the next chunk is fetched
   UNDO_DURATION: 2500,     // how long the undo toast stays up (ms)
   DONATE_PROMPT_CHANCE: 0.35,                // chance to show the donate callout on open
   DONATE_PROMPT_COOLDOWN: 3 * 60 * 60 * 1000, // min time between prompts (ms)
@@ -1267,6 +1269,111 @@ const VideoItemFactory = {
 };
 
 // ============================================
+// THE RENDER WINDOW
+// ============================================
+/**
+ * The list is thrown away and rebuilt on every change — a heart, a filter, a
+ * keystroke, a delete. With 1200 saved videos that was 31,920 nodes and half a
+ * second each time, and two seconds of empty popup before the first row
+ * appeared: a 135,000px column built to be looked at through 404px of window.
+ *
+ * So a pass builds one chunk and the rest arrive as you scroll, fetched a
+ * screen or two ahead of the fold. The cost of a rebuild becomes the cost of
+ * what is actually on screen.
+ *
+ * The window never shrinks while you are looking at the same list. That is not
+ * a nicety: the browser keeps your scroll position across a rebuild only
+ * because the content is still as tall, so dropping back to the first chunk
+ * after every heart toggle would throw you to the top of the list. It resets
+ * only when the list itself changes — another view, another filter, another
+ * search.
+ */
+const ListWindow = {
+  limit: CONFIG.RENDER_CHUNK,
+  key: null,
+  observer: null,
+  sentinel: null,
+  // What the last pass drew, so growing appends rather than rebuilds.
+  videos: [],
+  indexByUrl: null,
+  mode: 'active',
+
+  /** The identity of the list on screen — not its contents. */
+  sync(key) {
+    if (key === this.key) return;
+
+    // A different list is a different place. Filtering while scrolled down
+    // otherwise drops you into the middle of a list whose top you have never
+    // seen — and worse here, the window would then fill itself back up chunk
+    // by chunk until it was tall enough to reach that old offset, which is
+    // the whole saving handed back.
+    if (this.key !== null && DOMCache.scrollContainer) DOMCache.scrollContainer.scrollTop = 0;
+
+    this.key = key;
+    this.limit = CONFIG.RENDER_CHUNK;
+  },
+
+  render(videos, { mode, indexByUrl = null } = {}) {
+    this.videos = videos;
+    this.mode = mode;
+    this.indexByUrl = indexByUrl;
+
+    const frag = document.createDocumentFragment();
+    videos.slice(0, this.limit).forEach((v) => frag.appendChild(this.build(v)));
+    DOMCache.videoList.appendChild(frag);
+    this.markEnd();
+  },
+
+  build(video) {
+    return VideoItemFactory.create(video, this.indexByUrl?.get(video.url) ?? -1, this.mode);
+  },
+
+  /** The next chunk, appended. The rows already there are left alone. */
+  grow() {
+    if (this.limit >= this.videos.length) return;
+
+    const next = this.videos.slice(this.limit, this.limit + CONFIG.RENDER_CHUNK);
+    this.limit += CONFIG.RENDER_CHUNK;
+
+    const frag = document.createDocumentFragment();
+    next.forEach((v) => frag.appendChild(this.build(v)));
+    DOMCache.videoList.insertBefore(frag, this.sentinel);
+    this.markEnd();
+  },
+
+  /**
+   * Puts the tripwire back at the end of the list, or takes it away once
+   * everything is drawn.
+   */
+  markEnd() {
+    if (this.limit >= this.videos.length) {
+      this.detach();
+      return;
+    }
+
+    if (!this.sentinel) {
+      this.sentinel = document.createElement('li');
+      this.sentinel.className = 'list-sentinel';
+      this.sentinel.setAttribute('aria-hidden', 'true');
+    }
+    DOMCache.videoList.appendChild(this.sentinel);
+
+    if (!this.observer) {
+      this.observer = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) this.grow();
+      }, { root: DOMCache.scrollContainer || null, rootMargin: `${CONFIG.RENDER_AHEAD} 0px` });
+    }
+    this.observer.observe(this.sentinel);
+  },
+
+  /** Before anything empties the list out from under it. */
+  detach() {
+    this.observer?.disconnect();
+    this.sentinel?.remove();
+  }
+};
+
+// ============================================
 // DISPLAY LOGIC
 // ============================================
 async function displayVideos() {
@@ -1293,6 +1400,7 @@ async function displayVideos() {
       DOMCache.trashActions.classList.toggle('visible', AppState.view === 'trash' && deletedVideos.length > 0);
     }
 
+    ListWindow.detach();
     DOMCache.videoList.textContent = '';
 
     // ---- TRASH VIEW ----
@@ -1302,11 +1410,8 @@ async function displayVideos() {
         return;
       }
       DOMCache.tutorial.style.display = 'none';
-      const frag = document.createDocumentFragment();
-      deletedVideos.forEach((video) => {
-        frag.appendChild(VideoItemFactory.create(video, -1, 'trash'));
-      });
-      DOMCache.videoList.appendChild(frag);
+      ListWindow.sync('trash');
+      ListWindow.render(deletedVideos, { mode: 'trash' });
       return;
     }
 
@@ -1391,12 +1496,11 @@ async function displayVideos() {
     // once: looking each row up by scanning was quadratic in the list length.
     const indexByUrl = new Map(savedVideos.map((v, i) => [v.url, i]));
 
-    const frag = document.createDocumentFragment();
-    filteredVideos.forEach((video) => {
-      frag.appendChild(VideoItemFactory.create(video, indexByUrl.get(video.url) ?? -1, AppState.view));
-    });
-
-    DOMCache.videoList.appendChild(frag);
+    // Everything that decides which videos these are, so that changing any of
+    // them starts the window at the top again and changing none of them — a
+    // heart, a delete — leaves your place alone.
+    ListWindow.sync(`${AppState.view}|${AppState.typeFilter}|${AppState.favouritesOnly}|${AppState.tagQuery}`);
+    ListWindow.render(filteredVideos, { mode: AppState.view, indexByUrl });
   } catch (error) {
     console.error('Error displaying videos:', error);
     showTutorial('Error', 'Failed to load videos. Please try refreshing.');

@@ -323,6 +323,17 @@ ul#video-list {
   width: 100%; /* Previene overflow */
 }
 
+/* The tripwire at the end of a partly-drawn list: scrolling within a screen or
+   two of it fetches the next chunk. It has to occupy a line — a zero-height
+   element is not reliably observed — and nothing more. */
+.list-sentinel {
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
 li.video-item {
   background-color: #1e1e1e;
   margin-bottom: 8px;

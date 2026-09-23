@@ -129,6 +129,21 @@ every time you scroll, since that strip stays pinned to the top.
   the line below, level with the pills. The title has about 100px more to work
   with, so far fewer of them are cut short.
 
+### ⚡ Long lists open at once
+
+The popup used to build every saved video before it would show you any of
+them. With a thousand-odd videos that was two seconds of empty popup, and
+half a second again every time anything changed — a heart, a filter, a
+keystroke — to draw a column 135,000 pixels tall into a window 400 tall.
+
+It now draws what fits and the rest as you scroll. A big list opens in about
+a quarter of a second, and it keeps your place: marking something a favourite
+halfway down the list leaves you exactly where you were.
+
+One thing did change on purpose: **changing a filter, or searching, takes you
+back to the top**. You were previously left at whatever height you happened to
+be at, inside a list you had not seen the top of.
+
 ### ✨ Smaller things
 
 * **One icon for the mini player.** The three buttons that open it — in
