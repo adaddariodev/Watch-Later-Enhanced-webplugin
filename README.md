@@ -77,6 +77,10 @@ window of its own, so closing the page it came from leaves it playing.
   or a tag, to see only what carries it. Either writes what it did into the
   search box (`channel:Fireship`, `tag:music`), which you can also type.
 * **Tags**, colour-derived from their own name, with autocomplete.
+* **A numbered queue** — every card shows its place in the list, counting from
+  1, and takes its new number the moment it is moved. Hover the card and the
+  number becomes the grip you drag it by, in the same spot, so a number costs
+  the title nothing.
 * **Drag and drop** to set your own order.
 * **To Watch / Archive / Trash**, so finished videos leave the queue without
   disappearing, and deletions are recoverable.

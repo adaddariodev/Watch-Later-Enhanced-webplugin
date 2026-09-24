@@ -802,11 +802,6 @@ li.video-item:hover .video-actions .icon-btn {
   border-color: rgba(48, 209, 88, 0.55);
 }
 
-.drag-disabled .drag-handle {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
 .icon-btn {
   background: rgba(255, 255, 255, 0.08);
   border: none;
@@ -1558,16 +1553,49 @@ a.icon-btn {
 /* =========================================
    DRAG & DROP SORTING FEATURE
    ========================================= */
+/* =========================================
+   ROW LEAD — where the card sits, and the grip that moves it
+   One slot, two faces stacked on the same grid cell: the number at rest, the
+   grip under the pointer. They say the same thing, so a column each would
+   have taken another 20px from every title on screen and told you nothing
+   more — and because they share the cell, the swap moves nothing.
+   ========================================= */
+.row-lead {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  /* Room for three digits, so a list that gets past 99 never shifts its
+     titles across. content-box because the rest of the popup is border-box,
+     where the 12px below would come out of this floor rather than sit beside
+     it and the grip would set the width instead. */
+  box-sizing: content-box;
+  min-width: 22px;
+  padding-right: 12px;
+  user-select: none;
+}
+
+.row-lead > * {
+  grid-area: 1 / 1;
+  transition: opacity 0.16s ease;
+}
+
+.row-number {
+  font-size: 11px;
+  font-weight: 600;
+  /* Digits of one width, so 9 → 10 does not nudge the title. */
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
 .drag-handle {
   cursor: grab;
   color: var(--text-dim);
   font-size: 18px;
-  padding-right: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  user-select: none;
-  transition: color 0.2s;
+  transition: color 0.2s, opacity 0.16s ease;
 }
 
 .drag-handle:hover {
@@ -1576,6 +1604,28 @@ a.icon-btn {
 
 .drag-handle:active {
   cursor: grabbing;
+}
+
+/* The swap. Focus counts as well as hover: tabbing through a card's buttons
+   is the other way a keyboard reaches this row, and the grip is part of it. */
+.row-lead.is-draggable .drag-handle {
+  opacity: 0;
+}
+
+li.video-item:hover .row-lead.is-draggable .row-number,
+li.video-item:focus-within .row-lead.is-draggable .row-number {
+  opacity: 0;
+}
+
+li.video-item:hover .row-lead.is-draggable .drag-handle,
+li.video-item:focus-within .row-lead.is-draggable .drag-handle {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-lead > * {
+    transition: none;
+  }
 }
 
 li.video-item.dragging {

@@ -350,6 +350,27 @@ the store listing. It has always been the left button the extension listens
 for; right and middle click are left to YouTube and to the browser, and
 nothing said so.
 
+### 🔢 A numbered queue
+
+Every card carries its place in the list, counting from 1, and takes its new
+number the moment it is dragged somewhere else.
+
+It sits where the drag grip used to, because the two say the same thing: at
+rest you see the number, and hovering the card swaps in the grip that changes
+it. They share the one slot, so the number costs the title none of its width
+and nothing moves when they trade places. A row that cannot be dragged — any
+row while a filter is on, and every row in Archive and Trash — shows the
+number alone rather than a grip that would do nothing.
+
+The number is where a video actually sits, not where it happens to appear.
+Search your list and the results keep their real numbers — 7, 23, 41 — rather
+than being renumbered 1, 2, 3, because a filter does not move anything and
+that is the number you would be dragging once the filter comes off.
+
+Each row now also tells a screen reader its place and the length of the list,
+which the list itself could not: it is drawn a chunk at a time, so counting
+the rows on the page gave the wrong answer.
+
 ### ✨ Smaller things
 
 * **One icon for the mini player.** The three buttons that open it — in

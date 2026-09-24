@@ -64,7 +64,9 @@ WHAT YOU GET
   tags for the things their titles don't say.
 
 ▸ YOUR ORDER, NOT AN ALGORITHM'S
-  Drag and drop to prioritise your queue.
+  Drag and drop to prioritise your queue. Every card shows its number in the
+  list and takes its new one the moment you move it — and the number is where
+  a video really sits, so it stays honest while you search.
 
 ▸ KNOW WHAT YOU SAVED
   Every item shows whether it is a Video or a Shorts, and which channel it

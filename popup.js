@@ -1031,12 +1031,25 @@ const VideoItemFactory = {
    * @param {object} video
    * @param {number} index  position in the full saved-videos array (for drag reorder)
    * @param {'active'|'archive'|'trash'} mode
+   * @param {{position: number, total: number}} [place]  where this card sits in
+   *   the list it belongs to, 1-based, and how long that list is. Not the
+   *   position among what is on screen: a filtered view shows #7, #23, #41
+   *   rather than renumbering them 1, 2, 3, because the number says where a
+   *   video is in the queue and a filter does not move anything.
    */
-  create(video, index, mode = 'active') {
+  create(video, index, mode = 'active', place = { position: 0, total: 0 }) {
     const li = document.createElement('li');
     li.className = 'video-item';
     li.dataset.url = video.url;
     li.dataset.index = String(index);
+
+    // The list is drawn a chunk at a time, so the number of <li> elements is
+    // not the length of the list; without these a screen reader would count
+    // what happens to be rendered and announce the wrong place.
+    if (place.position > 0) {
+      li.setAttribute('aria-posinset', String(place.position));
+      if (place.total > 0) li.setAttribute('aria-setsize', String(place.total));
+    }
 
     const editable = mode !== 'trash';
     // Reordering writes positions in the full list, so it only makes sense
@@ -1044,9 +1057,9 @@ const VideoItemFactory = {
     const isFiltered = AppState.isFiltered();
     const canDrag = mode === 'active' && !isFiltered;
     li.draggable = canDrag;
-    if (mode === 'active' && isFiltered) li.classList.add('drag-disabled');
 
-    const { row, tagAddBtn, secondaryActions } = this.createVideoRow(video, index, mode, canDrag);
+    const { row, tagAddBtn, secondaryActions } =
+      this.createVideoRow(video, index, mode, canDrag, place);
     li.appendChild(row);
 
     // What the video is, then what you called it: one row each, so a long
@@ -1068,20 +1081,14 @@ const VideoItemFactory = {
     return li;
   },
 
-  createVideoRow(video, index, mode, canDrag) {
+  createVideoRow(video, index, mode, canDrag, place) {
     const row = document.createElement('div');
     row.className = 'video-row';
 
     const left = document.createElement('div');
     left.className = 'video-left';
 
-    // Shown whenever reordering is a thing in this view, even when a filter
-    // has it switched off: hiding it would shift every row sideways and leave
-    // no hint that reordering exists at all.
-    if (mode === 'active') {
-      left.appendChild(this.createDragHandle());
-    }
-
+    left.appendChild(this.createRowLead(place, mode, canDrag));
     left.appendChild(this.createTitle(video.title));
 
     const { primary, secondary, tagAddBtn } = this.createActions(index, mode, video);
@@ -1090,14 +1097,45 @@ const VideoItemFactory = {
     return { row, tagAddBtn, secondaryActions: secondary };
   },
 
-  createDragHandle() {
-    const handle = document.createElement('div');
+  /**
+   * The card's place in its list, and — where that place is yours to change —
+   * the grip that changes it. One slot holds both, stacked: the number at
+   * rest, the grip under the pointer. They are the same thing said two ways,
+   * so giving each its own column would have cost every title on screen
+   * another 20px for no more information.
+   */
+  createRowLead(place, mode, canDrag) {
+    const lead = document.createElement('div');
+    lead.className = 'row-lead';
+
+    const number = document.createElement('span');
+    number.className = 'row-number';
+    number.textContent = place.position > 0 ? String(place.position) : '';
+    // The <li> carries the same thing as aria-posinset; read out here as well
+    // it would only be said twice.
+    number.setAttribute('aria-hidden', 'true');
+    lead.appendChild(number);
+
+    // Only where reordering is on. A grip on a row that cannot be dragged is
+    // a control that does nothing, and the number stays put to say so.
+    if (!canDrag) {
+      if (mode === 'active' && place.position > 0) {
+        number.title = `#${place.position} — clear the filters to reorder`;
+      }
+      return lead;
+    }
+
+    lead.classList.add('is-draggable');
+
+    const handle = document.createElement('span');
     handle.className = 'drag-handle';
-    handle.title = AppState.isFiltered()
-      ? 'Clear the filters to reorder'
+    handle.title = place.position > 0
+      ? `#${place.position} — hold and drag to reorder`
       : 'Hold and drag to reorder';
     handle.appendChild(Utils.createBtnIcon('icons/buttons/menu-burger.svg', ''));
-    return handle;
+    lead.appendChild(handle);
+
+    return lead;
   },
 
   createTitle(title) {
@@ -1607,6 +1645,8 @@ const ListWindow = {
   // What the last pass drew, so growing appends rather than rebuilds.
   videos: [],
   indexByUrl: null,
+  placeByUrl: null,
+  total: 0,
   mode: 'active',
 
   /** The identity of the list on screen — not its contents. */
@@ -1624,10 +1664,12 @@ const ListWindow = {
     this.limit = CONFIG.RENDER_CHUNK;
   },
 
-  render(videos, { mode, indexByUrl = null } = {}) {
+  render(videos, { mode, indexByUrl = null, placeByUrl = null, total = 0 } = {}) {
     this.videos = videos;
     this.mode = mode;
     this.indexByUrl = indexByUrl;
+    this.placeByUrl = placeByUrl;
+    this.total = total;
 
     const frag = document.createDocumentFragment();
     videos.slice(0, this.limit).forEach((v) => frag.appendChild(this.build(v)));
@@ -1636,7 +1678,12 @@ const ListWindow = {
   },
 
   build(video) {
-    return VideoItemFactory.create(video, this.indexByUrl?.get(video.url) ?? -1, this.mode);
+    return VideoItemFactory.create(
+      video,
+      this.indexByUrl?.get(video.url) ?? -1,
+      this.mode,
+      { position: this.placeByUrl?.get(video.url) ?? 0, total: this.total }
+    );
   },
 
   /** The next chunk, appended. The rows already there are left alone. */
@@ -1687,6 +1734,15 @@ const ListWindow = {
 // ============================================
 // DISPLAY LOGIC
 // ============================================
+/**
+ * url → 1-based place in that list. Built once per pass: asking each row for
+ * its own index would be a scan per row, which is quadratic on a long list —
+ * the same reason indexByUrl exists.
+ */
+function positionsOf(videos) {
+  return new Map(videos.map((v, i) => [v.url, i + 1]));
+}
+
 async function displayVideos() {
   try {
     if (!DOMCache.videoList || !DOMCache.tutorial) {
@@ -1722,7 +1778,11 @@ async function displayVideos() {
       }
       DOMCache.tutorial.style.display = 'none';
       ListWindow.sync('trash');
-      ListWindow.render(deletedVideos, { mode: 'trash' });
+      ListWindow.render(deletedVideos, {
+        mode: 'trash',
+        placeByUrl: positionsOf(deletedVideos),
+        total: deletedVideos.length
+      });
       return;
     }
 
@@ -1806,11 +1866,18 @@ async function displayVideos() {
     // once: looking each row up by scanning was quadratic in the list length.
     const indexByUrl = new Map(savedVideos.map((v, i) => [v.url, i]));
 
+    // Numbered against the view's own list rather than against what survived
+    // the filters: #7 stays #7 while you search for it, which is the number
+    // you would be dragging it to once the filters come off.
+    const placeByUrl = positionsOf(source);
+
     // Everything that decides which videos these are, so that changing any of
     // them starts the window at the top again and changing none of them — a
     // heart, a delete — leaves your place alone.
     ListWindow.sync(`${AppState.view}|${AppState.typeFilter}|${AppState.favouritesOnly}|${AppState.query}`);
-    ListWindow.render(filteredVideos, { mode: AppState.view, indexByUrl });
+    ListWindow.render(filteredVideos, {
+      mode: AppState.view, indexByUrl, placeByUrl, total: source.length
+    });
   } catch (error) {
     console.error('Error displaying videos:', error);
     showTutorial('Error', 'Failed to load videos. Please try refreshing.');
@@ -2070,7 +2137,8 @@ function setupVideoListHandlers() {
     if (e.target.closest('.tag-add-btn')) return;
     if (e.target.closest('.tag-row')) return;
     if (e.target.closest('.video-actions')) return;
-    if (e.target.closest('.drag-handle')) return;
+    // The lead slot is the card's place in the list, not a way into it.
+    if (e.target.closest('.row-lead')) return;
 
     if (e.target.closest('.video-left')) {
       if (WLEUrl.isSafeOpenUrl(url)) {
