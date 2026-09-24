@@ -333,9 +333,22 @@ wrong:
   when a section crosses a band, and the last crossing happens before the
   animation settles — so opening the guide at *Settings* left *Shortcuts*
   highlighted. It now follows the scroll and settles where the scroll does.
+* The **last section could never be the current one.** A section becomes
+  current when its heading reaches the line under the sticky header, and the
+  page runs out of scroll before the last one gets that far — so *Support &
+  links* was never highlighted, however far you scrolled. Reaching the bottom
+  of the page now marks the last section.
 * The guide gained the **Styling** and **Glass** settings, the **What's new**
   link, the supporter code as a section of its own, the popup's own sizing,
   and both of the requests the extension makes rather than one of them.
+
+### 🖱 Which button, spelled out
+
+Every shortcut that says `Alt` + click now says `Alt` + **left** click — in
+the guide's reference table, in the popup's own how-to, in the README and in
+the store listing. It has always been the left button the extension listens
+for; right and middle click are left to YouTube and to the browser, and
+nothing said so.
 
 ### ✨ Smaller things
 

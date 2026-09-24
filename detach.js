@@ -741,7 +741,7 @@
       btn.className = 'ytp-button wle-ytp-detach-btn';
       // Named apart from YouTube's own miniplayer button, which sits a few
       // pixels away in the same control bar.
-      btn.title = 'Pop out into the WLE mini player (Alt+Shift+click)';
+      btn.title = 'Pop out into the WLE mini player (Alt+Shift+left click)';
       btn.setAttribute('aria-label', 'Pop out into the Watch Later Enhanced mini player');
 
       // The same icon every way into the mini player carries: this button, the

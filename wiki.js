@@ -76,16 +76,29 @@
    * which every rule of this kind reads as "reached".
    */
   function currentSection() {
+    const visible = sections.filter((s) => !s.classList.contains('hidden'));
+    if (!visible.length) return null;
+
+    // The last section or two never reach the line: the page runs out of
+    // scroll before their headings get that far up the screen, so by the rule
+    // below they could never be the answer and the marker stopped one short of
+    // the end of the guide. Hitting the bottom is what marks the last of them.
+    // Only when there is a bottom to hit — a guide filtered down to one screen
+    // is not scrolled to its end, it simply fits.
+    const scrollable = document.documentElement.scrollHeight > window.innerHeight + 1;
+    const atBottom = window.scrollY + window.innerHeight
+      >= document.documentElement.scrollHeight - 2;
+    if (scrollable && atBottom) return visible[visible.length - 1];
+
     const line = readingLine();
     let current = null;
 
-    for (const section of sections) {
-      if (section.classList.contains('hidden')) continue;
+    for (const section of visible) {
       if (section.getBoundingClientRect().top - line > 1) break;
       current = section;
     }
 
-    return current || sections.find((s) => !s.classList.contains('hidden')) || null;
+    return current || visible[0];
   }
 
   function markCurrentSection() {

@@ -8,10 +8,10 @@ renders no Markdown, so the version below is written to read well as-is.
 ## Short description (132 characters max)
 
 ```
-Save any YouTube video with Alt+Click. Favourite it, tag it, and watch it in a pinnable floating player. 100% local.
+Save any YouTube video with Alt + left click. Favourite it, tag it, watch it in a pinnable floating player. 100% local.
 ```
 
-*(115 characters, leaving room under the 132 limit.)*
+*(119 characters, leaving room under the 132 limit.)*
 
 ---
 
@@ -22,12 +22,12 @@ Save any YouTube video with one gesture — then actually watch it.
 
 YouTube's own "Watch Later" takes three clicks and a page you didn't want to load, and the list only works on YouTube. Most videos saved that way are never seen again.
 
-Watch Later Enhanced replaces all of that with Alt + Click.
+Watch Later Enhanced replaces all of that with Alt + left click.
 
 
 HOW IT WORKS
 
-1. Hold ALT and left-click any YouTube video — a thumbnail, or the player itself.
+1. Hold ALT and LEFT-CLICK any YouTube video — a thumbnail, or the player itself.
 2. It's saved instantly. No new tab, no dropdown, no page reload.
 3. Open the extension from your toolbar, on any website, and watch it.
 
@@ -38,7 +38,7 @@ instead, without opening it.
 WHAT YOU GET
 
 ▸ INSTANT SAVING
-  Alt + Click anything on YouTube. A small on-screen confirmation shows the
+  Alt + left click anything on YouTube. A small on-screen confirmation shows the
   video's real title. You never leave the page you were on.
 
 ▸ A MINI PLAYER YOU CAN PIN ON TOP
@@ -114,9 +114,10 @@ WHY THIS ONE
 
 SHORTCUTS
 
-  Alt + Click          Save a video
-  Alt + Shift + Click  Play a video in the mini player — on a thumbnail, or
-                       on the player itself to pop out what you're watching
+  Alt + left click          Save a video
+  Alt + Shift + left click  Play a video in the mini player — on a thumbnail,
+                            or on the player itself to pop out what you're
+                            watching
   /                    Open the search box in the extension popup
   Space or K           Play / pause              (in the mini player)
   Left / Right         Skip 5 seconds            (in the mini player)

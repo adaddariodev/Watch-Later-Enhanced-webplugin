@@ -3,7 +3,7 @@
 
   <h1>Watch Later Enhanced</h1>
 
-  <p><strong>Save any YouTube video with <code>Alt + Click</code>. Watch it in a floating window that outlives the browser.</strong><br/>
+  <p><strong>Save any YouTube video with <code>Alt + left click</code>. Watch it in a floating window that outlives the browser.</strong><br/>
   A zero-dependency Manifest V3 extension. Your list never leaves your machine.</p>
 
   <a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb">
@@ -28,7 +28,7 @@ YouTube's own "Watch Later" costs you three clicks, a dropdown and a page you
 did not want to load — and then the list only works on YouTube. Most videos
 saved that way are never seen again.
 
-Watch Later Enhanced replaces that with one gesture. Hold `Alt`, click any
+Watch Later Enhanced replaces that with one gesture. Hold `Alt`, left click any
 thumbnail, and it is on your list — no navigation, no dropdown, no page load.
 The list lives in your browser toolbar, reachable from any site.
 
@@ -36,7 +36,7 @@ The list lives in your browser toolbar, reachable from any site.
 
 ### Save without leaving the page
 
-`Alt + Click` any thumbnail, or the player itself, and the video is saved. A
+`Alt + left click` any thumbnail, or the player itself, and the video is saved. A
 small HUD confirms it with the video's real title, pulled from the page or from
 YouTube's oEmbed endpoint if the page does not offer one.
 
@@ -45,11 +45,11 @@ YouTube's oEmbed endpoint if the page does not offer one.
 Pop any video out of the browser into a floating mini player. Minimize the
 browser, move to another app, drag the window anywhere — it keeps playing.
 
-* **From any thumbnail, without opening it:** `Alt + Shift + Click` it — the
+* **From any thumbnail, without opening it:** `Alt + Shift + left click` it — the
   gesture that saves a video, with Shift. Or pick **Play in mini player** from
   the video's own ⋮ menu. Or hover the thumbnail and use the button in its
   top-left corner.
-* **On a video page:** `Alt + Shift + Click` the player, or the mini-player
+* **On a video page:** `Alt + Shift + left click` the player, or the mini-player
   button in YouTube's control bar. The window opens at the second the page had
   reached, and the page stops playing — one video at a time, never two.
 * **From the popup:** the mini-player button on a saved video plays it
@@ -121,10 +121,10 @@ what you have installed.
 
 | Shortcut | Where | What it does |
 | --- | --- | --- |
-| `Alt + Click` | Any YouTube thumbnail | Saves it without opening it |
-| `Alt + Click` | The video player | Saves what you are watching |
-| `Alt + Shift + Click` | Any thumbnail or title | Plays it in the mini player, without opening it |
-| `Alt + Shift + Click` | The player on a video page | Opens it in the mini player, from where the page had reached |
+| `Alt + left click` | Any YouTube thumbnail | Saves it without opening it |
+| `Alt + left click` | The video player | Saves what you are watching |
+| `Alt + Shift + left click` | Any thumbnail or title | Plays it in the mini player, without opening it |
+| `Alt + Shift + left click` | The player on a video page | Opens it in the mini player, from where the page had reached |
 | `/` | The popup | Opens the search box |
 | `Esc` | The search box | Clears it and folds it away |
 | `Space` or `K` | Mini player | Play / pause |

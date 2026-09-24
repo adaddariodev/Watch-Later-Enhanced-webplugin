@@ -1734,7 +1734,7 @@ async function displayVideos() {
       if (AppState.view === 'archive') {
         showTutorial('No watched videos yet', 'Mark a video as watched (✓) to move it here.');
       } else {
-        showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>Click</b> on any YouTube video to save it instantly.', true);
+        showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>left click</b> any YouTube video to save it instantly.', true);
       }
       return;
     }
