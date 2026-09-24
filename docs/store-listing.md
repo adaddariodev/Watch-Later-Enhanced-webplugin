@@ -74,13 +74,23 @@ WHAT YOU GET
   A small mixer: set the volume of each sound with a slider or by typing a
   number, mute one of them, or switch the lot off.
 
+▸ MAKE IT LOOK HOW YOU WANT
+  Tags and the channel highlight take their colour from one setting: a colour
+  per name, worked out from its letters — or one neutral grey for everything,
+  or a single colour you give it as a HEX code. A Glass slider turns the
+  cards, the toolbar and the settings panel into frosted panes over a lit
+  backdrop, as strong or as subtle as you like. And the popup sizes itself to
+  your screen, so a large monitor shows more without a small laptop
+  overflowing.
+
 ▸ TO WATCH, ARCHIVE, TRASH
   Finished videos leave your queue without disappearing. Deletions can be
   undone.
 
 ▸ A GUIDE THAT'S ALREADY INSTALLED
   A searchable user guide ships inside the extension, with every shortcut
-  explained. It works offline.
+  explained. It works offline. Next to it, a link to the release notes, and
+  the version you're running.
 
 
 WHY THIS ONE
@@ -107,9 +117,10 @@ SHORTCUTS
   Alt + Click          Save a video
   Alt + Shift + Click  Play a video in the mini player — on a thumbnail, or
                        on the player itself to pop out what you're watching
-  Space or K           Play / pause
-  Left / Right         Skip 5 seconds
-  M                    Mute
+  /                    Open the search box in the extension popup
+  Space or K           Play / pause              (in the mini player)
+  Left / Right         Skip 5 seconds            (in the mini player)
+  M                    Mute                      (in the mini player)
   Esc                  Close the mini player
 
 
@@ -129,6 +140,9 @@ behind it.
   and indentation are what give it structure there.
 * Keep the permissions claim accurate: if a future version adds a permission,
   the "one permission" line has to change with it.
+* The feature list is kept in the order the popup shows things, so a reader
+  comparing the two is never hunting. If a section moves in the UI, move it
+  here too.
 * "Talks to nobody but YouTube" is true as of 2.7.2 and is enforced by the
   extension's own CSP (`style-src 'self'; font-src 'self'`). Anything that
   later adds a CDN, an analytics snippet or a remote webfont has to come out

@@ -48,29 +48,74 @@
     });
   }
 
-  function watchSections() {
-    if (!('IntersectionObserver' in window)) {
-      setCurrent(sections[0]?.id);
-      return;
+  function headerHeight() {
+    const header = document.querySelector('.wiki-header');
+    return header ? header.getBoundingClientRect().height : 0;
+  }
+
+  /**
+   * Where a section counts as reached. It is the stylesheet's own
+   * scroll-padding-top — the place an anchored section is parked, under the
+   * sticky header — read rather than restated, because a line even a pixel
+   * above it would leave a section you have just jumped to sitting one short
+   * of its own mark, and the entry above it highlighted instead.
+   */
+  function readingLine() {
+    const parked = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
+    return (Number.isFinite(parked) ? parked : headerHeight() + 16) + 2;
+  }
+
+  /**
+   * The section being read: the last one whose heading has reached the line
+   * just under the sticky header. Worked out from where the sections are
+   * rather than from which of them an observer happens to be holding — two
+   * are in its band at once whenever one ends near the top of the screen, and
+   * picking the first of those in document order left a deep link marking the
+   * section above the one it had just opened. Hidden ones are skipped: a
+   * filtered section measures as a zero-height box at the top of the page,
+   * which every rule of this kind reads as "reached".
+   */
+  function currentSection() {
+    const line = readingLine();
+    let current = null;
+
+    for (const section of sections) {
+      if (section.classList.contains('hidden')) continue;
+      if (section.getBoundingClientRect().top - line > 1) break;
+      current = section;
     }
 
-    const visible = new Set();
+    return current || sections.find((s) => !s.classList.contains('hidden')) || null;
+  }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) visible.add(entry.target.id);
-          else visible.delete(entry.target.id);
-        });
+  function markCurrentSection() {
+    const current = currentSection();
+    if (current) setCurrent(current.id);
+  }
 
-        // The topmost visible section wins, so the marker never jumps ahead.
-        const current = sections.find((section) => visible.has(section.id));
-        if (current) setCurrent(current.id);
-      },
-      { rootMargin: '-120px 0px -65% 0px', threshold: 0 }
-    );
+  /**
+   * The scroll itself, throttled to a frame, rather than an
+   * IntersectionObserver watching a band. The observer only fires when a
+   * section crosses that band, and this page scrolls smoothly: jumping to a
+   * section animates for the best part of a second, the last crossing happens
+   * before the animation settles, and nothing re-asks afterwards — which left
+   * the contents marking the section above the one you had just opened. A
+   * scroll listener is told when the scrolling stops.
+   */
+  function watchSections() {
+    let frame = null;
 
-    sections.forEach((section) => observer.observe(section));
+    const schedule = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        markCurrentSection();
+      });
+    };
+
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    markCurrentSection();
   }
 
   // ---------- Search ----------
@@ -173,8 +218,15 @@
   function openRequestedSection() {
     const id = window.location.hash.replace('#', '');
     if (!id) return;
+
+    const target = document.getElementById(id);
+    if (!target) return;
+
+    // Marked at once so the contents is right before the smooth scroll has
+    // travelled; the scroll listener takes it from there and settles on the
+    // same section.
     setCurrent(id);
-    document.getElementById(id)?.scrollIntoView();
+    target.scrollIntoView();
   }
 
   trackHeaderHeight();

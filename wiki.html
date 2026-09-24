@@ -276,7 +276,11 @@
           <li>Type a name (up to 22 characters). Tags you already use are suggested as you type.</li>
           <li>Press <kbd>Enter</kbd> to add it. Press <kbd>Esc</kbd> to cancel.</li>
         </ol>
-        <p>Each tag gets its own colour automatically, derived from its name — the same word always gets the same colour.</p>
+        <p>
+          Each tag gets its own colour automatically, derived from its name — the same word
+          always gets the same colour. <a href="#settings">Settings → Styling</a> decides
+          whether tags are coloured that way, left grey, or all given one colour you choose.
+        </p>
 
         <h3>Finding videos again</h3>
         <ul>
@@ -523,11 +527,11 @@
             <tr>
               <td><kbd>/</kbd></td>
               <td>The popup</td>
-              <td>Opens the tag search and puts the caret in it</td>
+              <td>Opens the search box and puts the caret in it</td>
             </tr>
             <tr>
               <td><kbd>Esc</kbd></td>
-              <td>Tag search in the popup</td>
+              <td>Search box in the popup</td>
               <td>Clears the search and folds the box away</td>
             </tr>
             <tr>
@@ -554,6 +558,16 @@
           changed, so closing it hides the controls and not what they are set to. Above
           it sit the two things that are not settings: this guide, and a link to the
           list of releases on GitHub if you want to know what each version added.
+        </p>
+
+        <h3>User guide</h3>
+        <p>The book button that opened this page. It works offline — the guide ships inside the extension.</p>
+
+        <h3>What's new</h3>
+        <p>
+          Next to the guide, a link to the releases on GitHub: the full list of what each
+          version changed. The version you are running is printed at the bottom of the
+          Info &amp; Settings panel.
         </p>
 
         <h3>Sound</h3>
@@ -591,27 +605,32 @@
           of the blurring is drawn at all.
         </p>
         <div class="wiki-note">
+          <strong>The popup's height is not a setting.</strong> It takes about three
+          quarters of whatever height your screen has spare, between 400 and the 600
+          pixels a browser will draw — more videos before you scroll on a desktop,
+          nothing overflowing on a small laptop.
+        </div>
+        <div class="wiki-note">
           <strong>Not the page behind the popup.</strong> A browser popup is a window of
           its own, drawn on a base the browser paints, and nothing inside it can reach
           past that — so the glass is made from the popup's own layers, not from the
           YouTube page underneath.
         </div>
 
-        <h3>User guide</h3>
-        <p>The book button that opened this page. It works offline — the guide ships inside the extension.</p>
-
-        <h3>What's new</h3>
-        <p>
-          Next to the guide, a link to the releases on GitHub: the full list of what each
-          version changed. The version you are running is printed at the bottom of the
-          Info &amp; Settings panel.
-        </p>
-
-        <h3>Supporter code and the JobsMatch note</h3>
+        <h3>JobsMatch banner</h3>
         <p>
           The extension is free. A small note about JobsMatch sits under the header to support
-          the project. After a tip on Ko-fi you receive a code; pasting it in Settings unlocks
-          a switch that hides the note permanently.
+          the project. The switch that hides it is locked until you are a supporter — press it
+          and it says how.
+        </p>
+
+        <h3>Supporter code</h3>
+        <p>
+          After a tip on <a href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">Ko-fi</a>
+          you receive a code. Paste it in the box at the foot of the Settings section and press
+          <strong>Unlock</strong>; the JobsMatch switch above it is then yours, and the box
+          disappears. Nothing is sent anywhere to check the code — it is verified on your own
+          machine.
         </p>
       </section>
 
@@ -620,7 +639,7 @@
         <h2>Privacy &amp; your data</h2>
         <ul>
           <li>Your list lives in your own browser, in the extension's local storage. There is no account, no sign-in and no server holding your data.</li>
-          <li>Nothing you save is sent anywhere. The only request the extension makes is to YouTube itself, to read the title of a video as you save it.</li>
+          <li>Nothing you save is sent anywhere. The extension makes two kinds of request, both to YouTube and both only while you are already on it: one to read a video's title when the page does not give it, and one to tell a Short from an ordinary video. Each carries the video and nothing about you.</li>
           <li>The extension only runs on YouTube pages. It cannot see any other site you visit.</li>
           <li>Because the list is stored in this browser profile, it does not follow you to another computer — and removing the extension removes the list with it.</li>
         </ul>
@@ -686,14 +705,15 @@
           how that button gets fixed for everyone.
         </p>
 
-        <h3>I clicked the mini player button in the popup and it only opened the video</h3>
+        <h3>The mini player button in the popup opened a tab instead of a window</h3>
         <p>
-          That is the first half of the flow. Look at the middle of the video
-          page: a card titled <strong>Open the mini player</strong> is waiting for
-          a click. A browser only opens a floating window immediately after a
-          click inside that page, so the popup cannot do it on its own. If you
-          dismissed the card, use the mini player button in the player's control
-          bar, or <kbd>Alt</kbd> + <kbd>Shift</kbd> + click on the player.
+          The button asks the extension's background worker for a window, and
+          falls back to an ordinary tab only when it cannot reach it — which
+          happens on browsers that do not let an extension open a window of its
+          own. Reload the extension at <em>chrome://extensions</em> and try
+          again; if it keeps opening a tab, use the mini player button in the
+          player's control bar, or <kbd>Alt</kbd> + <kbd>Shift</kbd> + click on
+          the player, both of which open the window from the page itself.
         </p>
 
         <h3>I got a small player inside the page instead of a floating window</h3>
@@ -707,8 +727,12 @@
 
         <h3>The mini player closed by itself</h3>
         <p>
-          That is expected when the YouTube tab navigates somewhere else: the video is handed
-          back to the tab so nothing is lost. Reopen it on the new page.
+          The window itself outlives the page it came from, so navigating or
+          closing that tab does not touch it. A <strong>pinned</strong> player
+          is the exception: it is a floating player rather than a window, and it
+          belongs to the window that opened it — closing that window closes the
+          player with it, handing the video back. Unpin it, or leave its window
+          minimized where the pin put it.
         </p>
 
         <h3>"Could not save — storage may be full"</h3>
@@ -730,6 +754,7 @@
         <h2>Support &amp; links</h2>
         <ul class="wiki-links">
           <li><a href="https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin" target="_blank" rel="noopener noreferrer">Source code and issue tracker on GitHub</a></li>
+          <li><a href="https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin/releases" target="_blank" rel="noopener noreferrer">Every release, and what each one changed</a></li>
           <li><a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb" target="_blank" rel="noopener noreferrer">Watch Later Enhanced on the Chrome Web Store</a></li>
           <li><a href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">Support the developer on Ko-fi</a></li>
         </ul>

@@ -312,6 +312,31 @@ videos before you scroll on a desktop, and nothing overflowing on a tablet.
   the **version you are running** — read from the extension itself, so it can
   never disagree with what you have installed.
 
+### 🔊 A new save sound, and files named for what they do
+
+The confirmation that plays on YouTube when a video is added is a new one, and
+it weighs 34KB where the old one weighed 190. Both sounds are now named for
+the job they do rather than for how they sound: `popup-click.mp3` and
+`video-saved.mp3`.
+
+### 📖 The guide, gone over
+
+Three things it described no longer existed, and one of its own behaviours was
+wrong:
+
+* The **mini player no longer needs a card on the page** to be clicked before
+  a window opens, and no longer hands the video back when the tab navigates
+  away — it outlives the page it came from. Both troubleshooting entries said
+  otherwise.
+* The **contents marked the wrong section** after jumping to one. The page
+  scrolls smoothly, the marker was worked out from an observer that only fires
+  when a section crosses a band, and the last crossing happens before the
+  animation settles — so opening the guide at *Settings* left *Shortcuts*
+  highlighted. It now follows the scroll and settles where the scroll does.
+* The guide gained the **Styling** and **Glass** settings, the **What's new**
+  link, the supporter code as a section of its own, the popup's own sizing,
+  and both of the requests the extension makes rather than one of them.
+
 ### ✨ Smaller things
 
 * **One icon for the mini player.** The three buttons that open it — in

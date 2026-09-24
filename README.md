@@ -85,6 +85,15 @@ window of its own, so closing the page it came from leaves it playing.
 * **Favourites** — a heart per row, and a filter that narrows whatever the
   type chips and the tag search are already showing.
 * **A sound mixer** — a level and an on/off per sound, or silence for the lot.
+* **Colours you choose** — every colour the extension invents for itself comes
+  from one setting: a colour per name worked out from its letters, one neutral
+  for everything, or a single HEX code you give it. A light one flips the
+  lettering to dark so a pale tag stays readable.
+* **A glass finish** — a slider that turns the cards, the toolbar and the
+  settings panel into frosted panes over a lit backdrop, at whatever strength
+  you want, and draws none of it at zero.
+* **A popup the size of your screen** — about three quarters of the height it
+  has spare, between 400px and the 600 a browser will draw.
 
 ### Know what you saved
 
@@ -103,7 +112,10 @@ browse YouTube, rather than left permanently blank.
 
 Settings opens a bundled user guide: searchable, with a table of contents that
 tracks your scroll position, a full shortcut reference and troubleshooting.
-It ships inside the extension, so it works offline.
+It ships inside the extension, so it works offline. Beside it, **What's new**
+links to the releases on GitHub, and the version you are running is printed at
+the foot of the panel — read from the manifest, so it cannot disagree with
+what you have installed.
 
 ## Shortcuts
 
@@ -112,9 +124,9 @@ It ships inside the extension, so it works offline.
 | `Alt + Click` | Any YouTube thumbnail | Saves it without opening it |
 | `Alt + Click` | The video player | Saves what you are watching |
 | `Alt + Shift + Click` | Any thumbnail or title | Plays it in the mini player, without opening it |
-| `Alt + Shift + Click` | The player on a video page | Hands the video to the floating mini player, and back |
-| `/` | The popup | Opens the tag search |
-| `Esc` | Tag search | Clears it and folds it away |
+| `Alt + Shift + Click` | The player on a video page | Opens it in the mini player, from where the page had reached |
+| `/` | The popup | Opens the search box |
+| `Esc` | The search box | Clears it and folds it away |
 | `Space` or `K` | Mini player | Play / pause |
 | `←` / `→` | Mini player | Back / forward 5 seconds |
 | `M` | Mini player | Mute / unmute |
@@ -196,12 +208,24 @@ it runs.
   than of everything saved. The window never shrinks while the list is the
   same one, because the browser keeps your scroll position across a rebuild
   only while the content is still as tall.
-* **Cross-document player hand-off** — the mini player re-parents YouTube's
-  live `<video>` element into a
+* **A mini player that outlives its opener** — every way in opens a real
+  browser window, owned by the service worker rather than by the page that
+  asked for it, so closing that page leaves it playing. It is a window because
+  it has to be: a
   [Document Picture-in-Picture](https://developer.chrome.com/docs/web-platform/document-picture-in-picture)
-  window without interrupting playback, mirrors the page's stylesheets into it,
-  and restores the element to its original position on close — including when
-  YouTube's SPA router navigates away mid-playback.
+  window belongs to the document that opened it and dies with it. What is
+  given up is the hand-off of the already-decoded `<video>`, so the window
+  starts at the second the page had reached rather than receiving the frame
+  itself.
+* **Document PiP for the pin, and only for it** — **Pin on top** is the one
+  place a floating always-on-top player earns its ownership problem, and the
+  window it came from minimizes rather than closes so there is something for
+  it to belong to. It is a button rather than a setting because a browser only
+  grants that window in answer to a click inside the page.
+* **One mini player, serialised in the worker** — requests queue behind each
+  other there, so a double-click cannot race two windows into existence; the
+  second either focuses the window already showing that video or replaces what
+  is in it.
 
 ## Project structure
 
@@ -210,7 +234,7 @@ it runs.
 ├── fonts/              # Inter, bundled (woff2 + OFL licence) — no CDN
 ├── icons/              # Extension icons (48px, 128px) and button glyphs
 ├── imgs/               # Logos and store banners
-├── sounds/             # Audio feedback (success.wav, click.mp3)
+├── sounds/             # popup-click.mp3, video-saved.mp3
 ├── content.js          # Saving, title extraction, type detection, HUD
 ├── content.css         # In-page HUD and injected button styles
 ├── detach.js           # Detached mini player (Document Picture-in-Picture)

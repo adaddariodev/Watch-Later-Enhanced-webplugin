@@ -68,7 +68,7 @@ const AudioManager = {
 
   init() {
     if (!this.clickAudio) {
-      this.clickAudio = new Audio('sounds/click.mp3');
+      this.clickAudio = new Audio('sounds/popup-click.mp3');
     }
     return this.clickAudio;
   },
@@ -98,7 +98,7 @@ const AudioManager = {
       return;
     }
 
-    if (!this.saveAudio) this.saveAudio = new Audio('sounds/success.wav');
+    if (!this.saveAudio) this.saveAudio = new Audio('sounds/video-saved.mp3');
     this.saveAudio.volume = volume;
     this.saveAudio.currentTime = 0;
     this.saveAudio.play().catch((e) => console.warn('Audio play blocked:', e));

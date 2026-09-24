@@ -21,13 +21,13 @@ const CONFIG = {
 // AUDIO MANAGEMENT (Singleton)
 // ============================================
 const AudioManager = {
-  successAudio: null,
+  savedAudio: null,
 
   init() {
-    if (!this.successAudio) {
-      this.successAudio = new Audio(chrome.runtime.getURL('sounds/success.wav'));
+    if (!this.savedAudio) {
+      this.savedAudio = new Audio(chrome.runtime.getURL('sounds/video-saved.mp3'));
     }
-    return this.successAudio;
+    return this.savedAudio;
   },
 
   /**
@@ -56,10 +56,10 @@ const AudioManager = {
   },
   
   cleanup() {
-    if (this.successAudio) {
-      this.successAudio.pause();
-      this.successAudio.currentTime = 0;
-      this.successAudio = null;
+    if (this.savedAudio) {
+      this.savedAudio.pause();
+      this.savedAudio.currentTime = 0;
+      this.savedAudio = null;
     }
   }
 };
