@@ -1031,24 +1031,25 @@ const VideoItemFactory = {
    * @param {object} video
    * @param {number} index  position in the full saved-videos array (for drag reorder)
    * @param {'active'|'archive'|'trash'} mode
-   * @param {{position: number, total: number}} [place]  where this card sits in
-   *   the list it belongs to, 1-based, and how long that list is. Not the
-   *   position among what is on screen: a filtered view shows #7, #23, #41
-   *   rather than renumbering them 1, 2, 3, because the number says where a
-   *   video is in the queue and a filter does not move anything.
+   * @param {{number: number, ordinal: number, setSize: number}} [place]
+   *   `number` is what the card shows: where the video sits in the list it
+   *   belongs to, 1-based. Not where it sits among what is on screen — a
+   *   filtered view shows #7, #23, #41 rather than renumbering them 1, 2, 3,
+   *   because a filter moves nothing. `ordinal` and `setSize` are that
+   *   on-screen set, which is what aria-posinset and aria-setsize mean.
    */
-  create(video, index, mode = 'active', place = { position: 0, total: 0 }) {
+  create(video, index, mode = 'active', place = { number: 0, ordinal: 0, setSize: 0 }) {
     const li = document.createElement('li');
     li.className = 'video-item';
     li.dataset.url = video.url;
     li.dataset.index = String(index);
 
-    // The list is drawn a chunk at a time, so the number of <li> elements is
-    // not the length of the list; without these a screen reader would count
-    // what happens to be rendered and announce the wrong place.
-    if (place.position > 0) {
-      li.setAttribute('aria-posinset', String(place.position));
-      if (place.total > 0) li.setAttribute('aria-setsize', String(place.total));
+    // The list is drawn a chunk at a time, so the <li> elements on the page
+    // are not the whole set; without these a screen reader would count what
+    // happens to be rendered and announce the wrong place.
+    if (place.ordinal > 0) {
+      li.setAttribute('aria-posinset', String(place.ordinal));
+      if (place.setSize > 0) li.setAttribute('aria-setsize', String(place.setSize));
     }
 
     const editable = mode !== 'trash';
@@ -1110,7 +1111,7 @@ const VideoItemFactory = {
 
     const number = document.createElement('span');
     number.className = 'row-number';
-    number.textContent = place.position > 0 ? String(place.position) : '';
+    number.textContent = place.number > 0 ? String(place.number) : '';
     // The <li> carries the same thing as aria-posinset; read out here as well
     // it would only be said twice.
     number.setAttribute('aria-hidden', 'true');
@@ -1119,8 +1120,8 @@ const VideoItemFactory = {
     // Only where reordering is on. A grip on a row that cannot be dragged is
     // a control that does nothing, and the number stays put to say so.
     if (!canDrag) {
-      if (mode === 'active' && place.position > 0) {
-        number.title = `#${place.position} — clear the filters to reorder`;
+      if (mode === 'active' && place.number > 0) {
+        number.title = `#${place.number} — clear the filters to reorder`;
       }
       return lead;
     }
@@ -1129,8 +1130,8 @@ const VideoItemFactory = {
 
     const handle = document.createElement('span');
     handle.className = 'drag-handle';
-    handle.title = place.position > 0
-      ? `#${place.position} — hold and drag to reorder`
+    handle.title = place.number > 0
+      ? `#${place.number} — hold and drag to reorder`
       : 'Hold and drag to reorder';
     handle.appendChild(Utils.createBtnIcon('icons/buttons/menu-burger.svg', ''));
     lead.appendChild(handle);
@@ -1646,7 +1647,6 @@ const ListWindow = {
   videos: [],
   indexByUrl: null,
   placeByUrl: null,
-  total: 0,
   mode: 'active',
 
   /** The identity of the list on screen — not its contents. */
@@ -1664,25 +1664,36 @@ const ListWindow = {
     this.limit = CONFIG.RENDER_CHUNK;
   },
 
-  render(videos, { mode, indexByUrl = null, placeByUrl = null, total = 0 } = {}) {
+  render(videos, { mode, placeByUrl = null, indexByUrl = null } = {}) {
     this.videos = videos;
     this.mode = mode;
     this.indexByUrl = indexByUrl;
     this.placeByUrl = placeByUrl;
-    this.total = total;
 
     const frag = document.createDocumentFragment();
-    videos.slice(0, this.limit).forEach((v) => frag.appendChild(this.build(v)));
+    videos.slice(0, this.limit).forEach((v, i) => frag.appendChild(this.build(v, i + 1)));
     DOMCache.videoList.appendChild(frag);
     this.markEnd();
   },
 
-  build(video) {
+  /** @param {number} ordinal this row's place among the ones on screen, 1-based */
+  build(video, ordinal) {
     return VideoItemFactory.create(
       video,
       this.indexByUrl?.get(video.url) ?? -1,
       this.mode,
-      { position: this.placeByUrl?.get(video.url) ?? 0, total: this.total }
+      {
+        // What the card shows: where the video sits in its own list, which a
+        // filter does not change. Falling back to the ordinal covers the
+        // trash, which has no such list — it is never reordered, and it can
+        // hold the same url twice, which a url-keyed map cannot tell apart.
+        number: this.placeByUrl?.get(video.url) ?? ordinal,
+        // What assistive tech is told: the set actually on screen. The two
+        // are the same number until a filter is on, and the visible one is
+        // aria-hidden, so they can never be heard to disagree.
+        ordinal,
+        setSize: this.videos.length
+      }
     );
   },
 
@@ -1690,11 +1701,12 @@ const ListWindow = {
   grow() {
     if (this.limit >= this.videos.length) return;
 
-    const next = this.videos.slice(this.limit, this.limit + CONFIG.RENDER_CHUNK);
-    this.limit += CONFIG.RENDER_CHUNK;
+    const from = this.limit;
+    const next = this.videos.slice(from, from + CONFIG.RENDER_CHUNK);
+    this.limit = from + CONFIG.RENDER_CHUNK;
 
     const frag = document.createDocumentFragment();
-    next.forEach((v) => frag.appendChild(this.build(v)));
+    next.forEach((v, i) => frag.appendChild(this.build(v, from + i + 1)));
     DOMCache.videoList.insertBefore(frag, this.sentinel);
     this.markEnd();
   },
@@ -1778,11 +1790,9 @@ async function displayVideos() {
       }
       DOMCache.tutorial.style.display = 'none';
       ListWindow.sync('trash');
-      ListWindow.render(deletedVideos, {
-        mode: 'trash',
-        placeByUrl: positionsOf(deletedVideos),
-        total: deletedVideos.length
-      });
+      // No placeByUrl: the trash has no order of its own to keep, and the
+      // same url can be in it twice, so each row is numbered where it is.
+      ListWindow.render(deletedVideos, { mode: 'trash' });
       return;
     }
 
@@ -1875,9 +1885,7 @@ async function displayVideos() {
     // them starts the window at the top again and changing none of them — a
     // heart, a delete — leaves your place alone.
     ListWindow.sync(`${AppState.view}|${AppState.typeFilter}|${AppState.favouritesOnly}|${AppState.query}`);
-    ListWindow.render(filteredVideos, {
-      mode: AppState.view, indexByUrl, placeByUrl, total: source.length
-    });
+    ListWindow.render(filteredVideos, { mode: AppState.view, indexByUrl, placeByUrl });
   } catch (error) {
     console.error('Error displaying videos:', error);
     showTutorial('Error', 'Failed to load videos. Please try refreshing.');
@@ -2493,9 +2501,12 @@ function setupStyling() {
     });
 
     hex.addEventListener('blur', () => {
-      // Whatever is in the box goes back to the colour actually in force.
+      // Whatever is in the box goes back to the colour actually in force —
+      // but the mark stays if what was typed was not one. change fires just
+      // before this, so clearing it here meant only Enter ever showed it:
+      // tabbing away threw the complaint out with the text. The next
+      // keystroke clears it.
       hex.value = Styling.color;
-      hex.classList.remove('is-error');
     });
   }
 

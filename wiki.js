@@ -41,7 +41,16 @@
   }
 
   // ---------- Table of contents highlighting ----------
+  // The answer is recomputed every frame the page scrolls, and is the same
+  // answer most of those frames: one smooth jump down the guide asked for 49
+  // attribute writes to make 8 actual changes. Nothing is touched unless the
+  // section has really changed.
+  let currentId = null;
+
   function setCurrent(id) {
+    if (id === currentId) return;
+    currentId = id;
+
     navLinks.forEach((link) => {
       if (link.getAttribute('href') === `#${id}`) link.setAttribute('aria-current', 'true');
       else link.removeAttribute('aria-current');
