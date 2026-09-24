@@ -276,6 +276,12 @@ filter strip, the list behind the settings panel — while the backdrop picks up
 a soft wash of colour. At 0 it is the flat panel it has always been, and none
 of the blurring is drawn at all.
 
+The strip carrying the view tabs and the filters is glass too, built in two
+layers rather than held nearly opaque: a dark base that lets a fifth of the
+blurred list through, and a sheet of white over it that lifts the strip and
+flattens whatever ghosts up through the base. The chips on it ride up with
+it, and keep their hover, selected and open states.
+
 It is the popup's own layers that go see-through, not the page underneath: a
 browser popup is a window of its own, drawn on a base the browser paints, and
 nothing inside it can reach past that.

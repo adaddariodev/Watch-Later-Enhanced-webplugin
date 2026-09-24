@@ -2013,13 +2013,38 @@ li.video-item.drop-target {
 }
 
 /* The strips pinned to the top of the list. What they frost is the list
-   sliding underneath, so they stay the most opaque things here — a title
-   readable through the filter chips is not a glass effect, it is a bug. */
+   sliding underneath, and a title readable through the filter chips is not a
+   glass effect but a bug — so instead of holding them nearly opaque, which
+   left them looking like the flat bar they were, they are built in two
+   layers: a dark base that lets a fifth of the blurred list and the wash
+   through, and a sheet of white over it. The sheet is what lifts them to a
+   frosted grey, and it flattens the contrast of anything ghosting up through
+   the base at the same time. */
 .wle-glass .view-tabs,
 .wle-glass .searchbar-wrap {
-  background: rgb(var(--bg-rgb) / calc(1 - 0.15 * var(--wle-glass)));
-  -webkit-backdrop-filter: blur(calc(30px * var(--wle-glass))) saturate(1.5);
-  backdrop-filter: blur(calc(30px * var(--wle-glass))) saturate(1.5);
+  background:
+    linear-gradient(rgb(255 255 255 / calc(0.085 * var(--wle-glass))),
+                    rgb(255 255 255 / calc(0.085 * var(--wle-glass)))),
+    rgb(var(--bg-rgb) / calc(1 - 0.2 * var(--wle-glass)));
+  -webkit-backdrop-filter: blur(calc(30px * var(--wle-glass))) saturate(1.6);
+  backdrop-filter: blur(calc(30px * var(--wle-glass))) saturate(1.6);
+}
+
+/* The lower of the two strips carries the edge where the pane meets the list
+   it is floating over. Without it the two just merge into the scroll. */
+.wle-glass .searchbar-wrap {
+  box-shadow: 0 1px 0 rgb(255 255 255 / calc(0.10 * var(--wle-glass)));
+}
+
+/* The chips ride on the pane, not under it, so they take the same lift —
+   left alone they sit on a frosted strip as flat cut-outs. Each state they
+   already have is excluded by name: these selectors outrank the hover and
+   selected rules, so the only way those survive is to say so. */
+.wle-glass .view-tab:not(.active):not(:hover),
+.wle-glass .type-chip:not([aria-checked="true"]):not(:hover),
+.wle-glass .filter-btn:not([aria-pressed="true"]):not([aria-expanded="true"]):not(:hover) {
+  background: rgb(255 255 255 / calc(0.04 + 0.05 * var(--wle-glass)));
+  border-color: rgb(255 255 255 / calc(0.08 + 0.09 * var(--wle-glass)));
 }
 
 .wle-glass header {
