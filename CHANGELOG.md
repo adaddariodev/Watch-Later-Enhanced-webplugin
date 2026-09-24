@@ -95,11 +95,12 @@ are not choosing a number blind and finding out later.
 
 ### 🗂 Settings that fold away
 
-The settings panel was a long scroll. Sound, the mixer, the mini player and
-the JobsMatch banner now sit together under one **Preferences** section that
-opens on click and stays shut otherwise. Its closed header names anything you
-have switched off, so folding it away hides controls rather than information.
-The user guide and the supporter code stay where they were, in plain sight.
+The settings panel was a long scroll. Sound, the mixer, the mini player, the
+JobsMatch banner and the supporter code now sit together under one
+**Settings** section that opens on click and stays shut otherwise. Its closed
+header names anything you have switched off or changed, so folding it away
+hides controls rather than information. The user guide stays outside, in plain
+sight — it is not a setting.
 
 ### 🎨 Calmer labels
 
@@ -248,6 +249,51 @@ the same hover — covering what they are and making them unclickable.
   ran on **every frame** the pointer moved. It measures 250µs on a page the
   size of a scrolled home page; it now runs eight times a second instead of
   sixty, which is still far more often than anyone can react to.
+
+### 🎨 Your colours, your way
+
+Tags and the lit channel pill used to pick their colours for you, and that was
+that. There is now a **Styling** section in Settings with four answers:
+
+* **Random** — the default, unchanged: a colour per name, worked out from its
+  letters, so a tag is always the same colour and always the same colour for
+  everybody.
+* **Muted** — no colour at all. One neutral for everything, like the rest of
+  the popup.
+* **Monotone** — greyscale, but a shade per name, so two tags on a row are
+  still two tags.
+* **Static** — one colour everywhere, the one you type in as a HEX code or
+  pick from the swatch. Choose a light one and the lettering turns dark by
+  itself, so a pale yellow tag is still readable.
+
+The choice covers everything the extension colours in, now and later — it is
+one setting rather than one per coloured thing.
+
+### 🫥 A popup you can see through
+
+Under the same section, a **Transparency** slider lets the browser show
+through the popup's background. What it does *not* touch is anything carrying
+text: the header, the filters, the video cards and the settings panel stay
+solid, so turning it up never costs you a word. It stops at 90% for the same
+reason.
+
+### 📏 A popup the size of your screen
+
+The popup was 500px tall on every machine — a third of a large screen, and
+most of a small laptop. It now takes about three quarters of whatever height
+the screen has spare, between 400px and the 600px the browser will draw: more
+videos before you scroll on a desktop, and nothing overflowing on a tablet.
+
+### 🗂 A tidier Info & Settings
+
+* The **supporter code** card is half the size it was: it lost a heading, a
+  line of explanation and a permanently blank status row, and moved inside the
+  Settings section with everything else you can change.
+* Next to the user guide, in the same card, a **What's new** link to the
+  releases on GitHub, for when you want to know what a version changed.
+* The credits at the bottom are two lines instead of four, and they now print
+  the **version you are running** — read from the extension itself, so it can
+  never disagree with what you have installed.
 
 ### ✨ Smaller things
 

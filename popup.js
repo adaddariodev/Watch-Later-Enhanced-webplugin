@@ -23,8 +23,13 @@ const CONFIG = {
     TYPE_FILTER: 'typeFilter',
     FAVOURITES_ONLY: 'favouritesOnly',
     AUDIO_MIX: 'audioMix',
+    STYLING: 'styling',
     REV: 'wleRev'
   },
+  // How tall the popup gets, as a share of the screen's usable height, and
+  // the range the browser and the layout can live with. 600 is Chrome's own
+  // ceiling for a popup; below 400 the list stops being a list.
+  POPUP_HEIGHT: { SHARE: 0.72, MIN: 400, MAX: 600 },
   // Per-sound level and on/off. 'click' plays here in the popup, 'save' plays
   // on YouTube when a video is added — the content script reads the same key.
   // soundEnabled stays the master switch over both.
@@ -33,6 +38,7 @@ const CONFIG = {
     save: { enabled: true, volume: 0.5 }
   },
   AUDIO_WRITE_DELAY: 200,   // settle time before a mixer change reaches storage
+  STYLING_WRITE_DELAY: 200, // the same, for a dragged slider or a held swatch
   // 'video' unless a record says otherwise: entries saved before the kind was
   // recorded carry no type, and most of them are videos.
   KINDS: {
@@ -202,7 +208,7 @@ const DOMCache = {
   hideBannerRow: null,
   hideBannerSwitch: null,
   hideBannerHint: null,
-  supporterUnlock: null,
+  supporterSection: null,
   supporterCodeInput: null,
   supporterUnlockBtn: null,
   supporterUnlockStatus: null,
@@ -213,6 +219,13 @@ const DOMCache = {
   typeFilter: null,
   favouritesFilter: null,
   searchToggle: null,
+  colourMode: null,
+  staticColourRow: null,
+  staticColourHex: null,
+  staticColourSwatch: null,
+  transparencySlider: null,
+  transparencyNumber: null,
+  creditsVersion: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -232,7 +245,7 @@ const DOMCache = {
     this.hideBannerRow = document.getElementById('hide-banner-row');
     this.hideBannerSwitch = document.getElementById('toggle-hide-banner');
     this.hideBannerHint = document.getElementById('hide-banner-hint');
-    this.supporterUnlock = document.getElementById('supporter-unlock');
+    this.supporterSection = document.getElementById('supporter-section');
     this.supporterCodeInput = document.getElementById('supporter-code');
     this.supporterUnlockBtn = document.getElementById('supporter-unlock-btn');
     this.supporterUnlockStatus = document.getElementById('supporter-unlock-status');
@@ -243,6 +256,13 @@ const DOMCache = {
     this.typeFilter = document.getElementById('type-filter');
     this.favouritesFilter = document.getElementById('favourites-filter');
     this.searchToggle = document.getElementById('search-toggle');
+    this.colourMode = document.getElementById('colour-mode');
+    this.staticColourRow = document.getElementById('static-colour-row');
+    this.staticColourHex = document.getElementById('static-colour-hex');
+    this.staticColourSwatch = document.getElementById('static-colour-swatch');
+    this.transparencySlider = document.getElementById('transparency-slider');
+    this.transparencyNumber = document.getElementById('transparency-number');
+    this.creditsVersion = document.getElementById('credits-version');
   }
 };
 
@@ -427,6 +447,193 @@ const Query = {
   }
 };
 
+// ============================================
+// STYLING
+// Every colour the extension invents for itself — a tag pill, the channel
+// filter's highlight, whatever gets one next — is decided here, so the four
+// modes are one setting instead of one setting per coloured thing. Nothing is
+// ever read back from storage: a name plus the mode gives the colour, which
+// is also why no imported record can smuggle a style in.
+// ============================================
+const Styling = {
+  MODES: ['random', 'muted', 'monotone', 'static'],
+  DEFAULT_COLOR: '#ffd000',
+  // Past this the popup is a pane of glass with white text on it.
+  MAX_TRANSPARENCY: 90,
+
+  mode: 'random',
+  color: '#ffd000',
+  transparency: 0,   // % of the background let through; 0 is solid
+
+  writeTimer: null,
+
+  load(raw) {
+    const data = raw && typeof raw === 'object' ? raw : {};
+    this.mode = this.MODES.includes(data.mode) ? data.mode : 'random';
+    this.color = this.normalizeHex(data.color) || this.DEFAULT_COLOR;
+    this.transparency = this.clampTransparency(data.transparency);
+  },
+
+  /**
+   * Dragging the slider, or holding a colour in the picker, fires input by the
+   * dozen. What is in memory is what the screen reads, so only the value the
+   * user settles on needs to cost a disk write and a storage event in every
+   * context listening for one — the same deal the mixer makes.
+   */
+  save() {
+    clearTimeout(this.writeTimer);
+    this.writeTimer = setTimeout(() => {
+      this.writeTimer = null;
+      this.write();
+    }, CONFIG.STYLING_WRITE_DELAY);
+  },
+
+  /** A popup can be shut mid-drag, which would drop the pending write. */
+  flush() {
+    if (!this.writeTimer) return;
+    clearTimeout(this.writeTimer);
+    this.writeTimer = null;
+    this.write();
+  },
+
+  write() {
+    chrome.storage.local.set({
+      [CONFIG.STORAGE_KEYS.STYLING]: {
+        mode: this.mode,
+        color: this.color,
+        transparency: this.transparency
+      }
+    });
+  },
+
+  clampTransparency(value) {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n)) return 0;
+    return Math.min(this.MAX_TRANSPARENCY, Math.max(0, n));
+  },
+
+  /**
+   * '#rgb' or '#rrggbb' — in any case, with or without the hash — as
+   * '#rrggbb', or '' when it is not a colour. Everything that reaches a style
+   * property passes through here: the field is free text, and a background of
+   * `url(https://…)` would otherwise be a request to somebody's server.
+   */
+  normalizeHex(value) {
+    const s = String(value || '').trim().replace(/^#/, '').toLowerCase();
+    if (/^[0-9a-f]{3}$/.test(s)) return `#${s[0]}${s[0]}${s[1]}${s[1]}${s[2]}${s[2]}`;
+    if (/^[0-9a-f]{6}$/.test(s)) return `#${s}`;
+    return '';
+  },
+
+  /** The three channels of a '#rrggbb', 0–255. */
+  rgb(hex) {
+    const h = this.normalizeHex(hex) || this.DEFAULT_COLOR;
+    return [
+      parseInt(h.slice(1, 3), 16),
+      parseInt(h.slice(3, 5), 16),
+      parseInt(h.slice(5, 7), 16)
+    ];
+  },
+
+  // A pill's lettering when nothing about the fill argues otherwise — the
+  // same value .tag-pill carries in the stylesheet, so the usual case renders
+  // exactly as it did before there were modes.
+  ON_DARK: 'rgba(255, 255, 255, 0.96)',
+
+  /**
+   * Near-black or near-white, whichever can be read on that fill. Only the
+   * static mode can produce a light one — the other three sit at 45%
+   * lightness or below, where white always wins — but a tag pill has to stay
+   * legible whatever colour somebody types into the box.
+   */
+  textOn(fill) {
+    // Not a hex, so it came from one of the three hsl() modes: nothing to
+    // weigh up.
+    const hex = this.normalizeHex(fill);
+    if (!hex) return this.ON_DARK;
+
+    const [r, g, b] = this.rgb(hex);
+    // Rec. 709 luma: close enough for a two-way choice.
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 150 ? '#141414' : this.ON_DARK;
+  },
+
+  /**
+   * A name's colours in the current mode. `fill` is a solid background — what
+   * a tag pill is painted with, and what textOn() answers about. `border`,
+   * `tint` and `light` are the outline, wash and lettering a channel pill
+   * wears while it is the filter.
+   */
+  paletteFor(name) {
+    const hash = Utils.hueFromName(name);
+
+    switch (this.mode) {
+      // No colour at all: the same neutral for everything, like the rest of
+      // the chrome.
+      case 'muted':
+        return this.fromHsl(0, 0, 26);
+
+      // Greyscale, but a shade per name — two tags on a row are still two
+      // tags.
+      case 'monotone':
+        return this.fromHsl(0, 0, 26 + (hash % 5) * 7);
+
+      // One colour, everywhere, the one that was typed in.
+      case 'static': {
+        const hex = this.normalizeHex(this.color) || this.DEFAULT_COLOR;
+        const [r, g, b] = this.rgb(hex);
+        const lighten = (c) => Math.round(c + (255 - c) * 0.62);
+        return {
+          fill: hex,
+          border: hex,
+          tint: `rgb(${r} ${g} ${b} / 0.16)`,
+          light: `rgb(${lighten(r)} ${lighten(g)} ${lighten(b)})`
+        };
+      }
+
+      default:
+        return this.fromHsl(hash, 70, 45);
+    }
+  },
+
+  fromHsl(h, s, l) {
+    return {
+      fill: `hsl(${h} ${s}% ${l}%)`,
+      border: `hsl(${h} ${s}% ${l}%)`,
+      tint: `hsl(${h} ${s}% ${l}% / 0.16)`,
+      light: `hsl(${h} ${s}% ${Math.min(88, l + 35)}%)`
+    };
+  },
+
+  /**
+   * Alpha for the popup's background. Only the background takes it: every
+   * piece of text in here sits on a card of its own, so the browser shows
+   * through without any of the writing going with it.
+   */
+  applyTransparency() {
+    const alpha = 1 - this.clampTransparency(this.transparency) / 100;
+    document.documentElement.style.setProperty('--wle-bg-alpha', String(alpha));
+  }
+};
+
+/**
+ * How tall the popup is. Chrome will not draw one over 600px, and the popup's
+ * own vh units measure the popup, so the screen is the only thing that can
+ * answer this — three quarters of what it has spare, clamped to what the
+ * layout can live with. Called at load rather than on DOMContentLoaded: the
+ * window is sized from the document, so this wants to be true before the
+ * first paint.
+ */
+function applyPopupHeight() {
+  const available = Number(window.screen?.availHeight) || 0;
+  if (!available) return;   // no answer: leave the CSS default alone
+
+  const { SHARE, MIN, MAX } = CONFIG.POPUP_HEIGHT;
+  const height = Math.round(Math.min(MAX, Math.max(MIN, available * SHARE)));
+  document.documentElement.style.setProperty('--wle-popup-h', `${height}px`);
+}
+
+applyPopupHeight();
+
 const Utils = {
   /**
    * A name's own colour. The same word always comes out the same colour, on
@@ -444,7 +651,7 @@ const Utils = {
   },
 
   colorFromName(name) {
-    return `hsl(${Utils.hueFromName(name)} 70% 45%)`;
+    return Styling.paletteFor(name).fill;
   },
 
   /**
@@ -941,11 +1148,11 @@ const VideoItemFactory = {
     // computed here rather than read from storage for the same reason a tag's
     // is: nothing about a channel's name should be able to become a style.
     if (active) {
-      const hue = Utils.hueFromName(channel);
+      const palette = Styling.paletteFor(channel);
       pill.classList.add('is-active');
-      pill.style.borderColor = `hsl(${hue} 70% 45%)`;
-      pill.style.background = `hsl(${hue} 70% 45% / 0.16)`;
-      pill.style.color = `hsl(${hue} 70% 80%)`;
+      pill.style.borderColor = palette.border;
+      pill.style.background = palette.tint;
+      pill.style.color = palette.light;
     }
 
     // The pill truncates when the name is long, so the full name stays
@@ -1112,6 +1319,9 @@ const VideoItemFactory = {
     const pill = document.createElement('span');
     pill.className = 'tag-pill tag-pill-readonly';
     pill.style.background = tag.color;
+    // White unless the fill is too light for it, which only the static mode's
+    // colour can be — the CSS default holds for the other three.
+    pill.style.color = Styling.textOn(tag.color);
     const pillText = document.createElement('span');
     pillText.className = 'tag-pill-text';
     pillText.textContent = tag.name;
@@ -1123,6 +1333,7 @@ const VideoItemFactory = {
     const pill = document.createElement('span');
     pill.className = 'tag-pill';
     pill.style.background = tag.color;
+    pill.style.color = Styling.textOn(tag.color);
     pill.title = `Filter by "${tag.name}"`;
 
     const pillText = document.createElement('span');
@@ -1950,7 +2161,10 @@ function setupSoundToggle() {
  *   rewritten even while focused, so a clamped value cannot stay on screen.
  */
 function updateMixerUI({ settle = false } = {}) {
-  document.querySelectorAll('.mixer-row').forEach((row) => {
+  // Scoped to the mixer, not to .mixer-row: the transparency slider borrows
+  // that row's geometry and is not a sound, so a global sweep would hand it
+  // AudioMix entries it has no business having.
+  document.querySelectorAll('#mixer .mixer-row').forEach((row) => {
     const name = row.dataset.sound;
     const entry = AudioMix.get(name);
     const percent = Math.round(entry.volume * 100);
@@ -2049,6 +2263,8 @@ function updateGroupNotes() {
   }
 
   if (!AppState.detachEnabled) changed.push('mini player off');
+  if (Styling.mode !== 'random') changed.push(`${Styling.mode} colours`);
+  if (Styling.transparency > 0) changed.push(`${Styling.transparency}% transparent`);
   if (AppState.supporter && AppState.hideJobsMatchBanner) changed.push('banner hidden');
 
   el.textContent = changed.join(' · ');
@@ -2073,6 +2289,179 @@ function setupWikiButton() {
     DOMCache.wikiBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       openWiki();
+    });
+  }
+}
+
+// ============================================
+// CREDITS
+// The version is read from the manifest, which is the file that carries it
+// anyway — there is no second copy to fall out of step at release time.
+// ============================================
+function showVersion() {
+  const el = DOMCache.creditsVersion;
+  if (!el) return;
+
+  const version = chrome.runtime?.getManifest?.()?.version;
+  el.textContent = version ? `v${version}` : '';
+}
+
+// ============================================
+// STYLING
+// ============================================
+function updateStylingUI() {
+  if (DOMCache.colourMode) {
+    DOMCache.colourMode.querySelectorAll('.mode-chip').forEach((chip) => {
+      const on = chip.dataset.mode === Styling.mode;
+      chip.setAttribute('aria-checked', on ? 'true' : 'false');
+      chip.tabIndex = on ? 0 : -1;
+    });
+  }
+
+  // The colour box is only a question in the one mode that asks it.
+  if (DOMCache.staticColourRow) {
+    DOMCache.staticColourRow.classList.toggle('hidden', Styling.mode !== 'static');
+  }
+
+  // Never while it is being typed in: rewriting the box under the cursor
+  // would send '#ff' back to '#ffd000' on the second keystroke.
+  if (DOMCache.staticColourHex && document.activeElement !== DOMCache.staticColourHex) {
+    DOMCache.staticColourHex.value = Styling.color;
+    DOMCache.staticColourHex.classList.remove('is-error');
+  }
+  if (DOMCache.staticColourSwatch) DOMCache.staticColourSwatch.value = Styling.color;
+
+  if (DOMCache.transparencySlider) {
+    DOMCache.transparencySlider.value = String(Styling.transparency);
+  }
+  if (DOMCache.transparencyNumber && document.activeElement !== DOMCache.transparencyNumber) {
+    DOMCache.transparencyNumber.value = String(Styling.transparency);
+  }
+
+  updateGroupNotes();
+}
+
+/**
+ * A colour change means every pill on screen, so the list is rebuilt — the
+ * colours are not kept anywhere, they are worked out as each row is built, so
+ * rebuilding is all there is to do. Coalesced because the two ways in both
+ * repeat: an arrow key held down on the mode chips, and a colour held in the
+ * picker, which fires on every pointer move.
+ */
+let recolourTimer = null;
+function recolourList() {
+  clearTimeout(recolourTimer);
+  recolourTimer = setTimeout(() => {
+    recolourTimer = null;
+    displayVideos();
+  }, 60);
+}
+
+function setColourMode(mode) {
+  if (!Styling.MODES.includes(mode) || mode === Styling.mode) return;
+  AudioManager.play(AppState.soundEnabled);
+  Styling.mode = mode;
+  Styling.save();
+  updateStylingUI();
+  recolourList();
+}
+
+function setStaticColour(value) {
+  const hex = Styling.normalizeHex(value);
+  if (!hex || hex === Styling.color) return Boolean(hex);
+
+  Styling.color = hex;
+  Styling.save();
+  if (DOMCache.staticColourSwatch) DOMCache.staticColourSwatch.value = hex;
+  if (Styling.mode === 'static') recolourList();
+  return true;
+}
+
+function setTransparency(value) {
+  const next = Styling.clampTransparency(value);
+  if (next === Styling.transparency) return;
+
+  Styling.transparency = next;
+  Styling.applyTransparency();
+  Styling.save();
+  updateStylingUI();
+}
+
+function setupStyling() {
+  const group = DOMCache.colourMode;
+
+  if (group) {
+    const chips = Array.from(group.querySelectorAll('.mode-chip'));
+
+    group.addEventListener('click', (e) => {
+      const chip = e.target.closest('.mode-chip');
+      if (chip) setColourMode(chip.dataset.mode);
+    });
+
+    // The same keys the type chips answer to, because it is the same control.
+    group.addEventListener('keydown', (e) => {
+      const edge = { Home: 0, End: chips.length - 1 }[e.key];
+      if (edge !== undefined) {
+        e.preventDefault();
+        setColourMode(chips[edge]?.dataset.mode);
+        chips[edge]?.focus();
+        return;
+      }
+
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (!step) return;
+
+      e.preventDefault();
+      const current = chips.findIndex((c) => c.dataset.mode === Styling.mode);
+      const next = chips[(current + step + chips.length) % chips.length];
+      setColourMode(next?.dataset.mode);
+      next?.focus();
+    });
+  }
+
+  const hex = DOMCache.staticColourHex;
+  if (hex) {
+    // While typing, a half-written code is not a mistake — only a finished
+    // one that is still not a colour is, so the box says so on the way out.
+    hex.addEventListener('input', () => {
+      hex.classList.remove('is-error');
+      setStaticColour(hex.value);
+    });
+
+    hex.addEventListener('change', () => {
+      const ok = setStaticColour(hex.value);
+      hex.classList.toggle('is-error', !ok);
+      if (ok) hex.value = Styling.color;
+    });
+
+    hex.addEventListener('blur', () => {
+      // Whatever is in the box goes back to the colour actually in force.
+      hex.value = Styling.color;
+      hex.classList.remove('is-error');
+    });
+  }
+
+  if (DOMCache.staticColourSwatch) {
+    DOMCache.staticColourSwatch.addEventListener('input', (e) => {
+      if (setStaticColour(e.target.value) && document.activeElement !== hex && hex) {
+        hex.value = Styling.color;
+      }
+    });
+  }
+
+  if (DOMCache.transparencySlider) {
+    DOMCache.transparencySlider.addEventListener('input', (e) => {
+      setTransparency(e.target.value);
+    });
+  }
+
+  if (DOMCache.transparencyNumber) {
+    DOMCache.transparencyNumber.addEventListener('input', (e) => {
+      // An empty box is mid-edit, not zero.
+      if (e.target.value !== '') setTransparency(e.target.value);
+    });
+    DOMCache.transparencyNumber.addEventListener('blur', () => {
+      DOMCache.transparencyNumber.value = String(Styling.transparency);
     });
   }
 }
@@ -2426,8 +2815,10 @@ function updateHideBannerSwitch() {
   sw.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
   if (row) row.classList.toggle('locked', !unlocked);
   if (hint) hint.classList.toggle('hidden', unlocked);
-  if (DOMCache.supporterUnlock) {
-    DOMCache.supporterUnlock.classList.toggle('hidden', unlocked);
+  // The heading goes with the card: hiding one and leaving the other would
+  // put "Supporter code" over nothing at all.
+  if (DOMCache.supporterSection) {
+    DOMCache.supporterSection.classList.toggle('hidden', unlocked);
   }
 }
 
@@ -2601,7 +2992,8 @@ async function init() {
           [CONFIG.STORAGE_KEYS.DETACH]: true,
           [CONFIG.STORAGE_KEYS.TYPE_FILTER]: 'all',
           [CONFIG.STORAGE_KEYS.FAVOURITES_ONLY]: false,
-          [CONFIG.STORAGE_KEYS.AUDIO_MIX]: null
+          [CONFIG.STORAGE_KEYS.AUDIO_MIX]: null,
+          [CONFIG.STORAGE_KEYS.STYLING]: null
         },
         (data) => resolve(data)
       );
@@ -2614,16 +3006,24 @@ async function init() {
       : 'all';
     AppState.favouritesOnly = prefs[CONFIG.STORAGE_KEYS.FAVOURITES_ONLY] === true;
     AudioMix.load(prefs[CONFIG.STORAGE_KEYS.AUDIO_MIX]);
+
+    // Before anything is drawn: the rows below pick their colours from it.
+    Styling.load(prefs[CONFIG.STORAGE_KEYS.STYLING]);
+    Styling.applyTransparency();
+
     updateSoundIcon();
     updateMiniPlayerSwitch();
     updateTypeFilterUI();
     updateFavouriteFilterUI();
     updateMixerUI();
+    updateStylingUI();
+    showVersion();
 
     setupMixer();
     setupSoundToggle();
     setupMiniPlayerToggle();
     setupWikiButton();
+    setupStyling();
     setupTypeFilter();
     setupFavouriteFilter();
     setupSearch();
@@ -2657,5 +3057,6 @@ if (document.readyState === 'loading') {
 // only listener here.
 window.addEventListener('pagehide', () => {
   AudioMix.flush();
+  Styling.flush();
   AudioManager.cleanup();
 });

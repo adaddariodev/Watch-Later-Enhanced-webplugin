@@ -146,19 +146,41 @@
       </div>
       <div class="wle-modal-body">
         
-        <div id="wiki-row" class="settings-options">
-          <div class="settings-option-text">
-            <span id="wiki-label">User guide</span>
-            <p class="settings-hint">What every feature and shortcut does.</p>
+        <div class="settings-card">
+          <div id="wiki-row" class="settings-options">
+            <div class="settings-option-text">
+              <span id="wiki-label">User guide</span>
+              <p class="settings-hint">What every feature and shortcut does.</p>
+            </div>
+            <button id="open-wiki" class="icon-btn" type="button" title="Open the user guide" aria-label="Open the user guide">
+              <img class="btn-icon" src="icons/buttons/book.svg" alt="" />
+            </button>
           </div>
-          <button id="open-wiki" class="icon-btn" type="button" title="Open the user guide" aria-label="Open the user guide">
-            <img class="btn-icon" src="icons/buttons/book.svg" alt="" />
-          </button>
+
+          <!-- The whole row is the link, so it answers a click anywhere the
+               way the guide row above it does — and, being an anchor, it is
+               reachable by keyboard without a handler to make it so. -->
+          <a
+            id="open-releases"
+            class="settings-options settings-row-link"
+            href="https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="See the releases on GitHub"
+          >
+            <span class="settings-option-text">
+              <span id="releases-label">What's new</span>
+              <span class="settings-hint">Every release, on GitHub.</span>
+            </span>
+            <span class="icon-btn" aria-hidden="true">
+              <img class="btn-icon" src="icons/buttons/releases.svg" alt="" />
+            </span>
+          </a>
         </div>
 
         <details id="prefs-group" class="settings-group">
           <summary class="settings-group-head">
-            <span class="settings-group-title">Preferences</span>
+            <span class="settings-group-title">Settings</span>
             <span id="prefs-group-summary" class="settings-group-note"></span>
           </summary>
 
@@ -263,6 +285,70 @@
             </button>
           </div>
 
+          <p class="settings-subhead">Styling</p>
+
+          <!-- One choice drives every colour the extension invents for itself
+               (tag pills today, the channel filter's highlight, whatever comes
+               next), so a new coloured thing never needs its own setting. -->
+          <div id="colour-mode" class="mode-chips" role="radiogroup" aria-label="Colour style">
+            <button class="mode-chip" type="button" role="radio" data-mode="random" aria-checked="true" tabindex="0" title="A different colour per name, from the name itself">Random</button>
+            <button class="mode-chip" type="button" role="radio" data-mode="muted" aria-checked="false" tabindex="-1" title="No colour at all — one neutral for everything">Muted</button>
+            <button class="mode-chip" type="button" role="radio" data-mode="monotone" aria-checked="false" tabindex="-1" title="Greyscale — a different shade per name">Monotone</button>
+            <button class="mode-chip" type="button" role="radio" data-mode="static" aria-checked="false" tabindex="-1" title="One colour you choose, everywhere">Static</button>
+          </div>
+
+          <div id="static-colour-row" class="settings-options hidden">
+            <div class="settings-option-text">
+              <span id="static-colour-label">Colour</span>
+              <p class="settings-hint">Any HEX code.</p>
+            </div>
+            <div class="colour-pick">
+              <input
+                id="static-colour-hex"
+                class="colour-hex"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="7"
+                placeholder="#ffd000"
+                aria-labelledby="static-colour-label"
+              />
+              <input
+                id="static-colour-swatch"
+                class="colour-swatch"
+                type="color"
+                value="#ffd000"
+                aria-label="Pick a colour"
+              />
+            </div>
+          </div>
+
+          <div class="mixer-row transparency-row">
+            <span id="transparency-label" class="mixer-label">Transparency</span>
+            <input
+              id="transparency-slider"
+              class="mixer-slider"
+              type="range"
+              min="0"
+              max="90"
+              step="5"
+              value="0"
+              aria-labelledby="transparency-label"
+            />
+            <input
+              id="transparency-number"
+              class="mixer-number"
+              type="number"
+              min="0"
+              max="90"
+              step="5"
+              value="0"
+              inputmode="numeric"
+              aria-label="Background transparency, percent"
+            />
+          </div>
+          <p class="settings-hint slider-hint">How much of the browser shows through the popup's background.</p>
+
           <p class="settings-subhead">JobsMatch banner</p>
 
           <div id="hide-banner-row" class="settings-options locked">
@@ -282,29 +368,40 @@
               <span class="wle-switch-thumb"></span>
             </button>
           </div>
+
+          <div id="supporter-section">
+            <p class="settings-subhead">Supporter code</p>
+
+            <div id="supporter-unlock" class="settings-unlock">
+              <div class="settings-unlock-row">
+                <input
+                  id="supporter-code"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="80"
+                  placeholder="Paste your Ko-fi code"
+                  aria-label="Supporter code"
+                  aria-describedby="supporter-unlock-status"
+                />
+                <button id="supporter-unlock-btn" class="text-btn" type="button">Unlock</button>
+              </div>
+              <p class="settings-hint">It comes with the Ko-fi thank-you message.</p>
+              <p id="supporter-unlock-status" class="settings-unlock-status" role="status"></p>
+            </div>
+          </div>
         </details>
 
-        <div id="supporter-unlock" class="settings-unlock">
-          <label for="supporter-code">Supporter code</label>
-          <p class="settings-hint">After a Ko-fi tip, paste the code from the thank-you message.</p>
-          <div class="settings-unlock-row">
-            <input
-              id="supporter-code"
-              type="text"
-              autocomplete="off"
-              spellcheck="false"
-              maxlength="80"
-              placeholder="Paste code"
-              aria-describedby="supporter-unlock-status"
-            />
-            <button id="supporter-unlock-btn" class="text-btn" type="button">Unlock</button>
-          </div>
-          <p id="supporter-unlock-status" class="settings-unlock-status" role="status"></p>
-        </div>
-        
         <div class="credits-box">
-          <p>Created with ❤️ by <br><a href="https://github.com/adaddariodev" target="_blank" rel="noopener noreferrer">adaddariodev</a></p>
-          <p><a href="https://github.com/adaddariodev/WATCH-LATER-ENHANCED-WEBPLUGIN" target="_blank" rel="noopener noreferrer">☕ Open Source GitHub Project</a></p>
+          <p class="credits-line">
+            Made with ❤️ by
+            <a href="https://github.com/adaddariodev" target="_blank" rel="noopener noreferrer">adaddariodev</a>
+          </p>
+          <p class="credits-line">
+            <a href="https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin" target="_blank" rel="noopener noreferrer">Open source on GitHub</a>
+            <span class="credits-dot" aria-hidden="true">·</span>
+            <span id="credits-version" class="credits-version"></span>
+          </p>
         </div>
 
       </div>

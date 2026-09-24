@@ -1,5 +1,8 @@
 :root {
   --bg-color: #0f0f0f;
+  /* The same colour in parts, so the background can take an alpha without
+     every rule that wants the solid one having to change. */
+  --bg-rgb: 15 15 15;
   --card-bg: #1e1e1e;
   --accent: #ffd000;
   --text-main: #ffffff;
@@ -66,14 +69,24 @@ body {
   min-width: 400px;
   max-width: 400px;
   width: 400px;
-  min-height: 500px;
+
+  /* The popup is as tall as the screen can spare. Chrome refuses to draw one
+     over 600px, and 600px on a small laptop leaves the browser underneath
+     almost nothing, so the height is a share of screen.availHeight —
+     popup.js writes --wle-popup-h once, because vh inside a popup measures
+     the popup itself and so can never answer this. The fallback is the size
+     the popup had before, for the case where the script never runs. */
+  min-height: 400px;
   max-height: 600px;
-  height: 500px;
+  height: var(--wle-popup-h, 500px);
 
   display: flex;
   flex-direction: column;
-  
-  background: var(--bg-color);
+
+  /* Alpha lives on the background alone: everything that carries text sits on
+     its own opaque card, so turning this down lets the browser through
+     without taking any of the text with it. */
+  background: rgb(var(--bg-rgb) / var(--wle-bg-alpha, 1));
   color: var(--text-main);
   
   /* Font stack ottimizzato per cross-browser */
@@ -96,7 +109,10 @@ header {
   justify-content: space-between;
   align-items: center;
   padding: 12px 14px;
-  background: rgba(255,255,255,0.03);
+  /* The 3% wash over an opaque base rather than straight on the body: the
+     body's alpha would otherwise show through the header too, and the title
+     sits on it. Identical rendering while the popup is solid. */
+  background: linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), var(--bg-color);
   border-bottom: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0; /* Previene il collasso dell'header */
 }
@@ -847,7 +863,8 @@ li.video-item:hover .video-actions .icon-btn {
 }
 
 .tutorial-card {
-  background: rgba(255,255,255,0.03);
+  /* Opaque base for the same reason the header has one: it carries text. */
+  background: linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), var(--bg-color);
   border: 1px dashed rgba(255,255,255,0.2);
   padding: 24px;
   border-radius: 20px;
@@ -1043,6 +1060,53 @@ li.video-item:hover .video-actions .icon-btn {
   }
 }
 
+/* =========================================
+   ONE CARD, SEVERAL ROWS
+   Rows that belong together (the guide and the releases it documents) share
+   a card and a hairline instead of each carrying its own, so a second entry
+   reads as part of the first rather than as another thing to deal with.
+   ========================================= */
+.settings-card {
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.settings-card > .settings-options {
+  background: none;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+
+.settings-card > .settings-options + .settings-options {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* A row that is itself a link. The icon inside is decoration, so it lights up
+   with the row rather than only under the pointer. */
+.settings-row-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.settings-row-link:hover .icon-btn {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.settings-row-link:hover .btn-icon {
+  opacity: 1;
+  transform: translateY(-0.5px) scale(0.7);
+}
+
+.settings-row-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .settings-options {
   display: flex;
   justify-content: space-between;
@@ -1078,6 +1142,116 @@ li.video-item:hover .video-actions .icon-btn {
 
 .settings-options.locked {
   cursor: pointer;
+}
+
+.settings-options.hidden {
+  display: none;
+}
+
+/* =========================================
+   STYLING CONTROLS
+   The four colour modes are one choice, so they are one control: the same
+   segmented chips the list filter uses, which the user has already met.
+   ========================================= */
+.mode-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.mode-chip {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+
+.mode-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text-main);
+}
+
+.mode-chip[aria-checked="true"] {
+  background: #f1f1f1;
+  border-color: #f1f1f1;
+  color: #0f0f0f;
+  font-weight: 600;
+}
+
+.mode-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The code and the swatch are the same setting written two ways: type the
+   hex or pick it, and each follows the other. */
+.colour-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.colour-hex {
+  width: 78px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12px;
+  text-transform: lowercase;
+  outline: none;
+}
+
+.colour-hex:focus {
+  border-color: var(--accent);
+}
+
+.colour-hex.is-error {
+  border-color: #ff6b6b;
+}
+
+.colour-swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Chrome and Firefox each pad the swatch; without this the colour sits in a
+   box inside the box. */
+.colour-swatch::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.colour-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+.colour-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 6px;
 }
 
 #hide-banner-row {
@@ -1142,6 +1316,12 @@ li.video-item:hover .video-actions .icon-btn {
   padding: 9px 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* The same row without a switch on the front: three columns, not four. It
+   has to come after .mixer-row — same specificity, so source order decides. */
+.transparency-row {
+  grid-template-columns: auto minmax(90px, 1fr) 46px;
 }
 
 /* A muted row stays readable — it is still a control, not a disabled one. */
@@ -1233,34 +1413,39 @@ li.video-item:hover .video-actions .icon-btn {
   outline-offset: 1px;
 }
 
-.mixer-hint {
+.mixer-hint,
+.slider-hint {
   margin-top: 8px;
 }
 
+/* The field and its button first, the explanation under them in hint type:
+   the card is one action, so it takes the room of one. The section heading
+   above it already says what the code is. */
 .settings-unlock {
   background: rgba(255, 255, 255, 0.03);
-  padding: 10px 14px 12px;
+  padding: 10px 14px;
   margin-bottom: 10px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.settings-unlock.hidden {
+#supporter-section.hidden {
   display: none;
-}
-
-.settings-unlock label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 4px;
 }
 
 .settings-unlock-row {
   display: flex;
   gap: 8px;
-  margin-top: 8px;
   align-items: center;
+}
+
+.settings-unlock .settings-hint {
+  margin-top: 7px;
+}
+
+/* The section already carries the group's bottom margin. */
+#supporter-section .settings-unlock {
+  margin-bottom: 0;
 }
 
 .settings-unlock-row input {
@@ -1292,12 +1477,17 @@ li.video-item:hover .video-actions .icon-btn {
   background: rgba(255, 208, 0, 0.12);
 }
 
+/* No reserved line: empty most of the time, and an always-blank row is the
+   kind of thing this card was asked to lose. */
 .settings-unlock-status {
-  margin: 8px 0 0;
-  min-height: 14px;
+  margin: 7px 0 0;
   font-size: 11px;
   font-weight: 400;
   color: var(--text-dim);
+}
+
+.settings-unlock-status:empty {
+  display: none;
 }
 
 .settings-unlock-status.is-error {
@@ -1308,18 +1498,35 @@ li.video-item:hover .video-actions .icon-btn {
   color: var(--jm-teal);
 }
 
+/* Two lines, no line breaks inside them: who wrote it, and where to find it
+   with the version it is. The version comes from the manifest at runtime, so
+   there is nothing here to forget to bump. */
 .credits-box {
   background: rgba(255, 255, 255, 0.03);
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 12px;
   text-align: center;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.credits-box p {
-  margin: 8px 0;
+.credits-line {
+  margin: 0;
+}
+
+.credits-line + .credits-line {
+  margin-top: 3px;
+}
+
+.credits-dot {
+  margin: 0 5px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.credits-version {
+  font-variant-numeric: tabular-nums;
 }
 
 .credits-box a {
