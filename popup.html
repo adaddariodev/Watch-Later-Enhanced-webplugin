@@ -39,7 +39,11 @@
     <span class="jm-copy">Find your next best EU tech job</span>
   </a>
 
-  <main>
+  <!-- Outside <main>, which is the scrolling half: the tabs and the filters
+       are the popup's fixed chrome, so nothing ever passes underneath them.
+       They used to be sticky inside the list, which pinned them in the same
+       place but sent every row sliding behind them. -->
+  <div class="toolbar">
     <div id="view-tabs" class="view-tabs" role="tablist" aria-label="Video lists">
       <button class="view-tab active" data-view="active" role="tab" aria-selected="true" type="button">
         <span class="view-tab-label">To Watch</span>
@@ -116,7 +120,9 @@
         </div>
       </div>
     </div>
+  </div>
 
+  <main>
     <div id="trash-actions" class="trash-actions">
       <button id="empty-trash" class="text-btn" type="button">Empty trash</button>
     </div>

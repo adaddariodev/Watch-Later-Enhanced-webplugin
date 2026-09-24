@@ -276,11 +276,14 @@ filter strip, the list behind the settings panel — while the backdrop picks up
 a soft wash of colour. At 0 it is the flat panel it has always been, and none
 of the blurring is drawn at all.
 
-The strip carrying the view tabs and the filters is glass too, built in two
-layers rather than held nearly opaque: a dark base that lets a fifth of the
-blurred list through, and a sheet of white over it that lifts the strip and
-flattens whatever ghosts up through the base. The chips on it ride up with
-it, and keep their hover, selected and open states.
+The strip carrying the view tabs and the filters is made of exactly what a
+card is made of — one recipe for glass in the stylesheet, not two that drift.
+It can be, because the tabs and filters moved **out of the scrolling half of
+the popup**: they used to be pinned inside the list, which held them in the
+same place but sent every row sliding behind them, and that is what kept the
+strip from ever being as see-through as a card. Now nothing passes
+underneath. The chips on it are the same glass, and keep their hover,
+selected and open states.
 
 It is the popup's own layers that go see-through, not the page underneath: a
 browser popup is a window of its own, drawn on a base the browser paints, and
