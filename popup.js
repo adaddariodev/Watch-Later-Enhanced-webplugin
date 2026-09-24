@@ -933,34 +933,52 @@ const VideoItemFactory = {
     pill.className = 'channel-pill';
     pill.textContent = channel;
 
+    const active = AppState.activeChannel() === String(channel).toLowerCase();
+
     // Lit while it is the filter, in the colour its own name gives it — the
     // same way a tag gets one. The list is only this channel while the filter
     // holds, so every pill on screen lights up together, and the colour is
     // computed here rather than read from storage for the same reason a tag's
     // is: nothing about a channel's name should be able to become a style.
-    if (AppState.activeChannel() === String(channel).toLowerCase()) {
+    if (active) {
       const hue = Utils.hueFromName(channel);
       pill.classList.add('is-active');
       pill.style.borderColor = `hsl(${hue} 70% 45%)`;
       pill.style.background = `hsl(${hue} 70% 45% / 0.16)`;
       pill.style.color = `hsl(${hue} 70% 80%)`;
     }
+
     // The pill truncates when the name is long, so the full name stays
     // readable on hover — and says what clicking it does while it is there.
-    pill.title = `${channel} — show only this channel`;
+    pill.title = active
+      ? `${channel} — click to stop filtering by this channel`
+      : `${channel} — show only this channel`;
     pill.setAttribute('role', 'button');
+    pill.setAttribute('aria-pressed', active ? 'true' : 'false');
     pill.tabIndex = 0;
-    pill.setAttribute('aria-label', `Show only videos from ${channel}`);
+    pill.setAttribute('aria-label', active
+      ? `Stop filtering by ${channel}`
+      : `Show only videos from ${channel}`);
 
-    const filter = (e) => {
+    const toggle = (e) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // Lit means this pill is the filter, so clicking it is how you take the
+      // filter off — the alternative being a lit control that does nothing
+      // when pressed. Closing the search is what clears it: the same thing
+      // Esc does, since the filter lives in the search box.
+      if (AppState.activeChannel() === String(channel).toLowerCase()) {
+        SearchBar.close();
+        return;
+      }
+
       searchFor(Query.text('channel', channel));
     };
 
-    pill.addEventListener('click', filter);
+    pill.addEventListener('click', toggle);
     pill.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') filter(e);
+      if (e.key === 'Enter' || e.key === ' ') toggle(e);
     });
 
     return pill;
