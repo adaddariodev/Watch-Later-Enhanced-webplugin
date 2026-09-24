@@ -205,16 +205,13 @@ const DOMCache = {
   donateCallout: null,
   scrollContainer: null,
   jmBanner: null,
-  hideBannerRow: null,
   hideBannerSwitch: null,
   hideBannerHint: null,
   supporterSection: null,
   supporterCodeInput: null,
   supporterUnlockBtn: null,
   supporterUnlockStatus: null,
-  miniPlayerRow: null,
   miniPlayerSwitch: null,
-  wikiRow: null,
   wikiBtn: null,
   typeFilter: null,
   favouritesFilter: null,
@@ -223,8 +220,8 @@ const DOMCache = {
   staticColourRow: null,
   staticColourHex: null,
   staticColourSwatch: null,
-  transparencySlider: null,
-  transparencyNumber: null,
+  glassSlider: null,
+  glassNumber: null,
   creditsVersion: null,
 
   init() {
@@ -242,16 +239,13 @@ const DOMCache = {
     this.donateCallout = document.getElementById('donate-callout');
     this.scrollContainer = document.querySelector('main');
     this.jmBanner = document.getElementById('jobsmatch-banner');
-    this.hideBannerRow = document.getElementById('hide-banner-row');
     this.hideBannerSwitch = document.getElementById('toggle-hide-banner');
     this.hideBannerHint = document.getElementById('hide-banner-hint');
     this.supporterSection = document.getElementById('supporter-section');
     this.supporterCodeInput = document.getElementById('supporter-code');
     this.supporterUnlockBtn = document.getElementById('supporter-unlock-btn');
     this.supporterUnlockStatus = document.getElementById('supporter-unlock-status');
-    this.miniPlayerRow = document.getElementById('mini-player-row');
     this.miniPlayerSwitch = document.getElementById('toggle-mini-player');
-    this.wikiRow = document.getElementById('wiki-row');
     this.wikiBtn = document.getElementById('open-wiki');
     this.typeFilter = document.getElementById('type-filter');
     this.favouritesFilter = document.getElementById('favourites-filter');
@@ -260,8 +254,8 @@ const DOMCache = {
     this.staticColourRow = document.getElementById('static-colour-row');
     this.staticColourHex = document.getElementById('static-colour-hex');
     this.staticColourSwatch = document.getElementById('static-colour-swatch');
-    this.transparencySlider = document.getElementById('transparency-slider');
-    this.transparencyNumber = document.getElementById('transparency-number');
+    this.glassSlider = document.getElementById('glass-slider');
+    this.glassNumber = document.getElementById('glass-number');
     this.creditsVersion = document.getElementById('credits-version');
   }
 };
@@ -456,14 +450,12 @@ const Query = {
 // is also why no imported record can smuggle a style in.
 // ============================================
 const Styling = {
-  MODES: ['random', 'muted', 'monotone', 'static'],
+  MODES: ['random', 'muted', 'static'],
   DEFAULT_COLOR: '#ffd000',
-  // Past this the popup is a pane of glass with white text on it.
-  MAX_TRANSPARENCY: 90,
 
   mode: 'random',
   color: '#ffd000',
-  transparency: 0,   // % of the background let through; 0 is solid
+  glass: 0,   // 0 is the flat panel; 100 is as frosted as it goes
 
   writeTimer: null,
 
@@ -471,7 +463,7 @@ const Styling = {
     const data = raw && typeof raw === 'object' ? raw : {};
     this.mode = this.MODES.includes(data.mode) ? data.mode : 'random';
     this.color = this.normalizeHex(data.color) || this.DEFAULT_COLOR;
-    this.transparency = this.clampTransparency(data.transparency);
+    this.glass = this.clampGlass(data.glass);
   },
 
   /**
@@ -501,15 +493,15 @@ const Styling = {
       [CONFIG.STORAGE_KEYS.STYLING]: {
         mode: this.mode,
         color: this.color,
-        transparency: this.transparency
+        glass: this.glass
       }
     });
   },
 
-  clampTransparency(value) {
+  clampGlass(value) {
     const n = Math.round(Number(value));
     if (!Number.isFinite(n)) return 0;
-    return Math.min(this.MAX_TRANSPARENCY, Math.max(0, n));
+    return Math.min(100, Math.max(0, n));
   },
 
   /**
@@ -572,11 +564,6 @@ const Styling = {
       case 'muted':
         return this.fromHsl(0, 0, 26);
 
-      // Greyscale, but a shade per name — two tags on a row are still two
-      // tags.
-      case 'monotone':
-        return this.fromHsl(0, 0, 26 + (hash % 5) * 7);
-
       // One colour, everywhere, the one that was typed in.
       case 'static': {
         const hex = this.normalizeHex(this.color) || this.DEFAULT_COLOR;
@@ -605,13 +592,20 @@ const Styling = {
   },
 
   /**
-   * Alpha for the popup's background. Only the background takes it: every
-   * piece of text in here sits on a card of its own, so the browser shows
-   * through without any of the writing going with it.
+   * How frosted the popup's surfaces are, as 0–1 for the stylesheet.
+   *
+   * Not the page behind the popup: a browser popup is an OS-level window
+   * drawn on a base the browser paints, and nothing a page does reaches past
+   * it — asking the background for an alpha only uncovers that base, which is
+   * why the first attempt turned white as the slider went up. So the depth
+   * comes from inside instead, and the class is what pays for it: the blur is
+   * a compositing layer per surface and there is no reason to have one while
+   * the popup is flat.
    */
-  applyTransparency() {
-    const alpha = 1 - this.clampTransparency(this.transparency) / 100;
-    document.documentElement.style.setProperty('--wle-bg-alpha', String(alpha));
+  applyGlass() {
+    const glass = this.clampGlass(this.glass) / 100;
+    document.documentElement.style.setProperty('--wle-glass', String(glass));
+    document.documentElement.classList.toggle('wle-glass', glass > 0);
   }
 };
 
@@ -2161,8 +2155,8 @@ function setupSoundToggle() {
  *   rewritten even while focused, so a clamped value cannot stay on screen.
  */
 function updateMixerUI({ settle = false } = {}) {
-  // Scoped to the mixer, not to .mixer-row: the transparency slider borrows
-  // that row's geometry and is not a sound, so a global sweep would hand it
+  // Scoped to the mixer, not to .mixer-row: the glass slider borrows that
+  // row's geometry and is not a sound, so a global sweep would hand it
   // AudioMix entries it has no business having.
   document.querySelectorAll('#mixer .mixer-row').forEach((row) => {
     const name = row.dataset.sound;
@@ -2264,7 +2258,7 @@ function updateGroupNotes() {
 
   if (!AppState.detachEnabled) changed.push('mini player off');
   if (Styling.mode !== 'random') changed.push(`${Styling.mode} colours`);
-  if (Styling.transparency > 0) changed.push(`${Styling.transparency}% transparent`);
+  if (Styling.glass > 0) changed.push(`${Styling.glass}% glass`);
   if (AppState.supporter && AppState.hideJobsMatchBanner) changed.push('banner hidden');
 
   el.textContent = changed.join(' · ');
@@ -2280,16 +2274,14 @@ function openWiki() {
   window.open(chrome.runtime.getURL('wiki.html'), '_blank', 'noopener');
 }
 
+// Only the button acts, here and on every other row in the panel: the row
+// lights up under the pointer to show what you are on, and the control at the
+// end of it is what answers a click. A row that was itself clickable made the
+// label look like a button and gave the two rows in this card different
+// behaviour — the text opened one and did nothing on the other.
 function setupWikiButton() {
-  if (DOMCache.wikiRow) {
-    DOMCache.wikiRow.addEventListener('click', () => openWiki());
-  }
-
   if (DOMCache.wikiBtn) {
-    DOMCache.wikiBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openWiki();
-    });
+    DOMCache.wikiBtn.addEventListener('click', () => openWiki());
   }
 }
 
@@ -2331,11 +2323,9 @@ function updateStylingUI() {
   }
   if (DOMCache.staticColourSwatch) DOMCache.staticColourSwatch.value = Styling.color;
 
-  if (DOMCache.transparencySlider) {
-    DOMCache.transparencySlider.value = String(Styling.transparency);
-  }
-  if (DOMCache.transparencyNumber && document.activeElement !== DOMCache.transparencyNumber) {
-    DOMCache.transparencyNumber.value = String(Styling.transparency);
+  if (DOMCache.glassSlider) DOMCache.glassSlider.value = String(Styling.glass);
+  if (DOMCache.glassNumber && document.activeElement !== DOMCache.glassNumber) {
+    DOMCache.glassNumber.value = String(Styling.glass);
   }
 
   updateGroupNotes();
@@ -2377,12 +2367,12 @@ function setStaticColour(value) {
   return true;
 }
 
-function setTransparency(value) {
-  const next = Styling.clampTransparency(value);
-  if (next === Styling.transparency) return;
+function setGlass(value) {
+  const next = Styling.clampGlass(value);
+  if (next === Styling.glass) return;
 
-  Styling.transparency = next;
-  Styling.applyTransparency();
+  Styling.glass = next;
+  Styling.applyGlass();
   Styling.save();
   updateStylingUI();
 }
@@ -2449,19 +2439,17 @@ function setupStyling() {
     });
   }
 
-  if (DOMCache.transparencySlider) {
-    DOMCache.transparencySlider.addEventListener('input', (e) => {
-      setTransparency(e.target.value);
-    });
+  if (DOMCache.glassSlider) {
+    DOMCache.glassSlider.addEventListener('input', (e) => setGlass(e.target.value));
   }
 
-  if (DOMCache.transparencyNumber) {
-    DOMCache.transparencyNumber.addEventListener('input', (e) => {
+  if (DOMCache.glassNumber) {
+    DOMCache.glassNumber.addEventListener('input', (e) => {
       // An empty box is mid-edit, not zero.
-      if (e.target.value !== '') setTransparency(e.target.value);
+      if (e.target.value !== '') setGlass(e.target.value);
     });
-    DOMCache.transparencyNumber.addEventListener('blur', () => {
-      DOMCache.transparencyNumber.value = String(Styling.transparency);
+    DOMCache.glassNumber.addEventListener('blur', () => {
+      DOMCache.glassNumber.value = String(Styling.glass);
     });
   }
 }
@@ -2514,18 +2502,7 @@ function toggleMiniPlayer() {
 
 function setupMiniPlayerToggle() {
   const sw = DOMCache.miniPlayerSwitch;
-  const row = DOMCache.miniPlayerRow;
-
-  if (row) {
-    row.addEventListener('click', () => toggleMiniPlayer());
-  }
-
-  if (sw) {
-    sw.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleMiniPlayer();
-    });
-  }
+  if (sw) sw.addEventListener('click', () => toggleMiniPlayer());
 }
 
 // ============================================
@@ -2806,14 +2783,15 @@ function applyJobsMatchBanner() {
 function updateHideBannerSwitch() {
   const sw = DOMCache.hideBannerSwitch;
   const hint = DOMCache.hideBannerHint;
-  const row = DOMCache.hideBannerRow;
   if (!sw) return;
 
   const unlocked = !!AppState.supporter;
-  sw.disabled = !unlocked;
+  // aria-disabled, not the disabled property: a disabled button fires no
+  // click, and now that the row around it no longer answers one, pressing
+  // the locked switch would do nothing at all instead of explaining how to
+  // unlock it. It still reads as disabled and still refuses to flip.
   sw.setAttribute('aria-checked', (unlocked && AppState.hideJobsMatchBanner) ? 'true' : 'false');
   sw.setAttribute('aria-disabled', unlocked ? 'false' : 'true');
-  if (row) row.classList.toggle('locked', !unlocked);
   if (hint) hint.classList.toggle('hidden', unlocked);
   // The heading goes with the card: hiding one and leaving the other would
   // put "Supporter code" over nothing at all.
@@ -2842,24 +2820,11 @@ function toggleHideJobsMatchBanner() {
 
 function setupJobsMatchBanner() {
   const sw = DOMCache.hideBannerSwitch;
-  const row = DOMCache.hideBannerRow;
 
-  if (row) {
-    row.addEventListener('click', () => {
-      if (AppState.supporter) {
-        toggleHideJobsMatchBanner();
-        return;
-      }
-      promptUnlockBannerHide();
-    });
-  }
-
-  if (sw) {
-    sw.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleHideJobsMatchBanner();
-    });
-  }
+  // toggleHideJobsMatchBanner already sends a non-supporter to the Ko-fi
+  // callout rather than flipping anything, so the locked switch has something
+  // to say and stays clickable to say it — see updateHideBannerSwitch.
+  if (sw) sw.addEventListener('click', () => toggleHideJobsMatchBanner());
 
   chrome.storage.local.get(
     [CONFIG.STORAGE_KEYS.SUPPORTER, CONFIG.STORAGE_KEYS.HIDE_JM_BANNER],
@@ -3009,7 +2974,7 @@ async function init() {
 
     // Before anything is drawn: the rows below pick their colours from it.
     Styling.load(prefs[CONFIG.STORAGE_KEYS.STYLING]);
-    Styling.applyTransparency();
+    Styling.applyGlass();
 
     updateSoundIcon();
     updateMiniPlayerSwitch();

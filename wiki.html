@@ -580,15 +580,22 @@
         <ul>
           <li><strong>Random</strong> — the default. Every name gets its own colour, worked out from the letters in it, so the same tag is always the same colour and two people writing the same tag see the same thing.</li>
           <li><strong>Muted</strong> — no colour at all. One neutral grey for everything, like the rest of the popup.</li>
-          <li><strong>Monotone</strong> — greyscale, but a different shade per name, so two tags side by side are still two tags.</li>
           <li><strong>Static</strong> — one colour everywhere, the one you give it. Type a HEX code or use the swatch to pick one. If the colour is a light one, the lettering flips to dark so the tag stays readable.</li>
         </ul>
         <p>
-          <strong>Transparency</strong> lets the browser show through the popup's background.
-          Drag it up and the empty space around your videos goes see-through; the header,
-          the filters and the video cards themselves stay solid, so nothing you have to
-          read ever fades. The slider stops at 90% for the same reason.
+          <strong>Glass</strong> turns the popup into frosted panels over a lit backdrop.
+          Drag it up and the cards, the header and the settings panel go translucent and
+          blur whatever is behind them — the list sliding under the pinned filter strip,
+          the list behind the settings panel — while the backdrop itself picks up a soft
+          wash of colour. At 0 the popup is the flat panel it has always been, and none
+          of the blurring is drawn at all.
         </p>
+        <div class="wiki-note">
+          <strong>Not the page behind the popup.</strong> A browser popup is a window of
+          its own, drawn on a base the browser paints, and nothing inside it can reach
+          past that — so the glass is made from the popup's own layers, not from the
+          YouTube page underneath.
+        </div>
 
         <h3>User guide</h3>
         <p>The book button that opened this page. It works offline — the guide ships inside the extension.</p>

@@ -253,15 +253,13 @@ the same hover — covering what they are and making them unclickable.
 ### 🎨 Your colours, your way
 
 Tags and the lit channel pill used to pick their colours for you, and that was
-that. There is now a **Styling** section in Settings with four answers:
+that. There is now a **Styling** section in Settings with three answers:
 
 * **Random** — the default, unchanged: a colour per name, worked out from its
   letters, so a tag is always the same colour and always the same colour for
   everybody.
 * **Muted** — no colour at all. One neutral for everything, like the rest of
   the popup.
-* **Monotone** — greyscale, but a shade per name, so two tags on a row are
-  still two tags.
 * **Static** — one colour everywhere, the one you type in as a HEX code or
   pick from the swatch. Choose a light one and the lettering turns dark by
   itself, so a pale yellow tag is still readable.
@@ -269,13 +267,18 @@ that. There is now a **Styling** section in Settings with four answers:
 The choice covers everything the extension colours in, now and later — it is
 one setting rather than one per coloured thing.
 
-### 🫥 A popup you can see through
+### 🫧 Glass
 
-Under the same section, a **Transparency** slider lets the browser show
-through the popup's background. What it does *not* touch is anything carrying
-text: the header, the filters, the video cards and the settings panel stay
-solid, so turning it up never costs you a word. It stops at 90% for the same
-reason.
+Under the same section, a **Glass** slider turns the popup into frosted panels
+over a lit backdrop. The cards, the header and the settings panel go
+translucent and blur what is behind them — the list sliding under the pinned
+filter strip, the list behind the settings panel — while the backdrop picks up
+a soft wash of colour. At 0 it is the flat panel it has always been, and none
+of the blurring is drawn at all.
+
+It is the popup's own layers that go see-through, not the page underneath: a
+browser popup is a window of its own, drawn on a base the browser paints, and
+nothing inside it can reach past that.
 
 ### 📏 A popup the size of your screen
 
@@ -291,6 +294,11 @@ videos before you scroll on a desktop, and nothing overflowing on a tablet.
   Settings section with everything else you can change.
 * Next to the user guide, in the same card, a **What's new** link to the
   releases on GitHub, for when you want to know what a version changed.
+* The **hover in Info & Settings** behaves the same on every row now: the row
+  lights up under the pointer so you can see which one you are on, and the
+  control at the end of it is the only thing that answers a click. Rows that
+  were clickable across their whole width made the label look like a button,
+  and the two rows in the guide card behaved differently from each other.
 * The credits at the bottom are two lines instead of four, and they now print
   the **version you are running** — read from the extension itself, so it can
   never disagree with what you have installed.

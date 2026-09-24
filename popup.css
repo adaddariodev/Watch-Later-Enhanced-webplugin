@@ -1,8 +1,9 @@
 :root {
   --bg-color: #0f0f0f;
-  /* The same colour in parts, so the background can take an alpha without
-     every rule that wants the solid one having to change. */
+  /* The same colours in parts, for the rules that need to put an alpha on
+     them. See GLASS at the foot of this file. */
   --bg-rgb: 15 15 15;
+  --card-rgb: 30 30 30;
   --card-bg: #1e1e1e;
   --accent: #ffd000;
   --text-main: #ffffff;
@@ -83,10 +84,7 @@ body {
   display: flex;
   flex-direction: column;
 
-  /* Alpha lives on the background alone: everything that carries text sits on
-     its own opaque card, so turning this down lets the browser through
-     without taking any of the text with it. */
-  background: rgb(var(--bg-rgb) / var(--wle-bg-alpha, 1));
+  background: var(--bg-color);
   color: var(--text-main);
   
   /* Font stack ottimizzato per cross-browser */
@@ -109,10 +107,7 @@ header {
   justify-content: space-between;
   align-items: center;
   padding: 12px 14px;
-  /* The 3% wash over an opaque base rather than straight on the body: the
-     body's alpha would otherwise show through the header too, and the title
-     sits on it. Identical rendering while the popup is solid. */
-  background: linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), var(--bg-color);
+  background: rgba(255,255,255,0.03);
   border-bottom: 1px solid rgba(255,255,255,0.06);
   flex-shrink: 0; /* Previene il collasso dell'header */
 }
@@ -863,8 +858,7 @@ li.video-item:hover .video-actions .icon-btn {
 }
 
 .tutorial-card {
-  /* Opaque base for the same reason the header has one: it carries text. */
-  background: linear-gradient(rgba(255,255,255,0.03), rgba(255,255,255,0.03)), var(--bg-color);
+  background: rgba(255,255,255,0.03);
   border: 1px dashed rgba(255,255,255,0.2);
   padding: 24px;
   border-radius: 20px;
@@ -1085,26 +1079,16 @@ li.video-item:hover .video-actions .icon-btn {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* A row that is itself a link. The icon inside is decoration, so it lights up
-   with the row rather than only under the pointer. */
-.settings-row-link {
+/* Inside a shared card the rows have no background of their own, so the hover
+   below has to be told what it is lifting from. */
+.settings-card > .settings-options:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* The releases entry is a link where the others hold a button: same shape,
+   no underline. */
+a.icon-btn {
   text-decoration: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.settings-row-link:hover .icon-btn {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.settings-row-link:hover .btn-icon {
-  opacity: 1;
-  transform: translateY(-0.5px) scale(0.7);
-}
-
-.settings-row-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
 }
 
 .settings-options {
@@ -1140,8 +1124,12 @@ li.video-item:hover .video-actions .icon-btn {
   display: none;
 }
 
-.settings-options.locked {
-  cursor: pointer;
+/* Every row in the panel behaves the same way: the row lights up so you can
+   see which one you are on, and the control at the end of it is the only
+   thing that answers a click. The row itself never gets a pointer cursor —
+   the label is a label, not a button wearing one. */
+.settings-options:hover {
+  background: rgba(255, 255, 255, 0.055);
 }
 
 .settings-options.hidden {
@@ -1254,10 +1242,6 @@ li.video-item:hover .video-actions .icon-btn {
   border-radius: 6px;
 }
 
-#hide-banner-row {
-  cursor: pointer;
-}
-
 .wle-switch {
   position: relative;
   width: 40px;
@@ -1275,8 +1259,14 @@ li.video-item:hover .video-actions .icon-btn {
   background: var(--jm-teal);
 }
 
-.wle-switch:disabled {
+/* Locked, not dead: it reads as disabled and refuses to flip, but it is still
+   a button, so it can point at the Ko-fi code that unlocks it. */
+.wle-switch:disabled,
+.wle-switch[aria-disabled="true"] {
   opacity: 0.4;
+}
+
+.wle-switch:disabled {
   cursor: not-allowed;
 }
 
@@ -1320,7 +1310,7 @@ li.video-item:hover .video-actions .icon-btn {
 
 /* The same row without a switch on the front: three columns, not four. It
    has to come after .mixer-row — same specificity, so source order decides. */
-.transparency-row {
+.glass-row {
   grid-template-columns: auto minmax(90px, 1fr) 46px;
 }
 
@@ -1998,4 +1988,81 @@ li.video-item.drop-target {
   html, body {
     overflow-x: hidden !important;
   }
+}
+
+/* =========================================
+   GLASS
+   A browser popup is an OS-level window drawn on a base the browser paints,
+   and nothing a page does reaches past it — asking the background for an
+   alpha only uncovers that base, which is why the first attempt washed out
+   towards white as the slider went up. So the depth is made inside the
+   popup: a lit wash on its own backdrop, and surfaces that let the wash
+   through and blur it. Behind the settings panel and under the pinned strips
+   there is real content to frost, which is where it reads loudest.
+
+   --wle-glass is 0 to 1, written by popup.js, and the .wle-glass class only
+   exists above 0: every blur here is a compositing layer, and there is no
+   reason to pay for one while the popup is a flat panel.
+   ========================================= */
+.wle-glass body {
+  background:
+    radial-gradient(130% 90% at 6% -14%, rgb(255 208 0 / calc(0.30 * var(--wle-glass))), transparent 56%),
+    radial-gradient(120% 80% at 106% 112%, rgb(72 132 255 / calc(0.34 * var(--wle-glass))), transparent 58%),
+    radial-gradient(90% 60% at 92% 4%, rgb(255 90 140 / calc(0.16 * var(--wle-glass))), transparent 62%),
+    var(--bg-color);
+}
+
+/* The strips pinned to the top of the list. What they frost is the list
+   sliding underneath, so they stay the most opaque things here — a title
+   readable through the filter chips is not a glass effect, it is a bug. */
+.wle-glass .view-tabs,
+.wle-glass .searchbar-wrap {
+  background: rgb(var(--bg-rgb) / calc(1 - 0.15 * var(--wle-glass)));
+  -webkit-backdrop-filter: blur(calc(30px * var(--wle-glass))) saturate(1.5);
+  backdrop-filter: blur(calc(30px * var(--wle-glass))) saturate(1.5);
+}
+
+.wle-glass header {
+  background: rgb(255 255 255 / calc(0.03 + 0.05 * var(--wle-glass)));
+  -webkit-backdrop-filter: blur(calc(24px * var(--wle-glass))) saturate(1.5);
+  backdrop-filter: blur(calc(24px * var(--wle-glass))) saturate(1.5);
+}
+
+/* The cards. A lit edge is what makes a translucent panel read as a pane of
+   glass rather than as a faded one. */
+.wle-glass li.video-item {
+  background-color: rgb(var(--card-rgb) / calc(1 - 0.55 * var(--wle-glass)));
+  border-color: rgb(255 255 255 / calc(0.06 + 0.12 * var(--wle-glass)));
+  -webkit-backdrop-filter: blur(calc(20px * var(--wle-glass))) saturate(1.6);
+  backdrop-filter: blur(calc(20px * var(--wle-glass))) saturate(1.6);
+}
+
+.wle-glass li.video-item:hover {
+  background-color: rgb(52 52 52 / calc(1 - 0.45 * var(--wle-glass)));
+  border-color: rgb(255 255 255 / calc(0.12 + 0.14 * var(--wle-glass)));
+}
+
+.wle-glass .tutorial-card {
+  background: rgb(255 255 255 / calc(0.03 + 0.04 * var(--wle-glass)));
+  -webkit-backdrop-filter: blur(calc(20px * var(--wle-glass))) saturate(1.6);
+  backdrop-filter: blur(calc(20px * var(--wle-glass))) saturate(1.6);
+}
+
+/* The settings panel over the list. The scrim thins out as the glass comes
+   up — it is the frosted list behind that the panel is meant to show. */
+.wle-glass .wle-modal {
+  background: rgb(var(--bg-rgb) / calc(0.6 - 0.32 * var(--wle-glass)));
+  -webkit-backdrop-filter: blur(calc(8px + 16px * var(--wle-glass))) saturate(1.3);
+  backdrop-filter: blur(calc(8px + 16px * var(--wle-glass))) saturate(1.3);
+}
+
+.wle-glass .wle-modal-content {
+  background: rgb(var(--card-rgb) / calc(1 - 0.38 * var(--wle-glass)));
+  -webkit-backdrop-filter: blur(calc(28px * var(--wle-glass))) saturate(1.6);
+  backdrop-filter: blur(calc(28px * var(--wle-glass))) saturate(1.6);
+  /* An inset shadow, not a border: the panel is sized without one, and a
+     border here would push it 2px wider than the popup allows. */
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / calc(0.06 + 0.12 * var(--wle-glass))),
+    0 15px 35px rgba(0, 0, 0, 0.6);
 }

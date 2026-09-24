@@ -157,25 +157,23 @@
             </button>
           </div>
 
-          <!-- The whole row is the link, so it answers a click anywhere the
-               way the guide row above it does — and, being an anchor, it is
-               reachable by keyboard without a handler to make it so. -->
-          <a
-            id="open-releases"
-            class="settings-options settings-row-link"
-            href="https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="See the releases on GitHub"
-          >
-            <span class="settings-option-text">
+          <div class="settings-options">
+            <div class="settings-option-text">
               <span id="releases-label">What's new</span>
-              <span class="settings-hint">Every release, on GitHub.</span>
-            </span>
-            <span class="icon-btn" aria-hidden="true">
+              <p class="settings-hint">Every release, on GitHub.</p>
+            </div>
+            <a
+              id="open-releases"
+              class="icon-btn"
+              href="https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="See the releases on GitHub"
+              aria-labelledby="releases-label"
+            >
               <img class="btn-icon" src="icons/buttons/releases.svg" alt="" />
-            </span>
-          </a>
+            </a>
+          </div>
         </div>
 
         <details id="prefs-group" class="settings-group">
@@ -293,7 +291,6 @@
           <div id="colour-mode" class="mode-chips" role="radiogroup" aria-label="Colour style">
             <button class="mode-chip" type="button" role="radio" data-mode="random" aria-checked="true" tabindex="0" title="A different colour per name, from the name itself">Random</button>
             <button class="mode-chip" type="button" role="radio" data-mode="muted" aria-checked="false" tabindex="-1" title="No colour at all — one neutral for everything">Muted</button>
-            <button class="mode-chip" type="button" role="radio" data-mode="monotone" aria-checked="false" tabindex="-1" title="Greyscale — a different shade per name">Monotone</button>
             <button class="mode-chip" type="button" role="radio" data-mode="static" aria-checked="false" tabindex="-1" title="One colour you choose, everywhere">Static</button>
           </div>
 
@@ -323,35 +320,35 @@
             </div>
           </div>
 
-          <div class="mixer-row transparency-row">
-            <span id="transparency-label" class="mixer-label">Transparency</span>
+          <div class="mixer-row glass-row">
+            <span id="glass-label" class="mixer-label">Glass</span>
             <input
-              id="transparency-slider"
+              id="glass-slider"
               class="mixer-slider"
               type="range"
               min="0"
-              max="90"
+              max="100"
               step="5"
               value="0"
-              aria-labelledby="transparency-label"
+              aria-labelledby="glass-label"
             />
             <input
-              id="transparency-number"
+              id="glass-number"
               class="mixer-number"
               type="number"
               min="0"
-              max="90"
+              max="100"
               step="5"
               value="0"
               inputmode="numeric"
-              aria-label="Background transparency, percent"
+              aria-label="Glass effect strength, percent"
             />
           </div>
-          <p class="settings-hint slider-hint">How much of the browser shows through the popup's background.</p>
+          <p class="settings-hint slider-hint">Frosted panels over a tinted backdrop. A browser popup sits on its own window, so this is the panel that goes see-through, not the page behind it.</p>
 
           <p class="settings-subhead">JobsMatch banner</p>
 
-          <div id="hide-banner-row" class="settings-options locked">
+          <div id="hide-banner-row" class="settings-options">
             <div class="settings-option-text">
               <span id="hide-banner-label">Hide JobsMatch banner</span>
               <p id="hide-banner-hint" class="settings-hint">Unlocked after you paste the Ko-fi thank-you code</p>
@@ -363,7 +360,7 @@
               role="switch"
               aria-checked="false"
               aria-labelledby="hide-banner-label"
-              disabled
+              aria-disabled="true"
             >
               <span class="wle-switch-thumb"></span>
             </button>
