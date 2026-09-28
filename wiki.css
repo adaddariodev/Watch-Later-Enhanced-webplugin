@@ -317,6 +317,45 @@ kbd {
   white-space: nowrap;
 }
 
+/* ---------- Code ----------
+   The system's monospace: the extension CSP loads fonts from the extension
+   only, and a coding font is not worth shipping for one section. */
+.wiki-content code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f3f3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+
+/* An example to copy: the whole block selects cleanly, and scrolls sideways
+   rather than wrapping, because a wrapped line of JSON reads as two. */
+.wiki-code {
+  margin: 14px 0 20px;
+  padding: 14px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+.wiki-code code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  overflow-wrap: normal;
+}
+
+/* A field name is one word, and reads as two once the column squeezes it. */
+.wiki-table td:first-child code {
+  white-space: nowrap;
+}
+
 /* ---------- Steps ---------- */
 .wiki-steps {
   display: grid;

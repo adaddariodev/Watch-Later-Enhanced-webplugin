@@ -46,6 +46,7 @@
         <li><a href="#miniplayer">Detached mini player</a></li>
         <li><a href="#shortcuts">All shortcuts</a></li>
         <li><a href="#settings">Settings</a></li>
+        <li><a href="#backup">Import &amp; export</a></li>
         <li><a href="#privacy">Privacy &amp; your data</a></li>
         <li><a href="#troubleshooting">Troubleshooting</a></li>
         <li><a href="#support">Support &amp; links</a></li>
@@ -100,7 +101,7 @@
       <!-- ============ SAVING ============ -->
       <section class="wiki-section" id="saving">
         <h2>Saving a video</h2>
-        <p>There are three ways to add a video to your list. All of them work the same way and save the same thing.</p>
+        <p>There are four ways to add a video to your list. All of them save the same thing.</p>
 
         <h3>1. Alt + left click on a thumbnail</h3>
         <p>
@@ -124,6 +125,30 @@
           <strong>Save to Watch Later Enhanced</strong> button next to YouTube's own Like and
           Share buttons.
         </p>
+
+        <h3>4. Paste its link in the popup</h3>
+        <p>
+          For a link somebody sent you, or a video you are not looking at: open the popup,
+          click the gear icon and open <strong>Your list</strong>. Paste the link into
+          <strong>Add by link</strong> and press <kbd>Enter</kbd>, or click <strong>Add</strong>.
+        </p>
+        <ul>
+          <li>Any YouTube link to a video or a Short works — from the address bar, from the
+            <em>Share</em> button (<code>youtu.be/…</code>), from the mobile site — with or
+            without <code>https://</code> in front. The full list is under
+            <a href="#backup-links">Links it understands</a>.</li>
+          <li>Anything else is refused, with a line saying why: a link to another website,
+            or a YouTube link that is not a video, such as a playlist or a channel.</li>
+          <li>The video goes to the end of <strong>To Watch</strong>. If it is already on your
+            list, you are told so — and in which tab — instead of getting it twice.</li>
+        </ul>
+        <div class="wiki-note">
+          <strong>Why the title arrives a moment later.</strong> The popup cannot ask YouTube
+          anything — that is part of what keeps it private — so a video added by its link
+          shows its link, in grey, until a YouTube tab has looked it up. That happens at
+          once if YouTube is open on screen, and otherwise the next time you open it. The
+          channel and whether it is a Short are filled in the same way.
+        </div>
 
         <h3>What you get back</h3>
         <ul>
@@ -203,9 +228,10 @@
         </p>
         <div class="wiki-note">
           Items you saved before a detail existed — a type, a channel — are not left
-          blank. A few of them are filled in each time you open a YouTube page, quietly
-          in the background. A long list takes a while to work through, and needs
-          nothing from you.
+          blank, and neither are videos added by their link or imported without a title.
+          A few of them are filled in each time you open a YouTube page, quietly in the
+          background, the ones missing a title first. A long list takes a while to work
+          through, and needs nothing from you.
         </div>
 
         <h3>What the buttons on each row do</h3>
@@ -550,6 +576,11 @@
               <td>Adds the tag you typed</td>
             </tr>
             <tr>
+              <td><kbd>Enter</kbd></td>
+              <td>Add by link box in the popup</td>
+              <td>Adds the video you pasted the link of</td>
+            </tr>
+            <tr>
               <td><kbd>Esc</kbd></td>
               <td>Tag box in the popup</td>
               <td>Closes the tag box without adding anything</td>
@@ -566,8 +597,20 @@
           Everything you can change sits under <strong>Settings</strong>, folded away
           until you click it. Its closed header names anything you have switched off or
           changed, so closing it hides the controls and not what they are set to. Above
-          it sit the two things that are not settings: this guide, and a link to the
-          list of releases on GitHub if you want to know what each version added.
+          it sit the things that are not settings: this guide, a link to the list of
+          releases on GitHub if you want to know what each version added, and
+          <strong>Your list</strong>, folded the same way, which holds what you can do to
+          the list as a whole.
+        </p>
+
+        <h3>Your list</h3>
+        <p>
+          <strong>Add by link</strong> saves a video from its address — see
+          <a href="#saving">Saving a video</a>. <strong>Export</strong> and
+          <strong>Import</strong> save your list to a file and read one back in; the
+          <strong>?</strong> button beside them opens
+          <a href="#backup">Import &amp; export</a>, which explains both step by step,
+          with examples.
         </p>
 
         <h3>User guide</h3>
@@ -644,18 +687,328 @@
         </p>
       </section>
 
+      <!-- ============ IMPORT & EXPORT ============ -->
+      <section class="wiki-section" id="backup">
+        <h2>Import &amp; export</h2>
+        <p class="wiki-lead">
+          <strong>Export</strong> saves your whole list into one file on your computer.
+          <strong>Import</strong> reads a file like that back in. Together they are how you
+          keep a backup, move your list to another browser or computer, or add a batch of
+          videos in one go.
+        </p>
+        <p>
+          Both are in the popup: click the gear icon, then open <strong>Your list</strong>.
+          The <strong>?</strong> button on the same line opens this page.
+        </p>
+
+        <h3>Export your list</h3>
+        <ol>
+          <li>Open the popup, click the gear icon, and open <strong>Your list</strong>.</li>
+          <li>Click <strong>Export</strong>.</li>
+          <li>
+            A file named like <code>watch-later-enhanced-2026-09-28.json</code> — with
+            today's date — is saved wherever your browser saves downloads, usually the
+            <em>Downloads</em> folder. The line under the button says how many videos it
+            holds.
+          </li>
+        </ol>
+        <p>
+          The file holds every video in <strong>To Watch</strong> and
+          <strong>Archive</strong>, in your order, with its title, channel, type, tags,
+          heart and dates. The Trash is not included, and neither are your settings —
+          only the list.
+        </p>
+
+        <h3>Import a file</h3>
+        <ol>
+          <li>Open the popup, click the gear icon, and open <strong>Your list</strong>.</li>
+          <li>Click <strong>Import</strong> and choose the file.</li>
+          <li>
+            The line under the buttons says what happened, for example
+            <em>Added 12 videos · 3 already on your list</em>. The new videos are in your
+            list straight away.
+          </li>
+        </ol>
+        <div class="wiki-note">
+          <strong>A small window may open first.</strong> Many browsers close the toolbar
+          popup the moment a window for choosing a file opens — Firefox always does — and
+          the import would close with it. So everywhere except Chrome and Edge on Windows,
+          which keep the popup open, <strong>Import</strong> first opens your list in a
+          small window of its own, with the button waiting for you. Click
+          <strong>Import</strong> again in that window and pick the file: that window stays
+          open while you choose.
+        </div>
+
+        <h3>What importing does — and never does</h3>
+        <ul>
+          <li><strong>It only adds.</strong> New videos go to the end of your list, in the
+            order the file has them: to <strong>To Watch</strong>, or to
+            <strong>Archive</strong> if the file says they were watched.</li>
+          <li><strong>It never overwrites.</strong> A video already on your list is left
+            exactly as it is — its title, tags, heart and place stay yours, whatever the
+            file says about it.</li>
+          <li><strong>It never removes.</strong> Nothing on your list disappears, so importing
+            the same file twice is harmless: the second time says <em>Nothing new to
+            add</em>.</li>
+          <li><strong>It skips what is not a YouTube video</strong> — a link to another
+            website, a playlist, a channel — and says how many it skipped. The rest are
+            imported.</li>
+          <li><strong>It can be undone.</strong> For a few seconds afterwards, the bar at the
+            bottom of the popup offers <strong>Undo</strong>, which takes out exactly the
+            videos that import added and nothing else.</li>
+        </ul>
+
+        <h3>Moving your list to another computer or browser</h3>
+        <ol>
+          <li>On the old one, click <strong>Export</strong>.</li>
+          <li>Get the file to the new one: a USB stick, an email to yourself, a cloud folder.</li>
+          <li>Install Watch Later Enhanced there, then <strong>Import</strong> the file.</li>
+        </ol>
+        <p>Chrome, Edge and Firefox all read the same file, so it moves between browsers too.</p>
+
+        <h3>What the file looks like</h3>
+        <p>
+          The file is <strong>JSON</strong>: plain text that any text editor can open. This
+          is an export holding two videos — the first in To Watch, the second in Archive:
+        </p>
+<pre class="wiki-code"><code>{
+  "app": "Watch Later Enhanced",
+  "format": 1,
+  "exportedAt": "2026-09-28T18:04:11.000Z",
+  "count": 2,
+  "videos": [
+    {
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "title": "Rick Astley - Never Gonna Give You Up (Official Video)",
+      "channel": "Rick Astley",
+      "kind": "video",
+      "tags": [
+        "music",
+        "80s"
+      ],
+      "favourite": true,
+      "watched": false,
+      "savedAt": "2026-09-20T21:15:02.000Z"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "title": "Me at the zoo",
+      "channel": "jawed",
+      "kind": "video",
+      "tags": [],
+      "favourite": false,
+      "watched": true,
+      "savedAt": "2026-09-21T08:40:37.000Z",
+      "watchedAt": "2026-09-22T19:03:55.000Z"
+    }
+  ]
+}</code></pre>
+        <p>
+          The four lines at the top say what made the file and when. Import reads only the
+          <code>videos</code> list.
+        </p>
+
+        <h3>Writing a file yourself</h3>
+        <p>
+          You do not need every field, or an export to start from. The smallest file Import
+          accepts is a list of links, one per line, each in quotes, with a comma after every
+          one but the last:
+        </p>
+<pre class="wiki-code"><code>[
+  "https://youtu.be/dQw4w9WgXcQ",
+  "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+  "youtube.com/watch?v=9bZkp7q19f0"
+]</code></pre>
+        <p>
+          Each one arrives the way a video added by its link does: showing its link until a
+          YouTube tab fills in the title, the channel and the type.
+        </p>
+        <p>To give some videos more than a link, write them as entries with only the fields you want:</p>
+<pre class="wiki-code"><code>{
+  "videos": [
+    {
+      "url": "https://youtu.be/dQw4w9WgXcQ",
+      "tags": ["music", "80s"],
+      "favourite": true
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=9bZkp7q19f0",
+      "title": "Gangnam Style",
+      "watched": true,
+      "watchedAt": "2026-09-01"
+    }
+  ]
+}</code></pre>
+        <p>
+          The first goes to To Watch with two tags and a heart, and gets its title from
+          YouTube. The second goes straight to Archive with the title you gave it. Links and
+          entries can be mixed in one list.
+        </p>
+
+        <h3 id="backup-fields">Every field</h3>
+        <table class="wiki-table">
+          <thead>
+            <tr><th>Field</th><th>What it holds</th><th>If it is missing</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>url</code></td>
+              <td>The video's link — any of the forms below. The only field that is required.</td>
+              <td>The entry is skipped.</td>
+            </tr>
+            <tr>
+              <td><code>title</code></td>
+              <td>The title to show, as text.</td>
+              <td>Filled in from YouTube.</td>
+            </tr>
+            <tr>
+              <td><code>channel</code></td>
+              <td>Who published it, as text.</td>
+              <td>Filled in from YouTube.</td>
+            </tr>
+            <tr>
+              <td><code>kind</code></td>
+              <td><code>"video"</code> or <code>"short"</code>. A <code>/shorts/</code> link is a Short whatever this says.</td>
+              <td>Found out from YouTube.</td>
+            </tr>
+            <tr>
+              <td><code>tags</code></td>
+              <td>A list of names, <code>["music", "80s"]</code>, or one line, <code>"music, 80s"</code>. A tag longer than 22 characters is shortened; the same tag twice is kept once.</td>
+              <td>No tags.</td>
+            </tr>
+            <tr>
+              <td><code>favourite</code></td>
+              <td><code>true</code> for a heart. <code>favorite</code> works too.</td>
+              <td>No heart.</td>
+            </tr>
+            <tr>
+              <td><code>watched</code></td>
+              <td><code>true</code> puts the video in Archive.</td>
+              <td>To Watch.</td>
+            </tr>
+            <tr>
+              <td><code>savedAt</code></td>
+              <td>When it was saved: a date such as <code>"2026-09-28"</code> or <code>"2026-09-28T18:30:00Z"</code>, or a number of seconds or milliseconds since 1970.</td>
+              <td>The moment of the import.</td>
+            </tr>
+            <tr>
+              <td><code>watchedAt</code></td>
+              <td>When it was marked watched, written the same way.</td>
+              <td>Left empty.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          True and false, and numbers, are written without quotes; everything else goes in
+          straight double quotes. Anything else in the file — other fields, colours, notes you
+          left for yourself — is ignored. The file can be a list on its own, like the
+          smallest example, or an object with the list under <code>"videos"</code>, the way
+          Export writes it.
+        </p>
+
+        <h3 id="backup-links">Links it understands</h3>
+        <p>
+          The same links work in <strong>Add by link</strong> and in a file, with or without
+          <code>https://</code> in front. Anything after the video's id — a start time like
+          <code>&amp;t=42s</code>, a <code>?si=…</code> from the Share button, a playlist —
+          is fine and is dropped.
+        </p>
+        <table class="wiki-table">
+          <thead>
+            <tr><th>Form</th><th>Example</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>A video page</td><td><code>https://www.youtube.com/watch?v=dQw4w9WgXcQ</code></td></tr>
+            <tr><td>The Share button</td><td><code>https://youtu.be/dQw4w9WgXcQ</code></td></tr>
+            <tr><td>A Short</td><td><code>https://www.youtube.com/shorts/…</code></td></tr>
+            <tr><td>The mobile site, YouTube Music</td><td><code>m.youtube.com/watch?v=…</code>, <code>music.youtube.com/watch?v=…</code></td></tr>
+            <tr><td>A live stream</td><td><code>https://www.youtube.com/live/…</code></td></tr>
+            <tr><td>An embedded player</td><td><code>youtube.com/embed/…</code>, <code>youtube-nocookie.com/embed/…</code></td></tr>
+          </tbody>
+        </table>
+        <p>
+          Whatever form it arrives in, a video is stored as the same plain
+          <code>https://www.youtube.com/watch?v=…</code> link — which is how the same video
+          pasted two different ways is still recognised as one.
+        </p>
+
+        <h3>If something goes wrong</h3>
+        <table class="wiki-table">
+          <thead>
+            <tr><th>The line says</th><th>What it means, and what to do</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><em>That file is not valid JSON (line 4)</em></td>
+              <td>The text breaks JSON's rules on or just before that line. It is nearly always
+                a missing comma between two entries, a comma after the last one, or curly
+                quotes (“ ”) where straight ones (" ") belong. Fix that line in a text editor
+                and import again.</td>
+            </tr>
+            <tr>
+              <td><em>There is no list of videos in that file</em></td>
+              <td>The file is JSON, but it has no list in it. Put the entries between
+                <code>[</code> and <code>]</code>, or under <code>"videos"</code>.</td>
+            </tr>
+            <tr>
+              <td><em>The list in that file is empty</em></td>
+              <td>The list is there, with nothing in it. Nothing was changed.</td>
+            </tr>
+            <tr>
+              <td><em>None of the … entries in that file is a YouTube video link</em></td>
+              <td>Every entry lacks a <code>url</code>, or has one that is misspelled or points
+                somewhere else. Compare them with the table of links above.</td>
+            </tr>
+            <tr>
+              <td><em>… skipped, not a YouTube video link</em></td>
+              <td>Everything else was imported; only those entries were left out. Correct them
+                and import the file again — what is already on your list will not be doubled.</td>
+            </tr>
+            <tr>
+              <td><em>That file is … MB, far bigger than any list</em></td>
+              <td>The file chosen is over 20 MB, which is not a list — even ten thousand
+                videos come to a fraction of that. Choose the file Export saved.</td>
+            </tr>
+            <tr>
+              <td><em>Nothing was imported: the browser would not save the list</em></td>
+              <td>The browser refused the write. When the bar at the bottom of the popup adds
+                <em>storage may be full</em>, empty the Trash and delete what you no longer
+                need, then import again. Nothing on your list was changed.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Tips for editing a file by hand</h3>
+        <ul>
+          <li>Use a plain text editor — Notepad, TextEdit in plain-text mode, VS Code. A word
+            processor quietly turns straight quotes into curly ones, which JSON does not accept.</li>
+          <li>Every entry in a list ends with a comma, except the last.</li>
+          <li>Keep the <code>.json</code> ending when you save.</li>
+          <li>Unsure? Export first, and edit a copy of what it made — it is already in the
+            right shape.</li>
+        </ul>
+
+        <div class="wiki-note">
+          <strong>The file never leaves your computer.</strong> Export writes it from inside
+          your browser and Import reads it the same way: nothing is uploaded, to the developer
+          or anyone else. Keep it somewhere safe — it is your list.
+        </div>
+      </section>
+
       <!-- ============ PRIVACY ============ -->
       <section class="wiki-section" id="privacy">
         <h2>Privacy &amp; your data</h2>
         <ul>
           <li>Your list lives in your own browser, in the extension's local storage. There is no account, no sign-in and no server holding your data.</li>
-          <li>Nothing you save is sent anywhere. The extension makes two kinds of request, both to YouTube and both only while you are already on it: one to read a video's title when the page does not give it, and one to tell a Short from an ordinary video. Each carries the video and nothing about you.</li>
+          <li>Nothing you save is sent anywhere. The extension makes two kinds of request, both to YouTube and both only from a YouTube tab: one to read a video's title and channel when the page does not give them — or when the video was added by its link — and one to tell a Short from an ordinary video. Each carries the video and nothing about you. The popup itself makes none, which is why a video added there by its link waits for a YouTube tab to name it.</li>
           <li>The extension only runs on YouTube pages. It cannot see any other site you visit.</li>
-          <li>Because the list is stored in this browser profile, it does not follow you to another computer — and removing the extension removes the list with it.</li>
+          <li>Because the list is stored in this browser profile, it does not follow you to another computer on its own — and removing the extension removes the list with it.</li>
+          <li>Export and Import work on a file on your own computer. Nothing is uploaded.</li>
         </ul>
         <div class="wiki-note">
-          <strong>Moving to a new machine?</strong> There is no export button yet, so treat the
-          list as tied to this browser.
+          <strong>Moving to a new machine, or removing the extension?</strong> Export your list
+          first, and import the file wherever you want it back —
+          <a href="#backup">Import &amp; export</a> shows how.
         </div>
       </section>
 
@@ -750,6 +1103,23 @@
         <p>
           The browser refused the write because the extension's storage is full. Empty the
           Trash and permanently delete what you no longer need.
+        </p>
+
+        <h3>A video I added by its link still shows the link</h3>
+        <p>
+          Its title comes from a YouTube tab, since the popup cannot ask YouTube anything.
+          Open YouTube, or switch to a YouTube tab you already have, and it fills in within a
+          few seconds. A YouTube tab that was open before the extension last updated is still
+          running the old version — reload it (<kbd>F5</kbd>) first.
+        </p>
+
+        <h3>A video I added by its link says "Unknown Title"</h3>
+        <p>
+          YouTube was asked and said it could not describe that video: it is private or has
+          been deleted, or the link was mistyped. Click the title to see what YouTube says. If
+          the video does play, save it once more from its own page with
+          <kbd>Alt</kbd> + left click — that replaces <em>Unknown Title</em> with the real one.
+          If it does not, remove it and add the correct link.
         </p>
 
         <h3>A video shows the wrong title</h3>

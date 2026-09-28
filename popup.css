@@ -107,6 +107,18 @@ body {
   box-sizing: border-box;
 }
 
+/* The same page in a window of its own, which Import opens where a file
+   window would shut the toolbar popup. It fills the window instead of
+   keeping the popup's fixed size, which the window would only clip. */
+.wle-window body {
+  width: 100%;
+  min-width: 320px;
+  max-width: none;
+  height: 100vh;
+  min-height: 0;
+  max-height: none;
+}
+
 /* Fix per evitare overflow orizzontale */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -644,6 +656,17 @@ li.video-item:hover .favourite-btn.is-favourite {
 
 .video-item:hover .video-title {
   font-weight: 700;
+}
+
+/* A video added by its link, before any YouTube tab has named it: the link
+   stands in, quieter than a title so it is not mistaken for one. break-all,
+   because a link has no spaces to wrap at. */
+.video-title.is-pending,
+.video-item:hover .video-title.is-pending {
+  color: var(--text-dim);
+  font-style: italic;
+  font-weight: 400;
+  word-break: break-all;
 }
 
 /* .video-left: dichiarazione unica (fuse le due originarie) */
@@ -1484,6 +1507,31 @@ a.icon-btn {
   color: var(--text-main);
   border-color: var(--accent);
   background: rgba(255, 208, 0, 0.12);
+}
+
+/* Export and Import share the width, with the guide to both at the end of
+   the same line. */
+.backup-row .backup-btn {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+}
+
+/* transform: none for the same reason as on the filter buttons: .btn-icon's
+   scale(0.7) is sized for the icons on a video row. */
+.backup-btn .btn-icon {
+  width: 14px;
+  height: 14px;
+  transform: none;
+}
+
+.settings-unlock-row .text-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* No reserved line: empty most of the time, and an always-blank row is the

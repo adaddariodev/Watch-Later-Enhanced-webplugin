@@ -40,6 +40,25 @@ The list lives in your browser toolbar, reachable from any site.
 small HUD confirms it with the video's real title, pulled from the page or from
 YouTube's oEmbed endpoint if the page does not offer one.
 
+### Or from nothing but its link
+
+Paste a link into **Info & Settings → Your list → Add by link** — `youtube.com`,
+the Share button's `youtu.be`, a Short, a live stream, with or without
+`https://`. Anything that is not a YouTube video is refused with the reason, and
+a video already on the list says which tab it is in rather than being added
+twice. The popup asks YouTube nothing, so the title, channel and type are filled
+in by a YouTube tab: at once if one is on screen, otherwise on your next visit.
+
+### Take your list with you
+
+**Export** writes To Watch and Archive to a JSON file; **Import** reads one back —
+or a hand-written list of links — and only ever adds: a video already on the list
+is left exactly as it is, nothing is removed, and an **Undo** takes the whole
+import back out. The **?** beside the two buttons opens the guide's own section on
+them, with the file format, every field and worked examples. Where a file window
+would close the toolbar popup — Firefox, and Chrome outside Windows — Import first
+opens the list in a small window of its own, which it cannot close.
+
 ### Watch it in a window of its own
 
 Pop any video out of the browser into a floating mini player. Minimize the
@@ -130,6 +149,7 @@ what you have installed.
 | `Alt + Shift + left click` | Any thumbnail or title | Plays it in the mini player, without opening it |
 | `Alt + Shift + left click` | The player on a video page | Opens it in the mini player, from where the page had reached |
 | `/` | The popup | Opens the search box |
+| `Enter` | Add by link | Adds the pasted link |
 | `Esc` | The search box | Clears it and folds it away |
 | `Space` or `K` | Mini player | Play / pause |
 | `←` / `→` | Mini player | Back / forward 5 seconds |
@@ -147,12 +167,14 @@ Every outbound request the extension makes, in full:
 
 | To | When | What it carries |
 | --- | --- | --- |
-| `youtube.com/oembed` | Saving a video whose title the page did not provide | The video URL |
+| `youtube.com/oembed` | Saving a video whose title the page did not provide, or naming one added by its link | The video URL |
 | `youtube.com/shorts/<id>` | Saving, to tell a Short from a video | The video ID |
 
-That is the complete list. Both go to YouTube, only while you are already on
-YouTube, and carry nothing about you beyond the video you just saved. Nothing
-reaches any other party: the Inter typeface is
+That is the complete list. Both go to YouTube, only from a YouTube tab, and carry
+nothing about you beyond the video in question — which is why a video added in
+the popup by its link waits for a YouTube tab to name it rather than the popup
+asking. Export and Import write and read a file on your own machine; nothing is
+uploaded. Nothing reaches any other party: the Inter typeface is
 [bundled with the extension](fonts/) rather than fetched from Google, so
 opening the popup makes no request at all.
 
@@ -203,6 +225,11 @@ it runs.
   page's own origin so it works on `m.youtube.com` too.
 * **Layered type detection** — the URL, then the DOM around the click, then a
   same-origin redirect check, memoised per video and bounded by a timeout.
+* **Imports are rebuilt, never trusted** — a pasted link or an imported entry is
+  reconstructed field by field from an allow-list: the link re-parsed down to its
+  video id and stored as the canonical watch URL, text trimmed and capped, tag
+  colours recomputed from their names. A file can add videos; it cannot add a
+  key, a style or a script, and it never overwrites a video already saved.
 * **Optimistic writes with a snapshot guard** — every read-modify-write on the
   list re-reads before committing and retries on conflict, so the popup and a
   YouTube tab saving at the same moment cannot drop each other's changes.

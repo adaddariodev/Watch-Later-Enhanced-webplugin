@@ -52,6 +52,19 @@ const CONFIG = {
     OPEN: 'wle-mini-window-open'
   },
   WRITE_ATTEMPTS: 6,
+  // Import and export. An export of ten thousand videos comes to about 4MB,
+  // so a file past 20 is not a list — it is the wrong file, and not one to
+  // read into memory. The text caps are what a save from YouTube would store.
+  BACKUP: {
+    APP: 'Watch Later Enhanced',
+    FORMAT: 1,
+    MAX_FILE_BYTES: 20 * 1024 * 1024,
+    TITLE_MAX: 500,
+    CHANNEL_MAX: 100,
+    UNDO_DURATION: 8000,  // an import is worth longer to reconsider than one row
+    WINDOW: { WIDTH: 440, HEIGHT: 660 },
+    GUIDE_SECTION: 'backup'
+  },
   // Peppered SHA-256 of supporter unlock material. Plaintext is not in this repository.
   UNLOCK: {
     p: '13c7fd3a9477bf036da5c0d02bb1dc85',
@@ -223,6 +236,15 @@ const DOMCache = {
   glassSlider: null,
   glassNumber: null,
   creditsVersion: null,
+  libraryGroup: null,
+  addLinkInput: null,
+  addLinkBtn: null,
+  addLinkStatus: null,
+  exportBtn: null,
+  importBtn: null,
+  importFile: null,
+  backupHelpBtn: null,
+  backupStatus: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -257,6 +279,15 @@ const DOMCache = {
     this.glassSlider = document.getElementById('glass-slider');
     this.glassNumber = document.getElementById('glass-number');
     this.creditsVersion = document.getElementById('credits-version');
+    this.libraryGroup = document.getElementById('library-group');
+    this.addLinkInput = document.getElementById('add-link');
+    this.addLinkBtn = document.getElementById('add-link-btn');
+    this.addLinkStatus = document.getElementById('add-link-status');
+    this.exportBtn = document.getElementById('export-list');
+    this.importBtn = document.getElementById('import-list');
+    this.importFile = document.getElementById('import-file');
+    this.backupHelpBtn = document.getElementById('backup-help');
+    this.backupStatus = document.getElementById('backup-status');
   }
 };
 
@@ -610,6 +641,19 @@ const Styling = {
 };
 
 /**
+ * Whether this is the toolbar popup or the same page in a window of its own.
+ * Import opens that window where it has to: a browser shuts its toolbar popup
+ * the moment the popup loses focus, and a file window takes the focus on most
+ * systems — so there the popup would be gone before a file was ever chosen.
+ * A window of its own stays open. See Backup.pickFile.
+ */
+const PageMode = {
+  isWindow: new URLSearchParams(window.location.search).get('window') === 'import'
+};
+
+if (PageMode.isWindow) document.documentElement.classList.add('wle-window');
+
+/**
  * How tall the popup is. Chrome will not draw one over 600px, and the popup's
  * own vh units measure the popup, so the screen is the only thing that can
  * answer this — three quarters of what it has spare, clamped to what the
@@ -618,6 +662,9 @@ const Styling = {
  * first paint.
  */
 function applyPopupHeight() {
+  // A window is as tall as the window: the stylesheet says so.
+  if (PageMode.isWindow) return;
+
   const available = Number(window.screen?.availHeight) || 0;
   if (!available) return;   // no answer: leave the CSS default alone
 
@@ -670,7 +717,6 @@ const Utils = {
 
     const normalized = {
       ...video,
-      title: video.title || 'Untitled Video',
       url: video.url || '',
       tags: normalizedTags,
       watched: video.watched === true,
@@ -678,6 +724,12 @@ const Utils = {
       savedAt: typeof video.savedAt === 'number' ? video.savedAt : null,
       favourite: video.favourite === true,
     };
+
+    // A title is absent until YouTube has named the video — one added by its
+    // link alone has none yet. A placeholder written here would be stored the
+    // next time the list is written back, and from then on nothing could
+    // tell that the video still needs a name. The row shows its link instead.
+    if (typeof video.title !== 'string' || !video.title.trim()) delete normalized.title;
 
     // Unknown is not 'video'. A record saved before types existed has no type
     // yet, and asserting one here would freeze the guess into storage the next
@@ -984,6 +1036,52 @@ const StorageManager = {
     }
   },
 
+  /**
+   * Append records to the end of the list, where a save from YouTube lands.
+   * A url already on the list is left exactly as it is: importing a backup
+   * must never undo what was done to a video since the backup was made.
+   * @returns {Promise<{added: string[], existing: string[]}|null>} null when
+   *   the write failed, which has already been reported
+   */
+  async addVideos(records) {
+    try {
+      return await this.mutateLists((ctx) => {
+        const have = new Set(ctx.videos.map((v) => v.url));
+        const added = [];
+        const existing = [];
+
+        records.forEach((record) => {
+          if (have.has(record.url)) {
+            existing.push(record.url);
+            return;
+          }
+          have.add(record.url);
+          ctx.videos.push(record);
+          added.push(record.url);
+        });
+
+        ctx.result = { added, existing };
+      });
+    } catch (error) {
+      this.notifyWriteError(error);
+      return null;
+    }
+  },
+
+  /** Out of the list for good, not into the trash: undoing an import. */
+  async removeVideos(urls) {
+    try {
+      return await this.mutateLists((ctx) => {
+        const urlSet = new Set(urls);
+        ctx.videos = ctx.videos.filter((v) => !urlSet.has(v.url));
+        ctx.result = true;
+      });
+    } catch (error) {
+      this.notifyWriteError(error);
+      return false;
+    }
+  },
+
   async reorder(fromIndex, toIndex) {
     try {
       return await this.mutateLists((ctx) => {
@@ -1090,7 +1188,7 @@ const VideoItemFactory = {
     left.className = 'video-left';
 
     left.appendChild(this.createRowLead(place, mode, canDrag));
-    left.appendChild(this.createTitle(video.title));
+    left.appendChild(this.createTitle(video));
 
     const { primary, secondary, tagAddBtn } = this.createActions(index, mode, video);
     row.append(left, primary);
@@ -1139,10 +1237,22 @@ const VideoItemFactory = {
     return lead;
   },
 
-  createTitle(title) {
+  createTitle(video) {
     const titleEl = document.createElement('span');
     titleEl.className = 'video-title';
-    titleEl.textContent = title;
+
+    if (video.title) {
+      titleEl.textContent = video.title;
+      return titleEl;
+    }
+
+    // Added by its link, and no YouTube tab has named it yet. The link is
+    // what was pasted, so it is the thing to recognise the row by meanwhile —
+    // in its share-button form, which fits the line where the full one wraps.
+    const id = WLEUrl.extractVideoId(video.url);
+    titleEl.classList.add('is-pending');
+    titleEl.textContent = id ? `youtu.be/${id}` : String(video.url || '');
+    titleEl.title = 'No title yet — it fills in by itself the next time a YouTube tab is open';
     return titleEl;
   },
 
@@ -2020,7 +2130,7 @@ function updateTabCounts(active, archive, trash) {
 // ============================================
 let toastTimeout = null;
 
-function showToast(message, actionLabel, actionFn) {
+function showToast(message, actionLabel, actionFn, duration = CONFIG.UNDO_DURATION) {
   const el = DOMCache.toast;
   if (!el) return;
 
@@ -2045,7 +2155,7 @@ function showToast(message, actionLabel, actionFn) {
 
   el.classList.add('visible');
   if (toastTimeout) clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(hideToast, CONFIG.UNDO_DURATION);
+  toastTimeout = setTimeout(hideToast, duration);
 }
 
 function hideToast() {
@@ -2345,9 +2455,11 @@ function updateGroupNotes() {
 // The guide ships with the extension (wiki.html), so it opens instantly and
 // works offline.
 // ============================================
-function openWiki() {
+/** @param {string} [section] the id of the guide's section to open at */
+function openWiki(section) {
   AudioManager.play(AppState.soundEnabled);
-  window.open(chrome.runtime.getURL('wiki.html'), '_blank', 'noopener');
+  const hash = section ? `#${section}` : '';
+  window.open(chrome.runtime.getURL(`wiki.html${hash}`), '_blank', 'noopener');
 }
 
 // Only the button acts, here and on every other row in the panel: the row
@@ -2359,6 +2471,418 @@ function setupWikiButton() {
   if (DOMCache.wikiBtn) {
     DOMCache.wikiBtn.addEventListener('click', () => openWiki());
   }
+}
+
+// ============================================
+// YOUR LIST: ADD BY LINK, IMPORT, EXPORT
+// A pasted link and an imported file take the same road: Backup.record turns
+// each into a record by the same rules, and StorageManager.addVideos appends
+// them without ever overwriting. Both are text from outside the extension, so
+// nothing in either is stored the way it arrived.
+// ============================================
+
+/** A card's status line: a sentence, and whether it is good or bad news. */
+function setStatusLine(el, message, kind) {
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle('is-error', kind === 'error');
+  el.classList.toggle('is-ok', kind === 'ok');
+}
+
+function plural(n, one, many = `${one}s`) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+const Backup = {
+  /**
+   * One stored record from one entry of a file — or from a pasted link,
+   * which is an entry with nothing but a url. Built field by field from what
+   * is allowed rather than copied: whatever a file carries that is not asked
+   * for here is left behind with it.
+   * @param {string|object} entry
+   * @returns {object|null} null when it is not a YouTube video
+   */
+  record(entry, now = Date.now()) {
+    const source = typeof entry === 'string' ? { url: entry } : entry;
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return null;
+
+    const link = WLEUrl.parseLink(source.url);
+    if (link.error) return null;
+
+    const record = {
+      url: link.url,
+      tags: this.tags(source.tags),
+      watched: source.watched === true,
+      watchedAt: null,
+      savedAt: this.time(source.savedAt) ?? now,
+      // Either spelling: a file may well have been written by hand.
+      favourite: source.favourite === true || source.favorite === true
+    };
+    if (record.watched) record.watchedAt = this.time(source.watchedAt);
+
+    // A /shorts/ link settles it. Any other link can still be a Short, so the
+    // file's word is taken, and with none the type stays unknown — for a
+    // YouTube tab to find out — rather than guessed.
+    const kind = link.kind || source.kind;
+    if (kind === 'short' || kind === 'video') record.kind = kind;
+
+    // Absent rather than blank when there is none: an absent title is what a
+    // YouTube tab looks for to fill one in.
+    const title = this.text(source.title, CONFIG.BACKUP.TITLE_MAX);
+    if (title) record.title = title;
+    const channel = this.text(source.channel, CONFIG.BACKUP.CHANNEL_MAX);
+    if (channel) record.channel = channel;
+
+    return record;
+  },
+
+  text(value, max) {
+    if (typeof value !== 'string') return '';
+    return value.replace(/\s+/g, ' ').trim().slice(0, max).trim();
+  },
+
+  /** A list of names, or one line of them with commas in between. */
+  tags(raw) {
+    const list = typeof raw === 'string' ? raw.split(',') : (Array.isArray(raw) ? raw : []);
+    const seen = new Set();
+    const out = [];
+
+    list.forEach((tag) => {
+      const name = this.text(typeof tag === 'string' ? tag : tag?.name, CONFIG.TAG_MAX_LENGTH);
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) return;
+      seen.add(key);
+      // From the name, as every tag colour is: a colour in the file is not
+      // read, so none can become a style.
+      out.push({ name, color: Utils.colorFromName(name) });
+    });
+
+    return out;
+  },
+
+  /**
+   * Milliseconds, the way the list keeps time, from what a file can hold: a
+   * date as Export writes it, a date as a person writes it ("2026-09-28"), or
+   * a number — in milliseconds, or in the seconds most other tools write.
+   */
+  time(value) {
+    let ms = NaN;
+    if (typeof value === 'number') ms = value < 1e11 ? value * 1000 : value;
+    else if (typeof value === 'string' && value.trim()) ms = Date.parse(value);
+    return Number.isFinite(ms) && ms > 0 ? Math.round(ms) : null;
+  },
+
+  iso(ms) {
+    const date = new Date(ms);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  },
+
+  /** A stored record as a file entry: plain values a person can read and edit. */
+  entryOf(video) {
+    const entry = { url: video.url };
+    if (video.title) entry.title = video.title;
+    if (video.channel) entry.channel = video.channel;
+    if (video.kind) entry.kind = video.kind;
+    entry.tags = (video.tags || []).map((tag) => tag.name);
+    entry.favourite = video.favourite === true;
+    entry.watched = video.watched === true;
+
+    const savedAt = typeof video.savedAt === 'number' ? this.iso(video.savedAt) : null;
+    const watchedAt = typeof video.watchedAt === 'number' ? this.iso(video.watchedAt) : null;
+    if (savedAt) entry.savedAt = savedAt;
+    if (watchedAt) entry.watchedAt = watchedAt;
+    return entry;
+  },
+
+  fileName(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `watch-later-enhanced-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
+  },
+
+  status(message, kind) {
+    setStatusLine(DOMCache.backupStatus, message, kind);
+  },
+
+  /** To Watch and Archive, in their order. The trash stays behind. */
+  async exportList() {
+    AudioManager.play(AppState.soundEnabled);
+
+    const videos = await StorageManager.getVideos();
+    if (!videos.length) {
+      this.status('Your list is empty — there is nothing to export yet.', 'error');
+      return;
+    }
+
+    const file = {
+      app: CONFIG.BACKUP.APP,
+      format: CONFIG.BACKUP.FORMAT,
+      exportedAt: new Date().toISOString(),
+      count: videos.length,
+      videos: videos.map((v) => this.entryOf(v))
+    };
+
+    const name = this.fileName();
+    const blob = new Blob([`${JSON.stringify(file, null, 2)}\n`], { type: 'application/json' });
+    const href = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Not straight away: the download reads the file after this returns.
+    setTimeout(() => URL.revokeObjectURL(href), 60 * 1000);
+
+    this.status(`Exported ${plural(videos.length, 'video')} as ${name}, in your downloads.`, 'ok');
+  },
+
+  /**
+   * Import needs a file window, and a browser shuts its toolbar popup as soon
+   * as the popup loses focus — which a file window takes, everywhere except
+   * Chrome on Windows. Asked for from here, the popup would be gone before a
+   * file was chosen, taking the import with it. So anywhere else the same
+   * page opens in a window of its own first, which a file window cannot
+   * close, and the file is chosen from there.
+   */
+  pickFile() {
+    AudioManager.play(AppState.soundEnabled);
+
+    if (!this.canPickHere()) {
+      this.openWindow();
+      return;
+    }
+
+    const input = DOMCache.importFile;
+    if (!input) return;
+    // Cleared, so choosing the same file a second time is still a change.
+    input.value = '';
+    input.click();
+  },
+
+  canPickHere() {
+    if (PageMode.isWindow) return true;
+    if (/Firefox\//.test(navigator.userAgent || '')) return false;
+    const platform = navigator.userAgentData?.platform || navigator.platform || '';
+    return /^win/i.test(platform);
+  },
+
+  openWindow() {
+    const url = chrome.runtime.getURL('popup.html?window=import');
+    const { WIDTH: width, HEIGHT: height } = CONFIG.BACKUP.WINDOW;
+    const screenInfo = window.screen || {};
+    const left = Math.round((screenInfo.availLeft || 0) +
+      Math.max(0, ((screenInfo.availWidth || width) - width) / 2));
+    const top = Math.round((screenInfo.availTop || 0) +
+      Math.max(0, ((screenInfo.availHeight || height) - height) / 2));
+
+    // A tab if no window can be had: a file window cannot close a tab either.
+    const inTab = () => window.open(url, '_blank', 'noopener');
+
+    try {
+      chrome.windows.create({ url, type: 'popup', width, height, left, top }, (win) => {
+        if (chrome.runtime.lastError || !win) inTab();
+      });
+    } catch (error) {
+      console.warn('Could not open the import window:', error);
+      inTab();
+    }
+  },
+
+  /** The window Import opened: straight to the button it was opened for. */
+  openHere() {
+    DOMCache.settingsModal?.classList.remove('hidden');
+    if (DOMCache.libraryGroup) DOMCache.libraryGroup.open = true;
+    this.status('Press Import and choose your file — this window stays open while you do.');
+    DOMCache.importBtn?.focus();
+  },
+
+  busy: false,
+
+  async importFile(file) {
+    if (!file || this.busy) return;
+    this.busy = true;
+
+    try {
+      let entries;
+      try {
+        entries = await this.readEntries(file);
+      } catch (error) {
+        this.status(error.message, 'error');
+        return;
+      }
+
+      const now = Date.now();
+      const seen = new Set();
+      const records = [];
+      let invalid = 0;
+      let repeated = 0;
+
+      entries.forEach((entry) => {
+        const record = this.record(entry, now);
+        if (!record) {
+          invalid += 1;
+          return;
+        }
+        // The first of two copies in the same file is the one that counts.
+        if (seen.has(record.url)) {
+          repeated += 1;
+          return;
+        }
+        seen.add(record.url);
+        records.push(record);
+      });
+
+      if (!records.length) {
+        this.status(entries.length === 1
+          ? 'The one entry in that file is not a YouTube video link, so nothing was added.'
+          : `None of the ${entries.length} entries in that file is a YouTube video link, so nothing was added.`,
+        'error');
+        return;
+      }
+
+      const result = await StorageManager.addVideos(records);
+      if (!result) {
+        this.status('Nothing was imported: the browser would not save the list.', 'error');
+        return;
+      }
+
+      displayVideos();
+
+      const added = result.added.length;
+      const done = PageMode.isWindow && added ? ' You can close this window.' : '';
+      this.status(`${this.summary(added, result.existing.length + repeated, invalid)}${done}`,
+        added ? 'ok' : null);
+
+      if (added) {
+        showToast(`Imported ${plural(added, 'video')}`, 'Undo', async () => {
+          await StorageManager.removeVideos(result.added);
+          displayVideos();
+          this.status('Import undone — your list is as it was before.', null);
+        }, CONFIG.BACKUP.UNDO_DURATION);
+      }
+    } finally {
+      this.busy = false;
+    }
+  },
+
+  summary(added, already, invalid) {
+    const parts = [added ? `Added ${plural(added, 'video')}` : 'Nothing new to add'];
+    if (already) parts.push(`${already} already on your list`);
+    if (invalid) parts.push(`${invalid} skipped, not a YouTube video link`);
+    return `${parts.join(' · ')}.`;
+  },
+
+  /** The list of entries in a file, or an Error that says what to do about it. */
+  async readEntries(file) {
+    if (file.size > CONFIG.BACKUP.MAX_FILE_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      throw new Error(`That file is ${mb} MB, far bigger than any list. Choose the file Export saved.`);
+    }
+
+    const text = await file.text();
+
+    let data;
+    try {
+      // Some Windows editors put a byte-order mark at the start of what they save.
+      data = JSON.parse(text.replace(/^﻿/, ''));
+    } catch (error) {
+      throw new Error(`That file is not valid JSON${this.where(error, text)}. ` +
+        'Look for a missing comma or quote there — the guide has examples.');
+    }
+
+    let entries = null;
+    if (Array.isArray(data)) entries = data;
+    else if (data && typeof data === 'object' && Array.isArray(data.videos)) entries = data.videos;
+
+    if (!entries) {
+      throw new Error('There is no list of videos in that file. It needs a "videos" list, or to be a list itself.');
+    }
+    if (!entries.length) throw new Error('The list in that file is empty — there is nothing to import.');
+    return entries;
+  },
+
+  /** Where JSON.parse gave up, as a line a text editor can go to. */
+  where(error, text) {
+    const message = String(error?.message || '');
+    const line = message.match(/line (\d+)/i);
+    if (line) return ` (line ${line[1]})`;
+    const position = message.match(/position (\d+)/i);
+    if (position) return ` (line ${text.slice(0, Number(position[1])).split('\n').length})`;
+    return '';
+  }
+};
+
+const AddLink = {
+  MESSAGES: {
+    'not-link': 'That is not a link. Paste the whole address of the video.',
+    'not-youtube': 'Only YouTube links can be added.',
+    'not-video': 'That YouTube link is not a video — a playlist or a channel, perhaps.'
+  },
+
+  busy: false,
+
+  status(message, kind) {
+    setStatusLine(DOMCache.addLinkStatus, message, kind);
+  },
+
+  async submit() {
+    const input = DOMCache.addLinkInput;
+    if (!input || this.busy) return;
+
+    const raw = input.value.trim();
+    if (!raw) {
+      this.status('Paste a YouTube link first.', 'error');
+      input.focus();
+      return;
+    }
+
+    const link = WLEUrl.parseLink(raw);
+    if (link.error) {
+      this.status(this.MESSAGES[link.error], 'error');
+      return;
+    }
+
+    this.busy = true;
+    try {
+      AudioManager.play(AppState.soundEnabled);
+      // The pasted text, not the canonical url: a /shorts/ link says it is a
+      // Short, and the canonical one no longer does.
+      const result = await StorageManager.addVideos([Backup.record(raw)]);
+      if (!result) return;   // the write failed, and has said so
+
+      if (result.existing.length) {
+        const saved = (await StorageManager.getVideos()).find((v) => v.url === link.url);
+        this.status(`Already on your list, in ${saved?.watched ? 'Archive' : 'To Watch'}.`, null);
+        return;
+      }
+
+      input.value = '';
+      this.status('Added to To Watch. Its title comes from YouTube as soon as a YouTube tab is open.', 'ok');
+      displayVideos();
+    } finally {
+      this.busy = false;
+    }
+  }
+};
+
+function setupLibrary() {
+  const input = DOMCache.addLinkInput;
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      AddLink.submit();
+    });
+    // What the line said was about the last link, not the one being typed.
+    input.addEventListener('input', () => AddLink.status('', null));
+  }
+
+  DOMCache.addLinkBtn?.addEventListener('click', () => AddLink.submit());
+  DOMCache.exportBtn?.addEventListener('click', () => Backup.exportList());
+  DOMCache.importBtn?.addEventListener('click', () => Backup.pickFile());
+  DOMCache.importFile?.addEventListener('change', (e) => Backup.importFile(e.target.files?.[0]));
+  DOMCache.backupHelpBtn?.addEventListener('click', () => openWiki(CONFIG.BACKUP.GUIDE_SECTION));
 }
 
 // ============================================
@@ -2948,11 +3472,7 @@ function digestsMatch(a, b) {
 }
 
 function setUnlockStatus(message, kind) {
-  const el = DOMCache.supporterUnlockStatus;
-  if (!el) return;
-  el.textContent = message;
-  el.classList.toggle('is-error', kind === 'error');
-  el.classList.toggle('is-ok', kind === 'ok');
+  setStatusLine(DOMCache.supporterUnlockStatus, message, kind);
 }
 
 async function candidateMatchesUnlock(value) {
@@ -3067,6 +3587,7 @@ async function init() {
     setupSoundToggle();
     setupMiniPlayerToggle();
     setupWikiButton();
+    setupLibrary();
     setupStyling();
     setupTypeFilter();
     setupFavouriteFilter();
@@ -3081,6 +3602,12 @@ async function init() {
     setupStorageSync();
 
     await displayVideos();
+
+    // A window opened to import a file is there for that, and nothing else.
+    if (PageMode.isWindow) {
+      Backup.openHere();
+      return;
+    }
 
     // Give the layout a moment to settle, then maybe nudge for a donation
     setTimeout(maybeShowDonateCallout, 600);

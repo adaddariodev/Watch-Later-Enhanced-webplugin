@@ -13,8 +13,17 @@ const CONFIG = {
   KIND_MEMO_MAX: 200,
   BACKFILL_PER_PAGE: 3,
   BACKFILL_DELAY: 4000,
+  // Most records one change can hand this tab to complete at once. One link
+  // pasted in the popup is one; only an import of bare links comes near it,
+  // and whatever is past it is left to the backfill, a few per page load.
+  ARRIVALS_MAX: 25,
   OEMBED_MEMO_MAX: 200,
-  CHANNEL_MAX_LENGTH: 100
+  CHANNEL_MAX_LENGTH: 100,
+  // What a save stores when no title can be found anywhere.
+  UNKNOWN_TITLE: 'Unknown Title',
+  // Every title this extension has ever written in place of a real one. A
+  // later save of the same video may replace them, as it may a missing one.
+  PLACEHOLDER_TITLES: ['Unknown Title', 'Untitled Video']
 };
 
 // ============================================
@@ -110,9 +119,21 @@ function storageSet(values) {
 const OEmbed = {
   cache: new Map(),
 
+  // Statuses that are an answer rather than a bad moment: no such video (a
+  // mistyped or deleted one), or one YouTube will not describe. Asking again
+  // changes nothing, where a timeout or a 5xx might.
+  GONE_STATUSES: [400, 401, 404],
+  gone: new Set(),
+
+  /** Whether YouTube has said this video cannot be described. */
+  isGone(url) {
+    return this.gone.has(url);
+  },
+
   get(url) {
     if (!this.cache.has(url)) {
       if (this.cache.size >= CONFIG.OEMBED_MEMO_MAX) this.cache.clear();
+      if (this.gone.size >= CONFIG.OEMBED_MEMO_MAX) this.gone.clear();
 
       // A failure is not remembered: one bad moment must not stop the next
       // save from asking.
@@ -134,6 +155,7 @@ const OEmbed = {
       );
 
       if (!response.ok) {
+        if (this.GONE_STATUSES.includes(response.status)) this.gone.add(url);
         throw new Error(`oEmbed request failed with status ${response.status}`);
       }
 
@@ -386,12 +408,40 @@ async function confirmKindLater(normalizedUrl, assumedKind, { force = false } = 
 }
 
 /**
- * Fill in the channel of a record saved before channels were stored. oEmbed
- * knows it for any video id, so this needs no page around the video.
+ * Whether a record has a title at all. One added by its link alone, or
+ * imported without one, has none until a YouTube tab names it.
  */
-async function fillChannelLater(normalizedUrl) {
-  const channel = ChannelExtractor.clean((await OEmbed.get(normalizedUrl))?.author_name);
-  if (!channel) return;
+function hasTitle(entry) {
+  return typeof entry?.title === 'string' && entry.title.trim() !== '';
+}
+
+function hasKind(entry) {
+  return entry?.kind === 'short' || entry?.kind === 'video';
+}
+
+/** Whether any of what YouTube can tell us about this record is still missing. */
+function lacksDetails(entry) {
+  return !hasTitle(entry) || !hasKind(entry) || !entry.channel;
+}
+
+/**
+ * Fill in what oEmbed knows and a record is missing: its title, its channel,
+ * or both, from the one answer. Two kinds of record arrive without them —
+ * those saved before channels were stored, and those the popup added from
+ * nothing but a link, since the popup cannot ask YouTube anything itself.
+ * oEmbed answers for any video id, so this needs no page around the video.
+ */
+async function fillDetailsLater(normalizedUrl) {
+  const answer = await OEmbed.get(normalizedUrl);
+  const title = TitleExtractor.isValidTitle(answer?.title) ? answer.title.trim() : null;
+  const channel = ChannelExtractor.clean(answer?.author_name);
+
+  // "No such video" is an answer as well. Left without a title, a mistyped
+  // link would be asked about again on every page load, for good; it gets
+  // the title a save gets when nothing can be found instead, which a save
+  // from the video's own page is still allowed to replace.
+  const gone = !answer && OEmbed.isGone(normalizedUrl);
+  if (!title && !channel && !gone) return;
 
   return StorageQueue.enqueue(async () => {
     for (let attempt = 0; attempt < CONFIG.WRITE_ATTEMPTS; attempt++) {
@@ -401,7 +451,14 @@ async function fillChannelLater(normalizedUrl) {
       const snap = JSON.stringify(savedVideos);
 
       const entry = savedVideos.find((v) => v && v.url === normalizedUrl);
-      if (!entry || entry.channel) return;
+      if (!entry) return;
+
+      // Only what is missing: a title somebody saved or imported is theirs,
+      // even when YouTube has since renamed the video.
+      const patch = {};
+      if (!hasTitle(entry) && (title || gone)) patch.title = title || CONFIG.UNKNOWN_TITLE;
+      if (!entry.channel && channel) patch.channel = channel;
+      if (!Object.keys(patch).length) return;
 
       const latest = await storageGet({ savedVideos: [], [CONFIG.REV_KEY]: 0 });
       if (
@@ -412,16 +469,34 @@ async function fillChannelLater(normalizedUrl) {
         continue;
       }
 
-      entry.channel = channel;
+      Object.assign(entry, patch);
       await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
       return;
     }
   });
 }
 
+/** Everything a record is missing, asked for one question at a time. */
+async function completeSave(entry) {
+  // The title first: it is the one a row without it visibly lacks.
+  if (!hasTitle(entry) || !entry.channel) await fillDetailsLater(entry.url);
+  // force, because here even an answer of 'video' is news — the record has
+  // no type at all.
+  if (!hasKind(entry)) await confirmKindLater(entry.url, 'video', { force: true });
+}
+
+function shuffle(list) {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+
 /**
- * Records saved before this version are missing what did not exist then: a
- * type, a channel, or both. The popup cannot ask YouTube about them — the
+ * Records can be missing what did not exist when they were saved — a type, a
+ * channel — or a title, when the popup added them from a link or they were
+ * imported without one. The popup cannot ask YouTube about them — the
  * extension holds no host permissions, so a fetch from the extension page
  * would be cross-origin — which leaves this content script, on a YouTube tab,
  * as the only place the question can be put.
@@ -434,26 +509,92 @@ async function backfillSaves() {
     const data = await storageGet({ savedVideos: [] });
     const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
 
-    const stale = savedVideos
-      .filter((v) => {
-        if (!v || !WLEUrl.extractVideoId(v.url)) return false;
-        return (v.kind !== 'short' && v.kind !== 'video') || !v.channel;
-      })
+    // Titles first: a row with no name is the gap anyone notices, where a
+    // missing channel is one blank pill. The shuffle underneath is what keeps
+    // a record that can never be completed — a deleted video never gets a
+    // channel — from taking the same slot on every page load, with the rest
+    // of the list waiting behind it for good.
+    const stale = shuffle(
+      savedVideos.filter((v) => v && WLEUrl.extractVideoId(v.url) && lacksDetails(v))
+    )
+      .sort((a, b) => Number(hasTitle(a)) - Number(hasTitle(b)))
       .slice(0, CONFIG.BACKFILL_PER_PAGE);
 
     // Sequentially: the point is to be unobtrusive, not fast.
-    for (const entry of stale) {
-      if (entry.kind !== 'short' && entry.kind !== 'video') {
-        // force, because here even an answer of 'video' is news — the record
-        // has no type at all.
-        await confirmKindLater(entry.url, 'video', { force: true });
-      }
-      if (!entry.channel) await fillChannelLater(entry.url);
-    }
+    for (const entry of stale) await completeSave(entry);
   } catch (error) {
     console.warn('WLE: could not fill in the details of older saves:', error);
   }
 }
+
+// ============================================
+// VIDEOS ADDED FROM A LINK
+// The popup can add a video from its link alone, and it cannot ask YouTube
+// what that video is called. A YouTube tab can, so the one on screen answers
+// as soon as the video arrives, rather than leaving a row with no name until
+// the backfill comes round to it on some later page load.
+// ============================================
+const ArrivalFiller = {
+  pending: new Set(),
+  running: false,
+
+  /**
+   * Only records that were not in the list before this change. Everything
+   * this tab writes back changes a record that is already there, so filling
+   * one in cannot set the next one off — this answers new arrivals, and is
+   * never a crawl through the backlog.
+   */
+  noticed(changes, area) {
+    const change = area === 'local' ? changes.savedVideos : null;
+    if (!change) return;
+
+    const before = new Set(
+      (Array.isArray(change.oldValue) ? change.oldValue : []).map((v) => v && v.url)
+    );
+    const after = Array.isArray(change.newValue) ? change.newValue : [];
+
+    for (const entry of after) {
+      if (this.pending.size >= CONFIG.ARRIVALS_MAX) break;
+      if (!entry || before.has(entry.url) || !lacksDetails(entry)) continue;
+      if (WLEUrl.extractVideoId(entry.url)) this.pending.add(entry.url);
+    }
+
+    this.drain();
+  },
+
+  async drain() {
+    if (this.running || !this.pending.size) return;
+    // Every open YouTube tab hears the same change. Only one somebody is
+    // looking at asks, so ten tabs in the background are not ten copies of
+    // the same question; a hidden one keeps its list until it is shown.
+    if (document.visibilityState !== 'visible') return;
+
+    this.running = true;
+    try {
+      const data = await storageGet({ savedVideos: [] });
+      const savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
+      const byUrl = new Map(savedVideos.filter(Boolean).map((v) => [v.url, v]));
+
+      const urls = [...this.pending];
+      this.pending.clear();
+
+      for (const url of urls) {
+        const entry = byUrl.get(url);
+        if (entry && lacksDetails(entry)) await completeSave(entry);
+      }
+    } catch (error) {
+      console.warn('WLE: could not fill in a video added by its link:', error);
+    } finally {
+      this.running = false;
+    }
+
+    // Whatever arrived while this was busy.
+    if (this.pending.size) this.drain();
+  }
+};
+
+chrome.storage.onChanged.addListener((changes, area) => ArrivalFiller.noticed(changes, area));
+document.addEventListener('visibilitychange', () => ArrivalFiller.drain());
 
 // ============================================
 // VIDEO SAVING LOGIC (Centralized)
@@ -511,7 +652,15 @@ async function saveVideoToWLE(url, title, kind, channel) {
           const learntChannel = Boolean(channel) && !existing.channel;
           if (learntChannel) existing.channel = channel;
 
-          if (upgrade || untyped || learntChannel) {
+          // So does one added by its link alone, or one YouTube would not
+          // name when it was asked — saving it again from its own page is
+          // the way to give it a real title.
+          const learntTitle = TitleExtractor.isValidTitle(title) &&
+            !CONFIG.PLACEHOLDER_TITLES.includes(title) &&
+            (!hasTitle(existing) || CONFIG.PLACEHOLDER_TITLES.includes(existing.title));
+          if (learntTitle) existing.title = title;
+
+          if (upgrade || untyped || learntChannel || learntTitle) {
             if (upgrade || untyped) existing.kind = upgrade ? 'short' : 'video';
             await storageSet({ savedVideos, [CONFIG.REV_KEY]: rev + 1 });
           }
@@ -654,7 +803,7 @@ const TitleExtractor = {
     if (this.isValidTitle(oEmbedTitle)) return oEmbedTitle.trim();
 
     console.warn('WLE: no title found for the current page:', url);
-    return 'Unknown Title';
+    return CONFIG.UNKNOWN_TITLE;
   },
 
   /**
@@ -755,7 +904,7 @@ const TitleExtractor = {
 
     // 3. Last resort
     console.warn('WLE: Both title sources failed for:', url);
-    return 'Unknown Title';
+    return CONFIG.UNKNOWN_TITLE;
   }
 };
 
