@@ -134,7 +134,7 @@
         </p>
         <p>
           There is also a box for it: click the gear icon and open
-          <strong>Add &amp; back up</strong>, paste the link into <strong>Add by link</strong>
+          <strong>Import &amp; export</strong>, paste the link into <strong>Add by link</strong>
           and press <kbd>Enter</kbd>, or click <strong>Add</strong>. As soon as the link is
           one it understands, the box shows the video's thumbnail and id underneath, so a
           mistyped link shows the wrong picture — or none — before anything is added. The
@@ -188,7 +188,7 @@
           </div>
           <div class="wiki-card">
             <h3>Archive</h3>
-            <p>Videos you marked as watched. They leave <em>To Watch</em> but are not deleted.</p>
+            <p>Videos you marked as watched. They leave <em>To Watch</em> but are not deleted, and can be sorted just the same.</p>
           </div>
           <div class="wiki-card">
             <h3>Trash</h3>
@@ -232,7 +232,8 @@
           Under the tabs, three chips narrow the list to <strong>All</strong>,
           <strong>Videos</strong> or <strong>Shorts</strong>, each with a count of how many
           there are. The choice sticks until you change it, and works alongside the
-          favourites toggle and the tag search that share the line with them.
+          favourites toggle and the search button that share the line with them, and
+          with the <a href="#tags">tag bar</a> underneath.
         </p>
         <p>
           The type is worked out from the page a video was saved from, and then
@@ -256,7 +257,7 @@
           </thead>
           <tbody>
             <tr>
-              <td>The video title</td>
+              <td>The thumbnail or the title</td>
               <td>To Watch, Archive, Trash</td>
               <td>Opens the video in a new browser tab.</td>
             </tr>
@@ -397,13 +398,25 @@
       <section class="wiki-section" id="reorder">
         <h2>Reordering your list</h2>
         <p>
-          In the <strong>To Watch</strong> tab, grab the handle on the left of a row and drag
-          it up or down to set your own order. Drag near the top or bottom edge and the list
-          scrolls by itself.
+          In <strong>To Watch</strong> and in <strong>Archive</strong>, drag a card up or
+          down to set your own order. Hover a card and its number — in the corner of the
+          thumbnail, or on the left of the card with thumbnails off — turns into the grip;
+          drop the card on another and it takes that one's place. Drag near the top or
+          bottom edge and the list scrolls by itself. The numbers change as soon as you let
+          go.
         </p>
         <p>
-          Dragging is switched off while a tag search is active — otherwise the positions you
-          see would not match the real list. Clear the search and the handles come back.
+          Each tab keeps its own order: sorting the Archive never moves anything in To
+          Watch, and the other way round. A video you send back from the Archive to To Watch
+          returns to where it sits in that shared order.
+        </p>
+        <p>
+          Dragging is switched off while anything narrows the list — a search, a tag, a
+          channel, the <strong>Videos</strong> or <strong>Shorts</strong> chip, or the
+          favourites heart — because dropping a card between two results would say nothing
+          about where it belongs among the videos that are hidden. The grip disappears and
+          the number says why when you hover it; clear the filter and the grips come back.
+          The Trash has no order of its own, so it cannot be sorted.
         </p>
       </section>
 
@@ -609,6 +622,21 @@
               <td>Adds the tag you typed</td>
             </tr>
             <tr>
+              <td><kbd>←</kbd> / <kbd>→</kbd></td>
+              <td>Tag bar in the popup</td>
+              <td>Moves to the previous or next tag, scrolling the bar to show it</td>
+            </tr>
+            <tr>
+              <td><kbd>Home</kbd> / <kbd>End</kbd></td>
+              <td>Tag bar in the popup</td>
+              <td>Jumps to the first or last tag</td>
+            </tr>
+            <tr>
+              <td><kbd>Enter</kbd></td>
+              <td>Tag bar in the popup</td>
+              <td>Filters by the tag you are on, or stops filtering if it is lit</td>
+            </tr>
+            <tr>
               <td><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>V</kbd></td>
               <td>The list in the popup</td>
               <td>Adds the YouTube video whose link you copied</td>
@@ -637,11 +665,11 @@
           changed, so closing it hides the controls and not what they are set to. Above
           it sit the things that are not settings: this guide, a link to the list of
           releases on GitHub if you want to know what each version added, and
-          <strong>Add &amp; back up</strong>, folded the same way, which holds what you can
+          <strong>Import &amp; export</strong>, folded the same way, which holds what you can
           do to the list as a whole.
         </p>
 
-        <h3>Add &amp; back up</h3>
+        <h3>Import &amp; export</h3>
         <p>
           <strong>Add by link</strong> saves a video from its address — see
           <a href="#saving">Saving a video</a>. <strong>Export</strong> and
@@ -748,13 +776,14 @@
           videos in one go.
         </p>
         <p>
-          Both are in the popup: click the gear icon, then open <strong>Add &amp; back
-          up</strong>. The <strong>Guide</strong> button on the same line opens this page.
+          Both are in the popup: click the gear icon, then open <strong>Import &amp;
+          export</strong>; they are under <strong>JSON file</strong>. The
+          <strong>Guide</strong> button on the same line opens this page.
         </p>
 
         <h3>Export your list</h3>
         <ol>
-          <li>Open the popup, click the gear icon, and open <strong>Add &amp; back up</strong>.</li>
+          <li>Open the popup, click the gear icon, and open <strong>Import &amp; export</strong>.</li>
           <li>Click <strong>Export</strong>.</li>
           <li>
             A file named like <code>watch-later-enhanced-2026-09-28.json</code> — with
@@ -773,7 +802,7 @@
 
         <h3>Import a file</h3>
         <ol>
-          <li>Open the popup, click the gear icon, and open <strong>Add &amp; back up</strong>.</li>
+          <li>Open the popup, click the gear icon, and open <strong>Import &amp; export</strong>.</li>
           <li>Click <strong>Import</strong>. A small window opens with your list and the
             <strong>Import</strong> button waiting.</li>
           <li>Click <strong>Import</strong> again in that window and choose the file — or

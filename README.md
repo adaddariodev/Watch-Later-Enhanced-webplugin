@@ -44,7 +44,7 @@ YouTube's oEmbed endpoint if the page does not offer one.
 
 Paste a YouTube link — `youtube.com`, the Share button's `youtu.be`, a Short, a
 live stream, with or without `https://` — anywhere on the list in the popup, or
-into **Info & Settings → Add & back up → Add by link**. There, anything that is
+into **Info & Settings → Import & export → Add by link**. There, anything that is
 not a YouTube video is refused with the reason, and
 a video already on the list says which tab it is in rather than being added
 twice. The popup asks YouTube nothing, so the title, channel and type are filled
@@ -92,10 +92,11 @@ window of its own, so closing the page it came from leaves it playing.
 
 * **Search that looks at titles and tags** at once, for the two things anyone
   remembers about a saved video. The box folds into the filter row when nothing
-  is being searched for, and never while it is filtering.
+  is being searched for, and never while something typed in it is filtering.
 * **Click a channel name** under any video to see only what you saved from it —
   or a tag, to see only what carries it. Either writes what it did into the
-  search box (`channel:Fireship`, `tag:music`), which you can also type.
+  search box (`channel:Fireship`, `tag:music`), which you can also type; a tag
+  leaves the box folded, since its chip lights up in the tag bar instead.
 * **A tag bar** under the filters: every tag on the list on screen, most used
   first, one click from filtering by it. One line that scrolls sideways — arrows
   appear only on a side with more to see — so it never grows with your tags,
@@ -104,11 +105,12 @@ window of its own, so closing the page it came from leaves it playing.
 * **Thumbnails** — each card opens with the video's picture, the smallest one
   YouTube publishes (a few KB), loaded only for cards near the screen and kept
   only in the browser's own cache. One switch in Settings turns them off.
-* **A numbered queue** — every card shows its place in the list, counting from
+* **A numbered queue** — every card shows its place in its tab, counting from
   1, and takes its new number the moment it is moved. Hover the card and the
   number becomes the grip you drag it by, in the same spot — a badge in the
   thumbnail's corner — so a number costs the title nothing.
-* **Drag and drop** to set your own order.
+* **Drag and drop** to set your own order, in **To Watch** and in **Archive**
+  alike. Sorting one tab never moves anything in the other.
 * **To Watch / Archive / Trash**, so finished videos leave the queue without
   disappearing, and deletions are recoverable.
 * **A Shorts label** on Shorts, with a filter that narrows the list to either kind.
@@ -165,6 +167,7 @@ what you have installed.
 | `M` | Mini player | Mute / unmute |
 | `Esc` | Mini player | Close and return the video to the tab |
 | `Enter` / `Esc` | Tag box | Add the tag / close without adding |
+| `←` / `→`, `Home` / `End` | Tag bar | Move along the tags; `Enter` filters by the one focused |
 
 ## Privacy
 
@@ -249,6 +252,9 @@ it runs.
   video id and stored as the canonical watch URL, text trimmed and capped, tag
   colours recomputed from their names. A file can add videos; it cannot add a
   key, a style or a script, and it never overwrites a video already saved.
+* **Moves by identity, not position** — a drag names the two videos by url and
+  finds them inside the write, so a delete or an import landing between drawing
+  the list and dropping the card cannot move the wrong one.
 * **Optimistic writes with a snapshot guard** — every read-modify-write on the
   list re-reads before committing and retries on conflict, so the popup and a
   YouTube tab saving at the same moment cannot drop each other's changes.
@@ -281,19 +287,21 @@ it runs.
 
 ```text
 .
+├── docs/               # Chrome Web Store listing copy
 ├── fonts/              # Inter, bundled (woff2 + OFL licence) — no CDN
 ├── icons/              # Extension icons (48px, 128px) and button glyphs
 ├── imgs/               # Logos and store banners
 ├── sounds/             # popup-click.mp3, video-saved.mp3
-├── content.js          # Saving, title extraction, type detection, HUD
+├── background.js       # Service worker: opens and serialises the mini player window
+├── content.js          # Saving, title extraction, type detection, backfill, HUD
 ├── content.css         # In-page HUD and injected button styles
 ├── detach.js           # Detached mini player (Document Picture-in-Picture)
 ├── detach.css          # Mini player window styling
-├── popup.html/.css/.js # The list: tags, search, filters, drag reorder
+├── popup.html/.css/.js # The list: thumbnails, tags, search, filters, drag reorder,
+│                       # add by link, import/export, settings
 ├── wiki.html/.css/.js  # Built-in user guide, opened from Settings
 ├── url-utils.js        # Shared URL parsing and validation
 ├── manifest.json       # Manifest V3 configuration
-├── CHANGELOG.md        # Release history
 └── README.md
 ```
 

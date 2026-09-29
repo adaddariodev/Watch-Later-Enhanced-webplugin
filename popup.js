@@ -329,7 +329,7 @@ const AppState = {
   query: '',
   typeFilter: 'all', // 'all' | 'video' | 'short'
   favouritesOnly: false,
-  draggedItemIndex: null,
+  draggedUrl: null,   // the card being dragged, by url: see StorageManager.reorder
   view: 'active', // 'active' | 'archive' | 'trash'
   supporter: false,
   hideJobsMatchBanner: false,
@@ -1124,24 +1124,26 @@ const StorageManager = {
     }
   },
 
-  async reorder(fromIndex, toIndex) {
+  /**
+   * Move one video to where another one is. To Watch and Archive are one
+   * array, so this works for either tab, and leaves the order of every other
+   * video — in both — as it was.
+   *
+   * By url, looked up inside the write: positions read when the list was
+   * drawn go stale the moment anything else writes to it — a delete in
+   * another window, an import — and a stale position moves the wrong video.
+   */
+  async reorder(fromUrl, toUrl) {
     try {
       return await this.mutateLists((ctx) => {
-        if (
-          fromIndex < 0 ||
-          toIndex < 0 ||
-          fromIndex >= ctx.videos.length
-        ) {
+        const from = ctx.videos.findIndex((v) => v.url === fromUrl);
+        const to = ctx.videos.findIndex((v) => v.url === toUrl);
+        if (from === -1 || to === -1 || from === to) {
           ctx.result = false;
           return;
         }
-        const [item] = ctx.videos.splice(fromIndex, 1);
-        if (!item) {
-          ctx.result = false;
-          return;
-        }
-        const dest = Math.min(toIndex, ctx.videos.length);
-        ctx.videos.splice(dest, 0, item);
+        const [item] = ctx.videos.splice(from, 1);
+        ctx.videos.splice(to, 0, item);
         ctx.result = true;
       });
     } catch (error) {
@@ -1169,7 +1171,6 @@ const StorageManager = {
 const VideoItemFactory = {
   /**
    * @param {object} video
-   * @param {number} index  position in the full saved-videos array (for drag reorder)
    * @param {'active'|'archive'|'trash'} mode
    * @param {{number: number, ordinal: number, setSize: number}} [place]
    *   `number` is what the card shows: where the video sits in the list it
@@ -1178,11 +1179,10 @@ const VideoItemFactory = {
    *   because a filter moves nothing. `ordinal` and `setSize` are that
    *   on-screen set, which is what aria-posinset and aria-setsize mean.
    */
-  create(video, index, mode = 'active', place = { number: 0, ordinal: 0, setSize: 0 }) {
+  create(video, mode = 'active', place = { number: 0, ordinal: 0, setSize: 0 }) {
     const li = document.createElement('li');
     li.className = 'video-item';
     li.dataset.url = video.url;
-    li.dataset.index = String(index);
 
     // The list is drawn a chunk at a time, so the <li> elements on the page
     // are not the whole set; without these a screen reader would count what
@@ -1193,14 +1193,16 @@ const VideoItemFactory = {
     }
 
     const editable = mode !== 'trash';
-    // Reordering writes positions in the full list, so it only makes sense
-    // while the list on screen is the full list.
+    // Reordering only makes sense while the list on screen is the whole of
+    // that tab: dropping between two search results would say nothing about
+    // where the video goes among the ones that are hidden. The trash keeps no
+    // order of its own, so it has none to change.
     const isFiltered = AppState.isFiltered();
-    const canDrag = mode === 'active' && !isFiltered;
+    const canDrag = (mode === 'active' || mode === 'archive') && !isFiltered;
     li.draggable = canDrag;
 
     const { row, tagAddBtn, secondaryActions } =
-      this.createVideoRow(video, index, mode, canDrag, place);
+      this.createVideoRow(video, mode, canDrag, place);
     li.appendChild(row);
 
     // What the video is, then what you called it: one row each, so a long
@@ -1222,7 +1224,7 @@ const VideoItemFactory = {
     return li;
   },
 
-  createVideoRow(video, index, mode, canDrag, place) {
+  createVideoRow(video, mode, canDrag, place) {
     const row = document.createElement('div');
     row.className = 'video-row';
 
@@ -1232,7 +1234,7 @@ const VideoItemFactory = {
     left.appendChild(this.createRowLead(place, mode, canDrag, video));
     left.appendChild(this.createTitle(video));
 
-    const { primary, secondary, tagAddBtn } = this.createActions(index, mode, video);
+    const { primary, secondary, tagAddBtn } = this.createActions(mode, video);
     row.append(left, primary);
 
     return { row, tagAddBtn, secondaryActions: secondary };
@@ -1274,7 +1276,7 @@ const VideoItemFactory = {
     // Only where reordering is on. A grip on a row that cannot be dragged is
     // a control that does nothing, and the number stays put to say so.
     if (!canDrag) {
-      if (mode === 'active' && place.number > 0) {
+      if (mode !== 'trash' && place.number > 0) {
         number.title = `#${place.number} — clear the filters to reorder`;
       }
       return lead;
@@ -1440,7 +1442,7 @@ const VideoItemFactory = {
    * row below, level with the pills. An empty group is hidden in CSS, so trash
    * — which has no primary action — gives the title the whole width.
    */
-  createActions(index, mode, video) {
+  createActions(mode, video) {
     const primary = this.makeActionGroup('video-actions-primary');
     const secondary = this.makeActionGroup('video-actions-secondary');
     let tagAddBtn = null;
@@ -1488,7 +1490,6 @@ const VideoItemFactory = {
     secondary.appendChild(tagAddBtn);
 
     const delBtn = this.makeIconButton('delete-btn', 'icons/buttons/cross-small.svg', 'Remove video');
-    delBtn.dataset.index = String(index);
     secondary.appendChild(delBtn);
 
     return { primary, secondary, tagAddBtn };
@@ -1778,12 +1779,13 @@ const VideoItemFactory = {
   attachDragListeners(li) {
     li.addEventListener('dragstart', () => {
       if (AppState.query) return;
-      AppState.draggedItemIndex = parseInt(li.dataset.index, 10);
+      AppState.draggedUrl = li.dataset.url;
       DragScroller.start();
       setTimeout(() => li.classList.add('dragging'), 0);
     });
 
     li.addEventListener('dragend', () => {
+      AppState.draggedUrl = null;
       DragScroller.stop();
       li.classList.remove('dragging');
       document.querySelectorAll('.video-item').forEach(el => el.classList.remove('drop-target'));
@@ -1792,8 +1794,7 @@ const VideoItemFactory = {
     li.addEventListener('dragover', (e) => {
       if (AppState.query) return;
       e.preventDefault();
-      const targetIndex = parseInt(li.dataset.index, 10);
-      if (AppState.draggedItemIndex !== null && AppState.draggedItemIndex !== targetIndex) {
+      if (AppState.draggedUrl && AppState.draggedUrl !== li.dataset.url) {
         li.classList.add('drop-target');
       }
     });
@@ -1807,11 +1808,11 @@ const VideoItemFactory = {
       e.preventDefault();
       li.classList.remove('drop-target');
 
-      const targetIndex = parseInt(li.dataset.index, 10);
-      if (AppState.draggedItemIndex === null || AppState.draggedItemIndex === targetIndex) return;
+      const from = AppState.draggedUrl;
+      if (!from || from === li.dataset.url) return;
 
       try {
-        await StorageManager.reorder(AppState.draggedItemIndex, targetIndex);
+        await StorageManager.reorder(from, li.dataset.url);
         displayVideos();
       } catch (error) {
         console.error('Error reordering videos:', error);
@@ -1847,7 +1848,6 @@ const ListWindow = {
   sentinel: null,
   // What the last pass drew, so growing appends rather than rebuilds.
   videos: [],
-  indexByUrl: null,
   placeByUrl: null,
   mode: 'active',
 
@@ -1866,10 +1866,9 @@ const ListWindow = {
     this.limit = CONFIG.RENDER_CHUNK;
   },
 
-  render(videos, { mode, placeByUrl = null, indexByUrl = null } = {}) {
+  render(videos, { mode, placeByUrl = null } = {}) {
     this.videos = videos;
     this.mode = mode;
-    this.indexByUrl = indexByUrl;
     this.placeByUrl = placeByUrl;
 
     const frag = document.createDocumentFragment();
@@ -1882,7 +1881,6 @@ const ListWindow = {
   build(video, ordinal) {
     return VideoItemFactory.create(
       video,
-      this.indexByUrl?.get(video.url) ?? -1,
       this.mode,
       {
         // What the card shows: where the video sits in its own list, which a
@@ -1950,8 +1948,7 @@ const ListWindow = {
 // ============================================
 /**
  * url → 1-based place in that list. Built once per pass: asking each row for
- * its own index would be a scan per row, which is quadratic on a long list —
- * the same reason indexByUrl exists.
+ * its own index would be a scan per row, which is quadratic on a long list.
  */
 function positionsOf(videos) {
   return new Map(videos.map((v, i) => [v.url, i + 1]));
@@ -2078,10 +2075,6 @@ async function displayVideos() {
 
     DOMCache.tutorial.style.display = 'none';
 
-    // Index into the FULL saved array, so drag reorder stays correct. Built
-    // once: looking each row up by scanning was quadratic in the list length.
-    const indexByUrl = new Map(savedVideos.map((v, i) => [v.url, i]));
-
     // Numbered against the view's own list rather than against what survived
     // the filters: #7 stays #7 while you search for it, which is the number
     // you would be dragging it to once the filters come off.
@@ -2091,7 +2084,7 @@ async function displayVideos() {
     // them starts the window at the top again and changing none of them — a
     // heart, a delete — leaves your place alone.
     ListWindow.sync(`${AppState.view}|${AppState.typeFilter}|${AppState.favouritesOnly}|${AppState.query}`);
-    ListWindow.render(filteredVideos, { mode: AppState.view, indexByUrl, placeByUrl });
+    ListWindow.render(filteredVideos, { mode: AppState.view, placeByUrl });
   } catch (error) {
     console.error('Error displaying videos:', error);
     showTutorial('Error', 'Failed to load videos. Please try refreshing.');
