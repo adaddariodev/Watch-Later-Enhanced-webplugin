@@ -128,9 +128,16 @@
 
         <h3>4. Paste its link in the popup</h3>
         <p>
-          For a link somebody sent you, or a video you are not looking at: open the popup,
-          click the gear icon and open <strong>Your list</strong>. Paste the link into
-          <strong>Add by link</strong> and press <kbd>Enter</kbd>, or click <strong>Add</strong>.
+          For a link somebody sent you, or a video you are not looking at: copy the link,
+          open the popup and paste it (<kbd>Ctrl</kbd> + <kbd>V</kbd>, or <kbd>⌘</kbd> +
+          <kbd>V</kbd> on a Mac) anywhere on the list. A bar at the bottom confirms it.
+        </p>
+        <p>
+          There is also a box for it: click the gear icon and open
+          <strong>Add &amp; back up</strong>, paste the link into <strong>Add by link</strong>
+          and press <kbd>Enter</kbd>, or click <strong>Add</strong>. The box is the one to use
+          when you want to be told why a link was refused — a paste onto the list that is
+          not a YouTube video link is simply ignored.
         </p>
         <ul>
           <li>Any YouTube link to a video or a Short works — from the address bar, from the
@@ -145,9 +152,11 @@
         <div class="wiki-note">
           <strong>Why the title arrives a moment later.</strong> The popup cannot ask YouTube
           anything — that is part of what keeps it private — so a video added by its link
-          shows its link, in grey, until a YouTube tab has looked it up. That happens at
-          once if YouTube is open on screen, and otherwise the next time you open it. The
-          channel and whether it is a Short are filled in the same way.
+          shows its link, in grey, with a <strong>Title pending</strong> label, until a
+          YouTube tab has looked it up. That happens at once if YouTube is open on screen,
+          and otherwise the next time you open it. The channel and whether it is a Short are
+          filled in the same way. A YouTube tab that was open before the extension last
+          updated cannot do it until it is reloaded.
         </div>
 
         <h3>What you get back</h3>
@@ -576,6 +585,11 @@
               <td>Adds the tag you typed</td>
             </tr>
             <tr>
+              <td><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>V</kbd></td>
+              <td>The list in the popup</td>
+              <td>Adds the YouTube video whose link you copied</td>
+            </tr>
+            <tr>
               <td><kbd>Enter</kbd></td>
               <td>Add by link box in the popup</td>
               <td>Adds the video you pasted the link of</td>
@@ -599,16 +613,16 @@
           changed, so closing it hides the controls and not what they are set to. Above
           it sit the things that are not settings: this guide, a link to the list of
           releases on GitHub if you want to know what each version added, and
-          <strong>Your list</strong>, folded the same way, which holds what you can do to
-          the list as a whole.
+          <strong>Add &amp; back up</strong>, folded the same way, which holds what you can
+          do to the list as a whole.
         </p>
 
-        <h3>Your list</h3>
+        <h3>Add &amp; back up</h3>
         <p>
           <strong>Add by link</strong> saves a video from its address — see
           <a href="#saving">Saving a video</a>. <strong>Export</strong> and
           <strong>Import</strong> save your list to a file and read one back in; the
-          <strong>?</strong> button beside them opens
+          <strong>Guide</strong> button beside them opens
           <a href="#backup">Import &amp; export</a>, which explains both step by step,
           with examples.
         </p>
@@ -697,13 +711,13 @@
           videos in one go.
         </p>
         <p>
-          Both are in the popup: click the gear icon, then open <strong>Your list</strong>.
-          The <strong>?</strong> button on the same line opens this page.
+          Both are in the popup: click the gear icon, then open <strong>Add &amp; back
+          up</strong>. The <strong>Guide</strong> button on the same line opens this page.
         </p>
 
         <h3>Export your list</h3>
         <ol>
-          <li>Open the popup, click the gear icon, and open <strong>Your list</strong>.</li>
+          <li>Open the popup, click the gear icon, and open <strong>Add &amp; back up</strong>.</li>
           <li>Click <strong>Export</strong>.</li>
           <li>
             A file named like <code>watch-later-enhanced-2026-09-28.json</code> — with
@@ -721,8 +735,10 @@
 
         <h3>Import a file</h3>
         <ol>
-          <li>Open the popup, click the gear icon, and open <strong>Your list</strong>.</li>
-          <li>Click <strong>Import</strong> and choose the file.</li>
+          <li>Open the popup, click the gear icon, and open <strong>Add &amp; back up</strong>.</li>
+          <li>Click <strong>Import</strong>. A small window opens with your list and the
+            <strong>Import</strong> button waiting.</li>
+          <li>Click <strong>Import</strong> again in that window and choose the file.</li>
           <li>
             The line under the buttons says what happened, for example
             <em>Added 12 videos · 3 already on your list</em>. The new videos are in your
@@ -730,13 +746,11 @@
           </li>
         </ol>
         <div class="wiki-note">
-          <strong>A small window may open first.</strong> Many browsers close the toolbar
-          popup the moment a window for choosing a file opens — Firefox always does — and
-          the import would close with it. So everywhere except Chrome and Edge on Windows,
-          which keep the popup open, <strong>Import</strong> first opens your list in a
-          small window of its own, with the button waiting for you. Click
-          <strong>Import</strong> again in that window and pick the file: that window stays
-          open while you choose.
+          <strong>Why a window first?</strong> Browsers close the toolbar popup as soon as
+          something else takes the focus — Firefox and Chrome on Linux do it for the window
+          you choose a file in — and the import would close with it, without a word. The
+          small window cannot be closed that way, so the file is always chosen from there.
+          Close it when you are done.
         </div>
 
         <h3>What importing does — and never does</h3>
@@ -873,7 +887,7 @@
             </tr>
             <tr>
               <td><code>tags</code></td>
-              <td>A list of names, <code>["music", "80s"]</code>, or one line, <code>"music, 80s"</code>. A tag longer than 22 characters is shortened; the same tag twice is kept once.</td>
+              <td>A list of names, <code>["music", "80s"]</code>. A tag longer than 22 characters is shortened; the same tag twice is kept once.</td>
               <td>No tags.</td>
             </tr>
             <tr>
@@ -888,7 +902,7 @@
             </tr>
             <tr>
               <td><code>savedAt</code></td>
-              <td>When it was saved: a date such as <code>"2026-09-28"</code> or <code>"2026-09-28T18:30:00Z"</code>, or a number of seconds or milliseconds since 1970.</td>
+              <td>When it was saved: a date such as <code>"2026-09-28"</code> or <code>"2026-09-28T18:30:00Z"</code>, or a number of milliseconds since 1970, as the extension keeps them.</td>
               <td>The moment of the import.</td>
             </tr>
             <tr>

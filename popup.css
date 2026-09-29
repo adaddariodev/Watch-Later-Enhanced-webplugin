@@ -667,6 +667,19 @@ li.video-item:hover .favourite-btn.is-favourite {
   font-style: italic;
   font-weight: 400;
   word-break: break-all;
+  /* Italic letters lean past their box, and the title's clipping would take
+     the last one's overhang with it. */
+  padding-right: 2px;
+}
+
+/* A state, not a type: the accent's outline, so it reads as "on its way". */
+.kind-pill-pending {
+  background: rgba(255, 208, 0, 0.08);
+  border-color: rgba(255, 208, 0, 0.32);
+  color: #e8c95a;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
 }
 
 /* .video-left: dichiarazione unica (fuse le due originarie) */
@@ -1156,7 +1169,7 @@ a.icon-btn {
 
 .settings-hint {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.35;
   color: var(--text-dim);
@@ -1521,6 +1534,13 @@ a.icon-btn {
   padding: 0 10px;
 }
 
+/* The guide explains the other two, so it is quieter and only as wide as
+   its word, not a third equal choice. */
+.backup-row .backup-guide {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
 /* transform: none for the same reason as on the filter buttons: .btn-icon's
    scale(0.7) is sized for the icons on a video row. */
 .backup-btn .btn-icon {
@@ -1532,6 +1552,20 @@ a.icon-btn {
 .settings-unlock-row .text-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Inside a group the group is already the card: a second border and fill
+   inside it was a box in a box in the panel, and cost the text its width. */
+.settings-group .settings-unlock {
+  background: none;
+  border: 0;
+  padding: 2px 4px 6px;
+}
+
+/* A status line says more than the hint above it, and the two together were
+   four lines of small print. While there is news, the news wins. */
+.settings-hint:has(+ .settings-unlock-status:not(:empty)) {
+  display: none;
 }
 
 /* No reserved line: empty most of the time, and an always-blank row is the

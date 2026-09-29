@@ -1419,6 +1419,14 @@ const VideoItemFactory = {
    * the second row of buttons on the same line, hard right.
    * @param {HTMLElement} [actions] the secondary button group
    */
+  createPendingPill() {
+    const pill = document.createElement('span');
+    pill.className = 'kind-pill kind-pill-pending';
+    pill.textContent = 'Title pending';
+    pill.title = 'Filled in by an open YouTube tab — the one on screen, or the next one you load';
+    return pill;
+  },
+
   createMetaRow(video, actions) {
     const row = document.createElement('div');
     row.className = 'meta-row';
@@ -1428,7 +1436,10 @@ const VideoItemFactory = {
     // called.
     const pills = document.createElement('div');
     pills.className = 'meta-pills';
-    pills.appendChild(this.createKindPill(video.kind));
+    // A video added by its link is waiting on YouTube for its title and its
+    // type: say so, rather than showing "Video" for a type nobody knows yet.
+    if (!video.title) pills.appendChild(this.createPendingPill());
+    if (video.kind || video.title) pills.appendChild(this.createKindPill(video.kind));
     if (video.channel) pills.appendChild(this.createChannelPill(video.channel));
     row.appendChild(pills);
 
@@ -1914,7 +1925,7 @@ async function displayVideos() {
       if (AppState.view === 'archive') {
         showTutorial('No watched videos yet', 'Mark a video as watched (✓) to move it here.');
       } else {
-        showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>left click</b> any YouTube video to save it instantly.', true);
+        showTutorial('How to use', 'Hold the <b>Alt</b> key and <b>left click</b> any YouTube video to save it instantly — or paste a YouTube link here.', true);
       }
       return;
     }
@@ -2541,9 +2552,9 @@ const Backup = {
     return value.replace(/\s+/g, ' ').trim().slice(0, max).trim();
   },
 
-  /** A list of names, or one line of them with commas in between. */
+  /** A list of names, as Export writes them. */
   tags(raw) {
-    const list = typeof raw === 'string' ? raw.split(',') : (Array.isArray(raw) ? raw : []);
+    const list = Array.isArray(raw) ? raw : [];
     const seen = new Set();
     const out = [];
 
@@ -2561,13 +2572,13 @@ const Backup = {
   },
 
   /**
-   * Milliseconds, the way the list keeps time, from what a file can hold: a
-   * date as Export writes it, a date as a person writes it ("2026-09-28"), or
-   * a number — in milliseconds, or in the seconds most other tools write.
+   * Milliseconds, the way the list keeps time, from a date as Export writes
+   * it or a person does ("2026-09-28"), or from milliseconds as the list
+   * keeps them. Nothing is guessed about a number: it is milliseconds.
    */
   time(value) {
     let ms = NaN;
-    if (typeof value === 'number') ms = value < 1e11 ? value * 1000 : value;
+    if (typeof value === 'number') ms = value;
     else if (typeof value === 'string' && value.trim()) ms = Date.parse(value);
     return Number.isFinite(ms) && ms > 0 ? Math.round(ms) : null;
   },
@@ -2607,7 +2618,18 @@ const Backup = {
   async exportList() {
     AudioManager.play(AppState.soundEnabled);
 
-    const videos = await StorageManager.getVideos();
+    // Read directly: getVideos() answers a failed read with an empty list,
+    // which would be reported as a list with nothing in it.
+    let videos;
+    try {
+      const data = await StorageManager.getRaw({ [CONFIG.STORAGE_KEYS.VIDEOS]: [] });
+      videos = StorageManager.normalizeList(data[CONFIG.STORAGE_KEYS.VIDEOS]);
+    } catch (error) {
+      console.error('Export read error:', error);
+      this.status('Could not read your list, so nothing was exported. Try again.', 'error');
+      return;
+    }
+
     if (!videos.length) {
       this.status('Your list is empty — there is nothing to export yet.', 'error');
       return;
@@ -2639,16 +2661,17 @@ const Backup = {
 
   /**
    * Import needs a file window, and a browser shuts its toolbar popup as soon
-   * as the popup loses focus — which a file window takes, everywhere except
-   * Chrome on Windows. Asked for from here, the popup would be gone before a
-   * file was chosen, taking the import with it. So anywhere else the same
-   * page opens in a window of its own first, which a file window cannot
-   * close, and the file is chosen from there.
+   * as the popup loses focus — which a file window takes in Firefox and in
+   * Chrome on Linux, and may elsewhere. Asked for from the popup, it would be
+   * gone before a file was chosen, taking the import with it and saying
+   * nothing. So the file is always chosen from a window of its own, which a
+   * file window cannot close: one click more, everywhere, and never a silent
+   * failure on a platform nobody tested.
    */
   pickFile() {
     AudioManager.play(AppState.soundEnabled);
 
-    if (!this.canPickHere()) {
+    if (!PageMode.isWindow) {
       this.openWindow();
       return;
     }
@@ -2658,13 +2681,6 @@ const Backup = {
     // Cleared, so choosing the same file a second time is still a change.
     input.value = '';
     input.click();
-  },
-
-  canPickHere() {
-    if (PageMode.isWindow) return true;
-    if (/Firefox\//.test(navigator.userAgent || '')) return false;
-    const platform = navigator.userAgentData?.platform || navigator.platform || '';
-    return /^win/i.test(platform);
   },
 
   openWindow() {
@@ -2820,10 +2836,37 @@ const AddLink = {
     'not-video': 'That YouTube link is not a video — a playlist or a channel, perhaps.'
   },
 
+  ADDED: 'Added to To Watch. Its title appears once a YouTube tab looks it up.',
+
   busy: false,
 
   status(message, kind) {
     setStatusLine(DOMCache.addLinkStatus, message, kind);
+  },
+
+  /**
+   * The one way a link becomes a video, for the box and for a paste alike.
+   * @returns {Promise<{kind: 'error'|'exists'|'added'|'failed', message: string}>}
+   */
+  async add(raw) {
+    const link = WLEUrl.parseLink(raw);
+    if (link.error) return { kind: 'error', message: this.MESSAGES[link.error] };
+
+    // The pasted text, not the canonical url: a /shorts/ link says it is a
+    // Short, and the canonical one no longer does.
+    const result = await StorageManager.addVideos([Backup.record(raw)]);
+    if (!result) return { kind: 'failed', message: '' };   // already reported
+
+    if (result.existing.length) {
+      const saved = (await StorageManager.getVideos()).find((v) => v.url === link.url);
+      return {
+        kind: 'exists',
+        message: `Already on your list, in ${saved?.watched ? 'Archive' : 'To Watch'}.`
+      };
+    }
+
+    displayVideos();
+    return { kind: 'added', message: this.ADDED };
   },
 
   async submit() {
@@ -2837,34 +2880,51 @@ const AddLink = {
       return;
     }
 
-    const link = WLEUrl.parseLink(raw);
-    if (link.error) {
-      this.status(this.MESSAGES[link.error], 'error');
-      return;
-    }
-
     this.busy = true;
     try {
+      const outcome = await this.add(raw);
+      if (outcome.kind === 'failed') return;
+      if (outcome.kind !== 'error') AudioManager.play(AppState.soundEnabled);
+      if (outcome.kind === 'added') input.value = '';
+      this.status(outcome.message, { error: 'error', added: 'ok' }[outcome.kind] || null);
+    } finally {
+      this.busy = false;
+    }
+  },
+
+  /**
+   * A YouTube link pasted anywhere on the list adds it — the quick way, with
+   * no panel to open. Only on the list itself: a paste into a field is that
+   * field's, and a paste that is not a YouTube video link is left alone
+   * without a word, since it was never meant for this.
+   */
+  async fromPaste(e) {
+    const target = e.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
+    if (DOMCache.settingsModal && !DOMCache.settingsModal.classList.contains('hidden')) return;
+
+    const raw = (e.clipboardData?.getData('text') || '').trim();
+    if (!raw || WLEUrl.parseLink(raw).error || this.busy) return;
+
+    e.preventDefault();
+    this.busy = true;
+    try {
+      const outcome = await this.add(raw);
+      if (outcome.kind === 'failed') return;
       AudioManager.play(AppState.soundEnabled);
-      // The pasted text, not the canonical url: a /shorts/ link says it is a
-      // Short, and the canonical one no longer does.
-      const result = await StorageManager.addVideos([Backup.record(raw)]);
-      if (!result) return;   // the write failed, and has said so
-
-      if (result.existing.length) {
-        const saved = (await StorageManager.getVideos()).find((v) => v.url === link.url);
-        this.status(`Already on your list, in ${saved?.watched ? 'Archive' : 'To Watch'}.`, null);
-        return;
-      }
-
-      input.value = '';
-      this.status('Added to To Watch. Its title comes from YouTube as soon as a YouTube tab is open.', 'ok');
-      displayVideos();
+      showToast(outcome.kind === 'added' ? 'Added to To Watch from the pasted link' : outcome.message);
     } finally {
       this.busy = false;
     }
   }
 };
+
+/** Status lines report on something just done; the next visit starts clean. */
+function clearLibraryStatus() {
+  AddLink.status('', null);
+  // Not while an import is still being read: its result is on the way.
+  if (!Backup.busy) Backup.status('', null);
+}
 
 function setupLibrary() {
   const input = DOMCache.addLinkInput;
@@ -2883,6 +2943,10 @@ function setupLibrary() {
   DOMCache.importBtn?.addEventListener('click', () => Backup.pickFile());
   DOMCache.importFile?.addEventListener('change', (e) => Backup.importFile(e.target.files?.[0]));
   DOMCache.backupHelpBtn?.addEventListener('click', () => openWiki(CONFIG.BACKUP.GUIDE_SECTION));
+  DOMCache.libraryGroup?.addEventListener('toggle', () => {
+    if (!DOMCache.libraryGroup.open) clearLibraryStatus();
+  });
+  document.addEventListener('paste', (e) => AddLink.fromPaste(e));
 }
 
 // ============================================
@@ -3247,6 +3311,7 @@ function setupModal() {
   const closeModal = () => {
     AudioManager.play(AppState.soundEnabled);
     modal.classList.add('hidden');
+    clearLibraryStatus();
   };
 
   if (openBtn) {

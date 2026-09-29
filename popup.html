@@ -184,12 +184,11 @@
 
         <!-- Things you do to the list rather than settings you choose, so they
              get a group of their own. Folded like the settings, so the panel
-             still opens as short as it always did; the note says what is in
-             there without opening it. -->
+             still opens as short as it always did, and named for what is in it:
+             the main tabs are already "your list". -->
         <details id="library-group" class="settings-group">
           <summary class="settings-group-head">
-            <span class="settings-group-title">Your list</span>
-            <span class="settings-group-note">add by link · import · export</span>
+            <span class="settings-group-title">Add &amp; back up</span>
           </summary>
 
           <p class="settings-subhead">Add by link</p>
@@ -209,7 +208,7 @@
               />
               <button id="add-link-btn" class="text-btn" type="button">Add</button>
             </div>
-            <p id="add-link-hint" class="settings-hint">A video or a Short, from youtube.com or youtu.be.</p>
+            <p id="add-link-hint" class="settings-hint">A video or a Short. Or paste a link straight onto the list.</p>
             <p id="add-link-status" class="settings-unlock-status" role="status"></p>
           </div>
 
@@ -228,12 +227,11 @@
               </button>
               <button
                 id="backup-help"
-                class="icon-btn"
+                class="text-btn backup-btn backup-guide"
                 type="button"
                 title="How import and export work, with examples"
-                aria-label="How import and export work, with examples"
               >
-                <img class="btn-icon" src="icons/buttons/help.svg" alt="" />
+                <img class="btn-icon" src="icons/buttons/help.svg" alt="" />Guide
               </button>
             </div>
             <p class="settings-hint">Your list as a JSON file. Importing adds to it, and never removes or changes anything.</p>

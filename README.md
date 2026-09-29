@@ -42,9 +42,10 @@ YouTube's oEmbed endpoint if the page does not offer one.
 
 ### Or from nothing but its link
 
-Paste a link into **Info & Settings → Your list → Add by link** — `youtube.com`,
-the Share button's `youtu.be`, a Short, a live stream, with or without
-`https://`. Anything that is not a YouTube video is refused with the reason, and
+Paste a YouTube link — `youtube.com`, the Share button's `youtu.be`, a Short, a
+live stream, with or without `https://` — anywhere on the list in the popup, or
+into **Info & Settings → Add & back up → Add by link**. There, anything that is
+not a YouTube video is refused with the reason, and
 a video already on the list says which tab it is in rather than being added
 twice. The popup asks YouTube nothing, so the title, channel and type are filled
 in by a YouTube tab: at once if one is on screen, otherwise on your next visit.
@@ -54,10 +55,10 @@ in by a YouTube tab: at once if one is on screen, otherwise on your next visit.
 **Export** writes To Watch and Archive to a JSON file; **Import** reads one back —
 or a hand-written list of links — and only ever adds: a video already on the list
 is left exactly as it is, nothing is removed, and an **Undo** takes the whole
-import back out. The **?** beside the two buttons opens the guide's own section on
-them, with the file format, every field and worked examples. Where a file window
-would close the toolbar popup — Firefox, and Chrome outside Windows — Import first
-opens the list in a small window of its own, which it cannot close.
+import back out. The **Guide** beside the two buttons opens the guide's own section on
+them, with the file format, every field and worked examples. A file window closes
+the toolbar popup in some browsers, silently taking the import with it, so Import
+always opens the list in a small window of its own first, which it cannot close.
 
 ### Watch it in a window of its own
 
@@ -149,6 +150,7 @@ what you have installed.
 | `Alt + Shift + left click` | Any thumbnail or title | Plays it in the mini player, without opening it |
 | `Alt + Shift + left click` | The player on a video page | Opens it in the mini player, from where the page had reached |
 | `/` | The popup | Opens the search box |
+| `Ctrl/⌘ + V` | The list in the popup | Adds the YouTube link on the clipboard |
 | `Enter` | Add by link | Adds the pasted link |
 | `Esc` | The search box | Clears it and folds it away |
 | `Space` or `K` | Mini player | Play / pause |

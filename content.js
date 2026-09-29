@@ -13,6 +13,7 @@ const CONFIG = {
   KIND_MEMO_MAX: 200,
   BACKFILL_PER_PAGE: 3,
   BACKFILL_DELAY: 4000,
+  BACKFILL_RETRY_EVERY: 10 * 60 * 1000,
   // Most records one change can hand this tab to complete at once. One link
   // pasted in the popup is one; only an import of bare links comes near it,
   // and whatever is past it is left to the backfill, a few per page load.
@@ -119,10 +120,11 @@ function storageSet(values) {
 const OEmbed = {
   cache: new Map(),
 
-  // Statuses that are an answer rather than a bad moment: no such video (a
-  // mistyped or deleted one), or one YouTube will not describe. Asking again
-  // changes nothing, where a timeout or a 5xx might.
-  GONE_STATUSES: [400, 401, 404],
+  // Statuses that are an answer rather than a bad moment: no such video, a
+  // mistyped or deleted one. Asking again changes nothing, where a timeout or
+  // a 5xx might. Not 401: YouTube also gives that for a public video whose
+  // owner turned embedding off, which plays perfectly well.
+  GONE_STATUSES: [400, 404],
   gone: new Set(),
 
   /** Whether YouTube has said this video cannot be described. */
@@ -548,6 +550,12 @@ const ArrivalFiller = {
     const change = area === 'local' ? changes.savedVideos : null;
     if (!change) return;
 
+    // Nothing arrives in a change that leaves the list no longer — which is
+    // every heart, tag and write this tab makes — so those cost nothing.
+    const oldLength = Array.isArray(change.oldValue) ? change.oldValue.length : 0;
+    const newLength = Array.isArray(change.newValue) ? change.newValue.length : 0;
+    if (newLength <= oldLength) return;
+
     const before = new Set(
       (Array.isArray(change.oldValue) ? change.oldValue : []).map((v) => v && v.url)
     );
@@ -595,6 +603,17 @@ const ArrivalFiller = {
 
 chrome.storage.onChanged.addListener((changes, area) => ArrivalFiller.noticed(changes, area));
 document.addEventListener('visibilitychange', () => ArrivalFiller.drain());
+
+// YouTube moves between pages without loading one, so a tab left open for a
+// day runs the page-load backfill once. Navigating is a chance to try again
+// for whatever a bad moment left without a title — at most every few
+// minutes, so it stays a few questions now and then and never a crawl.
+let lastBackfill = Date.now();
+document.addEventListener('yt-navigate-finish', () => {
+  if (Date.now() - lastBackfill < CONFIG.BACKFILL_RETRY_EVERY) return;
+  lastBackfill = Date.now();
+  backfillSaves();
+});
 
 // ============================================
 // VIDEO SAVING LOGIC (Centralized)
