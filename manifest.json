@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Watch Later Enhanced - Complete YouTube Watchlist",
+  "name": "Watch Later Enhanced: Save YouTube Videos & Mini Player",
   "version": "3.1.0",
-  "description": "⚡ Alt+Click any YouTube video to save it instantly! Build and sort your custom Watch Later list with zero distractions.",
+  "description": "Save any YouTube video with Alt + left click or its link. Tag it, sort it, back it up, and watch in a floating mini player.",
   "permissions": ["storage"],
   
   "browser_specific_settings": {

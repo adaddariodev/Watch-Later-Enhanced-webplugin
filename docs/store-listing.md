@@ -5,13 +5,30 @@ renders no Markdown, so the version below is written to read well as-is.
 
 ---
 
+## Title (75 characters max)
+
+Read from `name` in `manifest.json` — the dashboard shows it as the title
+"from the package", and a new one takes effect with the next uploaded version.
+
+```
+Watch Later Enhanced: Save YouTube Videos & Mini Player
+```
+
+*(55 characters.)* The brand first, so existing users and ratings still
+recognise it, then what it does in the words people search for. No more than
+that: the store's policy counts keyword-stuffed titles against a listing.
+
+---
+
 ## Short description (132 characters max)
 
+Read from `description` in `manifest.json`, like the title.
+
 ```
-Save any YouTube video with Alt + left click. Favourite it, tag it, watch it in a pinnable floating player. 100% local.
+Save any YouTube video with Alt + left click or its link. Tag it, sort it, back it up, and watch in a floating mini player.
 ```
 
-*(119 characters, leaving room under the 132 limit.)*
+*(123 characters, under the 132 limit.)*
 
 ---
 
