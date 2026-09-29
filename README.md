@@ -96,16 +96,23 @@ window of its own, so closing the page it came from leaves it playing.
 * **Click a channel name** under any video to see only what you saved from it —
   or a tag, to see only what carries it. Either writes what it did into the
   search box (`channel:Fireship`, `tag:music`), which you can also type.
+* **A tag bar** under the filters: every tag on the list on screen, most used
+  first, one click from filtering by it. One line that scrolls sideways — arrows
+  appear only on a side with more to see — so it never grows with your tags,
+  and it is not there at all until you have one.
 * **Tags**, colour-derived from their own name, with autocomplete.
+* **Thumbnails** — each card opens with the video's picture, the smallest one
+  YouTube publishes (a few KB), loaded only for cards near the screen and kept
+  only in the browser's own cache. One switch in Settings turns them off.
 * **A numbered queue** — every card shows its place in the list, counting from
   1, and takes its new number the moment it is moved. Hover the card and the
-  number becomes the grip you drag it by, in the same spot, so a number costs
-  the title nothing.
+  number becomes the grip you drag it by, in the same spot — a badge in the
+  thumbnail's corner — so a number costs the title nothing.
 * **Drag and drop** to set your own order.
 * **To Watch / Archive / Trash**, so finished videos leave the queue without
   disappearing, and deletions are recoverable.
-* **Video and Shorts labels**, with a filter that narrows the list to either.
-* **The channel** that published each video, beside its type — and clickable.
+* **A Shorts label** on Shorts, with a filter that narrows the list to either kind.
+* **The channel** that published each video, under its title — and clickable.
 * **Favourites** — a heart per row, and a filter that narrows whatever the
   type chips and the tag search are already showing.
 * **A sound mixer** — a level and an on/off per sound, or silence for the lot.
@@ -121,8 +128,8 @@ window of its own, so closing the page it came from leaves it playing.
 
 ### Know what you saved
 
-A **Video** or **Shorts** label and the **channel name** sit on one line under
-every title, with your own tags on a line of their own below them.
+The **channel name** — and a **Shorts** label, on a Short — sit on one line
+under every title, with your own tags on a line of their own below them.
 Because YouTube serves the same Short behind both `/shorts/` and `/watch`
 links, the type is worked out from the URL, then from the page around the
 thumbnail, and finally — when neither settles it — by asking YouTube in the
@@ -171,14 +178,17 @@ Every outbound request the extension makes, in full:
 | --- | --- | --- |
 | `youtube.com/oembed` | Saving a video whose title the page did not provide, or naming one added by its link | The video URL |
 | `youtube.com/shorts/<id>` | Saving, to tell a Short from a video | The video ID |
+| `i.ytimg.com/vi/<id>/default.jpg` | Showing a card's thumbnail, while thumbnails are on | The video ID; no referrer |
 
-That is the complete list. Both go to YouTube, only from a YouTube tab, and carry
-nothing about you beyond the video in question — which is why a video added in
-the popup by its link waits for a YouTube tab to name it rather than the popup
-asking. Export and Import write and read a file on your own machine; nothing is
-uploaded. Nothing reaches any other party: the Inter typeface is
-[bundled with the extension](fonts/) rather than fetched from Google, so
-opening the popup makes no request at all.
+That is the complete list. The first two go to YouTube, only from a YouTube tab,
+and carry nothing about you beyond the video in question — which is why a video
+added in the popup by its link waits for a YouTube tab to name it rather than
+the popup asking. The third is YouTube's image server, asked by the popup for the
+pictures of the cards near the screen; the browser caches them, and the extension
+stores none. Export and Import write and read a file on your own machine; nothing
+is uploaded. Nothing reaches any other party: the Inter typeface is
+[bundled with the extension](fonts/) rather than fetched from Google, so with
+thumbnails switched off, opening the popup makes no request at all.
 
 The page's own Content Security Policy enforces it — `style-src 'self';
 font-src 'self';` — so a remote stylesheet or font could not load even if one
@@ -227,6 +237,13 @@ it runs.
   page's own origin so it works on `m.youtube.com` too.
 * **Layered type detection** — the URL, then the DOM around the click, then a
   same-origin redirect check, memoised per video and bounded by a timeout.
+* **Thumbnails that cost no storage** — the picture's address is built from the
+  video id at render time (`i.ytimg.com/vi/<id>/default.jpg`, 120×90, a few KB),
+  never stored. `loading="lazy"` inside the render window means only cards near
+  the screen ask; the browser's HTTP cache answers every later redraw and
+  reopening, measured at zero repeat requests. The 16:9 frame inside the 4:3
+  file is cropped out by `object-fit: cover` in a 16:9 box, so no larger size is
+  ever fetched.
 * **Imports are rebuilt, never trusted** — a pasted link or an imported entry is
   reconstructed field by field from an allow-list: the link re-parsed down to its
   video id and stored as the canonical watch URL, text trimmed and capped, tag

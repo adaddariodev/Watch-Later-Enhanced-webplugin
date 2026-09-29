@@ -135,9 +135,11 @@
         <p>
           There is also a box for it: click the gear icon and open
           <strong>Add &amp; back up</strong>, paste the link into <strong>Add by link</strong>
-          and press <kbd>Enter</kbd>, or click <strong>Add</strong>. The box is the one to use
-          when you want to be told why a link was refused — a paste onto the list that is
-          not a YouTube video link is simply ignored.
+          and press <kbd>Enter</kbd>, or click <strong>Add</strong>. As soon as the link is
+          one it understands, the box shows the video's thumbnail and id underneath, so a
+          mistyped link shows the wrong picture — or none — before anything is added. The
+          box is also the one to use when you want to be told why a link was refused — a
+          paste onto the list that is not a YouTube video link is simply ignored.
         </p>
         <ul>
           <li>Any YouTube link to a video or a Short works — from the address bar, from the
@@ -208,19 +210,23 @@
 
         <h3>What each row tells you</h3>
         <p>
-          Every card carries its <strong>number</strong> in the list, in the corner on
-          its left, counting from 1. Hover the card and the number becomes the grip you
-          drag it by — they are the same thing said two ways, so they share the spot and
-          nothing moves when they swap. While a filter or a search is on you keep seeing
-          each video's real number, so a result numbered 23 is the twenty-third in your
-          queue, not the third thing that matched.
+          Every card starts with the video's <strong>thumbnail</strong>; click it to open
+          the video, as you would on YouTube. In its corner sits the card's
+          <strong>number</strong> in the list, counting from 1. Hover the card and the
+          number becomes the grip you drag it by — they are the same thing said two
+          ways, so they share the spot and nothing moves when they swap. While a filter
+          or a search is on you keep seeing each video's real number, so a result
+          numbered 23 is the twenty-third in your queue, not the third thing that
+          matched. With thumbnails switched off (<a href="#settings">Settings →
+          Thumbnails</a>) the number stands on its own at the left of the card.
         </p>
         <p>
-          Under every title sits a small label — <strong>Video</strong> or
-          <strong>Shorts</strong> — and next to it the <strong>channel</strong> that
-          published it. A long channel name is shortened; hover it to read the whole
-          thing. Your own tags go on their own line underneath, so the two never
-          crowd each other.
+          Under the title sits the <strong>channel</strong> that published it — a long
+          name is shortened; hover it to read the whole thing — and, for a Short, a
+          <strong>Shorts</strong> label. Ordinary videos carry no label: they are nearly
+          everything saved, and the chips below the tabs already tell the two apart.
+          Your own tags go on their own line underneath, so they never crowd the
+          channel.
         </p>
         <p>
           Under the tabs, three chips narrow the list to <strong>All</strong>,
@@ -339,24 +345,42 @@
             holds, in a colour the channel's own name decides — the same way a
             tag gets its colour. Click the lit one again to take the filter
             off.</li>
-          <li><strong>Click a tag</strong> to see only the videos carrying it.</li>
+          <li><strong>Click a tag</strong> — in the tag bar, or on any video — to see
+            only the videos carrying it. The same tag lights up in the tag bar; click
+            it again there to take the filter off.</li>
           <li>Press <kbd>Esc</kbd>, or click the magnifying glass again, to clear the search and fold the box away.</li>
         </ul>
 
+        <h3>The tag bar</h3>
         <p>
-          Clicking a channel or a tag writes what it did into the search box —
-          <code>channel:Fireship</code>, <code>tag:music</code>. You can type
-          those yourself, and edit or delete them like any other search. They
-          match the whole name rather than part of it, so
+          Under the filter chips, one line holds every tag on the list you are looking
+          at, the most used first, each with its colour as a small dot. It appears once
+          you have a tag, and scrolls sideways rather than growing: when there are more
+          tags than fit, an arrow appears at the end that has more — click it, turn the
+          mouse wheel over the bar, or use the arrow keys once a tag has the keyboard
+          focus. <kbd>Home</kbd> and <kbd>End</kbd> jump to either end.
+        </p>
+        <p>
+          A tag you are filtering by stays in the bar, lit in its colour, even where no
+          video in that tab carries it — so the way out of the filter is always on
+          screen.
+        </p>
+
+        <p>
+          Clicking a channel writes what it did into the search box —
+          <code>channel:Fireship</code> — and a tag writes <code>tag:music</code> there
+          too, though the box stays folded for a tag since the lit chip already says what
+          the list is filtered by. You can type either yourself, and edit or delete them
+          like any other search. They match the whole name rather than part of it, so
           <code>channel:Lofi</code> does not also bring in <em>Lofi Girl</em>.
         </p>
 
         <div class="wiki-note">
           The box is folded away when nothing is being searched for, which leaves room for
-          about half a video more in the list. It never folds away while it is filtering:
-          if a search is active — because you typed one, or because you clicked a tag —
-          the box stays open with the text in it, so the list can never be quietly
-          filtered by something you cannot see.
+          about half a video more in the list. Whatever narrows the list always shows: a
+          search you typed keeps the box open with the text in it, a channel lights its
+          name and opens the box, and a tag lights up in the tag bar. The list is never
+          quietly filtered by something you cannot see.
         </div>
 
         <h3>Removing a tag</h3>
@@ -653,6 +677,19 @@
         <h3>Detached mini player</h3>
         <p>Turns the floating mini player on and off, everywhere. It is on by default.</p>
 
+        <h3>Thumbnails</h3>
+        <p>
+          <strong>Show thumbnails</strong> puts each video's picture on its card. It is on
+          by default, and costs little: each picture is the smallest YouTube publishes —
+          a few KB — and only the cards near the screen load theirs. Nothing is saved
+          by the extension; the browser keeps the pictures in its ordinary cache, and
+          throws them away on its own when it needs the room.
+        </p>
+        <p>
+          Switch it off and no picture is loaded at all, anywhere in the popup: the cards
+          go back to a plain number on their left, and the popup contacts nobody.
+        </p>
+
         <h3>Styling</h3>
         <p>
           Tags and the highlighted channel pill pick their own colours. This is where you
@@ -723,7 +760,8 @@
             A file named like <code>watch-later-enhanced-2026-09-28.json</code> — with
             today's date — is saved wherever your browser saves downloads, usually the
             <em>Downloads</em> folder. The line under the button says how many videos it
-            holds.
+            holds, and from then on the hint under the buttons says when you last
+            exported — the one thing that tells you whether a new backup is due.
           </li>
         </ol>
         <p>
@@ -738,7 +776,8 @@
           <li>Open the popup, click the gear icon, and open <strong>Add &amp; back up</strong>.</li>
           <li>Click <strong>Import</strong>. A small window opens with your list and the
             <strong>Import</strong> button waiting.</li>
-          <li>Click <strong>Import</strong> again in that window and choose the file.</li>
+          <li>Click <strong>Import</strong> again in that window and choose the file — or
+            drag the file from your folder onto that window.</li>
           <li>
             The line under the buttons says what happened, for example
             <em>Added 12 videos · 3 already on your list</em>. The new videos are in your
@@ -1014,7 +1053,8 @@
         <h2>Privacy &amp; your data</h2>
         <ul>
           <li>Your list lives in your own browser, in the extension's local storage. There is no account, no sign-in and no server holding your data.</li>
-          <li>Nothing you save is sent anywhere. The extension makes two kinds of request, both to YouTube and both only from a YouTube tab: one to read a video's title and channel when the page does not give them — or when the video was added by its link — and one to tell a Short from an ordinary video. Each carries the video and nothing about you. The popup itself makes none, which is why a video added there by its link waits for a YouTube tab to name it.</li>
+          <li>Nothing you save is sent anywhere. The extension makes two kinds of request, both to YouTube and both only from a YouTube tab: one to read a video's title and channel when the page does not give them — or when the video was added by its link — and one to tell a Short from an ordinary video. Each carries the video and nothing about you. The popup never asks for these, which is why a video added there by its link waits for a YouTube tab to name it.</li>
+          <li>With <strong>thumbnails</strong> on, the popup loads each video's picture from YouTube's image server (<code>i.ytimg.com</code>). The request names the video and nothing else — no page it came from, nothing about your list. Switch thumbnails off in Settings and the popup makes no request at all.</li>
           <li>The extension only runs on YouTube pages. It cannot see any other site you visit.</li>
           <li>Because the list is stored in this browser profile, it does not follow you to another computer on its own — and removing the extension removes the list with it.</li>
           <li>Export and Import work on a file on your own computer. Nothing is uploaded.</li>

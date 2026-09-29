@@ -105,6 +105,17 @@
         </button>
       </div>
 
+      <!-- Every tag on the list on screen, one click from filtering by it. One
+           line that scrolls instead of wrapping: the list is what the popup is
+           for, so the strip above it must not grow with the number of tags.
+           Hidden while there is no tag to show; the arrows are overlays that
+           appear only on a side there is more to see. -->
+      <div id="tag-bar" class="tag-bar" hidden>
+        <div id="tag-bar-track" class="tag-bar-track" role="toolbar" aria-label="Filter by tag"></div>
+        <button id="tag-bar-prev" class="tag-bar-arrow tag-bar-prev" type="button" tabindex="-1" aria-label="Show earlier tags" title="Earlier tags"></button>
+        <button id="tag-bar-next" class="tag-bar-arrow tag-bar-next" type="button" tabindex="-1" aria-label="Show more tags" title="More tags"></button>
+      </div>
+
       <div id="search-field" class="search-field">
         <div class="search-field-inner">
           <input
@@ -208,6 +219,13 @@
               />
               <button id="add-link-btn" class="text-btn" type="button">Add</button>
             </div>
+            <!-- What the pasted link points at, before anything is added: the
+                 video's picture and id, so a wrong link is caught here rather
+                 than found in the list later. -->
+            <div id="add-link-preview" class="link-preview" hidden>
+              <img id="add-link-preview-thumb" class="link-preview-thumb" alt="" width="48" height="27" />
+              <span id="add-link-preview-text" class="link-preview-text"></span>
+            </div>
             <p id="add-link-hint" class="settings-hint">A video or a Short. Or paste a link straight onto the list.</p>
             <p id="add-link-status" class="settings-unlock-status" role="status"></p>
           </div>
@@ -234,7 +252,7 @@
                 <img class="btn-icon" src="icons/buttons/help.svg" alt="" />Guide
               </button>
             </div>
-            <p class="settings-hint">Your list as a JSON file. Importing adds to it, and never removes or changes anything.</p>
+            <p id="backup-hint" class="settings-hint">A JSON file of your list. Importing only ever adds.</p>
             <p id="backup-status" class="settings-unlock-status" role="status"></p>
             <input id="import-file" type="file" accept=".json,application/json" hidden />
           </div>
@@ -342,6 +360,25 @@
               role="switch"
               aria-checked="true"
               aria-labelledby="mini-player-label"
+            >
+              <span class="wle-switch-thumb"></span>
+            </button>
+          </div>
+
+          <p class="settings-subhead">Thumbnails</p>
+
+          <div id="thumbnails-row" class="settings-options">
+            <div class="settings-option-text">
+              <span id="thumbnails-label">Show thumbnails</span>
+              <p class="settings-hint">Small pictures from YouTube, cached by the browser. Off, none are loaded.</p>
+            </div>
+            <button
+              id="toggle-thumbnails"
+              class="wle-switch"
+              type="button"
+              role="switch"
+              aria-checked="true"
+              aria-labelledby="thumbnails-label"
             >
               <span class="wle-switch-thumb"></span>
             </button>

@@ -545,6 +545,150 @@ li.video-item:hover .favourite-btn.is-favourite {
 }
 
 /* =========================================
+   TAG BAR
+   One line that scrolls rather than wraps, so the strip above the list does
+   not grow with the number of tags. The arrows sit over its ends, fading the
+   chips out beneath them, and appear only on a side with more to see.
+   ========================================= */
+.tag-bar[hidden] {
+  display: none;
+}
+
+.tag-bar {
+  position: relative;
+  margin-top: 5px;
+}
+
+/* The padding is room for a focused chip's outline, which the scrolling box
+   would otherwise clip. */
+.tag-bar-track {
+  position: relative;
+  display: flex;
+  /* Centred under the filter row while the tags fit; "safe" puts the first
+     chip back at the start once they overflow, where centring would push it
+     out of reach. */
+  justify-content: safe center;
+  gap: 6px;
+  padding: 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.tag-bar-track::-webkit-scrollbar {
+  display: none;
+}
+
+.tag-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  max-width: 160px;
+  padding: 0 10px 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+
+.tag-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text-main);
+}
+
+.tag-chip[aria-pressed="true"] {
+  font-weight: 600;
+}
+
+.tag-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tag-chip-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.tag-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag-bar-arrow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.tag-bar-prev {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg-color) 50%, rgb(var(--bg-rgb) / 0));
+}
+
+.tag-bar-next {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg-color) 50%, rgb(var(--bg-rgb) / 0));
+}
+
+.tag-bar.can-prev .tag-bar-prev,
+.tag-bar.can-next .tag-bar-next {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The same CSS-drawn chevron the settings groups use. */
+.tag-bar-arrow::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  transition: border-color 0.15s;
+}
+
+.tag-bar-prev::before {
+  left: 7px;
+  transform: translateY(-50%) rotate(135deg);
+}
+
+.tag-bar-next::before {
+  right: 7px;
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.tag-bar-arrow:hover::before {
+  border-color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-chip,
+  .tag-bar-arrow {
+    transition: none;
+  }
+}
+
+/* =========================================
    THE SEARCH FIELD, FOLDED AWAY
    35px of the popup's 500 sat empty whenever nobody was searching. It now
    unfolds under the filters on demand. The 0fr → 1fr grid row is what makes
@@ -1562,6 +1706,42 @@ a.icon-btn {
   padding: 2px 4px 6px;
 }
 
+/* The link in the box, before it is added: its picture and its id. It
+   stands where the hint would, since it answers the hint's question. */
+.link-preview[hidden] {
+  display: none;
+}
+
+.link-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.link-preview-thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 27px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.link-preview-thumb[hidden] {
+  display: none;
+}
+
+.link-preview-thumb.is-missing {
+  visibility: hidden;
+}
+
+.link-preview:not([hidden]) + .settings-hint {
+  display: none;
+}
+
 /* A status line says more than the hint above it, and the two together were
    four lines of small print. While there is news, the news wins. */
 .settings-hint:has(+ .settings-unlock-status:not(:empty)) {
@@ -1704,8 +1884,73 @@ li.video-item:focus-within .row-lead.is-draggable .drag-handle {
   opacity: 1;
 }
 
+/* =========================================
+   THUMBNAIL — the video's picture, carrying its place in the list
+   64×36, the size of the two title lines beside it, so the card is no taller
+   for having one. The number and the grip move into a badge in its corner
+   instead of keeping a column of their own.
+   ========================================= */
+.row-lead.has-thumb {
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  flex: 0 0 64px;
+  width: 64px;
+  min-width: 64px;
+  height: 36px;
+  padding-right: 0;
+  margin-right: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  /* What shows while the picture loads, and instead of one that failed. */
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.row-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.row-lead.is-missing .row-thumb {
+  visibility: hidden;
+}
+
+.row-badge {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.74);
+  cursor: default;
+}
+
+.row-badge > * {
+  grid-area: 1 / 1;
+  transition: opacity 0.16s ease;
+}
+
+.row-badge .row-number {
+  font-size: 10px;
+  color: #fff;
+}
+
+.row-badge .drag-handle .btn-icon {
+  width: 11px;
+  height: 11px;
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .row-lead > * {
+  .row-lead > *,
+  .row-badge > * {
     transition: none;
   }
 }
@@ -2189,6 +2434,7 @@ li.video-item.drop-target {
    in — a selected tab is still a pane. */
 .wle-glass .view-tab,
 .wle-glass .type-chip,
+.wle-glass .tag-chip,
 .wle-glass .filter-btn,
 .wle-glass .searchbar {
   -webkit-backdrop-filter: var(--glass-blur);
@@ -2202,6 +2448,7 @@ li.video-item.drop-target {
 .wle-glass .searchbar,
 .wle-glass .view-tab:not(.active):not(:hover),
 .wle-glass .type-chip:not([aria-checked="true"]):not(:hover),
+.wle-glass .tag-chip:not([aria-pressed="true"]):not(:hover),
 .wle-glass .filter-btn:not(.is-on):not([aria-expanded="true"]):not(:hover) {
   background-color: var(--glass-fill);
   border-color: var(--glass-edge);
@@ -2265,4 +2512,14 @@ li.video-item.drop-target {
   box-shadow:
     inset 0 0 0 1px rgb(255 255 255 / calc(0.06 + 0.12 * var(--wle-glass, 0))),
     0 15px 35px rgba(0, 0, 0, 0.6);
+}
+
+/* The tag bar's arrows fade the chips into the strip they sit on, which in
+   glass is the translucent pane rather than the solid background. */
+.wle-glass .tag-bar-prev {
+  background: linear-gradient(90deg, rgb(var(--card-rgb) / 0.92) 50%, rgb(var(--card-rgb) / 0));
+}
+
+.wle-glass .tag-bar-next {
+  background: linear-gradient(270deg, rgb(var(--card-rgb) / 0.92) 50%, rgb(var(--card-rgb) / 0));
 }

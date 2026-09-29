@@ -24,7 +24,19 @@ const CONFIG = {
     FAVOURITES_ONLY: 'favouritesOnly',
     AUDIO_MIX: 'audioMix',
     STYLING: 'styling',
+    THUMBNAILS: 'thumbnailsEnabled',
+    LAST_EXPORT: 'lastExport',
     REV: 'wleRev'
+  },
+  // The smallest picture YouTube publishes for a video: 120×90, a few KB.
+  // Its 16:9 frame sits between two black bars, which a 16:9 box set to
+  // cover crops off exactly, so nothing bigger needs fetching for a 64×36
+  // slot. The address is worked out from the id; nothing is ever stored.
+  THUMB: {
+    BASE: 'https://i.ytimg.com/vi/',
+    FILE: 'default.jpg',
+    WIDTH: 64,
+    HEIGHT: 36
   },
   // How tall the popup gets, as a share of the screen's usable height, and
   // the range the browser and the layout can live with. 600 is Chrome's own
@@ -245,6 +257,15 @@ const DOMCache = {
   importFile: null,
   backupHelpBtn: null,
   backupStatus: null,
+  backupHint: null,
+  addLinkPreview: null,
+  addLinkPreviewThumb: null,
+  addLinkPreviewText: null,
+  thumbnailsSwitch: null,
+  tagBar: null,
+  tagBarTrack: null,
+  tagBarPrev: null,
+  tagBarNext: null,
 
   init() {
     this.soundBtn = document.getElementById('toggle-sound');
@@ -288,6 +309,15 @@ const DOMCache = {
     this.importFile = document.getElementById('import-file');
     this.backupHelpBtn = document.getElementById('backup-help');
     this.backupStatus = document.getElementById('backup-status');
+    this.backupHint = document.getElementById('backup-hint');
+    this.addLinkPreview = document.getElementById('add-link-preview');
+    this.addLinkPreviewThumb = document.getElementById('add-link-preview-thumb');
+    this.addLinkPreviewText = document.getElementById('add-link-preview-text');
+    this.thumbnailsSwitch = document.getElementById('toggle-thumbnails');
+    this.tagBar = document.getElementById('tag-bar');
+    this.tagBarTrack = document.getElementById('tag-bar-track');
+    this.tagBarPrev = document.getElementById('tag-bar-prev');
+    this.tagBarNext = document.getElementById('tag-bar-next');
   }
 };
 
@@ -304,6 +334,7 @@ const AppState = {
   supporter: false,
   hideJobsMatchBanner: false,
   detachEnabled: true,
+  thumbnailsEnabled: true,
 
   setSoundEnabled(value) {
     this.soundEnabled = value;
@@ -747,6 +778,17 @@ const Utils = {
     return normalized;
   },
 
+  /**
+   * Where a video's picture is, or null when the setting is off or the url
+   * holds no id. Built from the id alone — the url is never passed through —
+   * so nothing stored can point an <img> anywhere but YouTube's image host.
+   */
+  thumbnailUrl(url) {
+    if (!AppState.thumbnailsEnabled) return null;
+    const id = WLEUrl.extractVideoId(url);
+    return id ? `${CONFIG.THUMB.BASE}${id}/${CONFIG.THUMB.FILE}` : null;
+  },
+
   /** Unknown reads as a video everywhere it is shown or counted. */
   isShort(video) {
     return video?.kind === 'short';
@@ -1187,7 +1229,7 @@ const VideoItemFactory = {
     const left = document.createElement('div');
     left.className = 'video-left';
 
-    left.appendChild(this.createRowLead(place, mode, canDrag));
+    left.appendChild(this.createRowLead(place, mode, canDrag, video));
     left.appendChild(this.createTitle(video));
 
     const { primary, secondary, tagAddBtn } = this.createActions(index, mode, video);
@@ -1203,9 +1245,23 @@ const VideoItemFactory = {
    * so giving each its own column would have cost every title on screen
    * another 20px for no more information.
    */
-  createRowLead(place, mode, canDrag) {
+  createRowLead(place, mode, canDrag, video) {
     const lead = document.createElement('div');
     lead.className = 'row-lead';
+
+    // With a picture, the number and the grip become a badge in its corner
+    // rather than a column of their own: the card gains a thumbnail and the
+    // title gives up 40px for it, not the 74 a picture beside a number
+    // would cost.
+    let slot = lead;
+    const thumb = Utils.thumbnailUrl(video.url);
+    if (thumb) {
+      lead.classList.add('has-thumb');
+      lead.appendChild(this.createThumb(thumb));
+      slot = document.createElement('span');
+      slot.className = 'row-badge';
+      lead.appendChild(slot);
+    }
 
     const number = document.createElement('span');
     number.className = 'row-number';
@@ -1213,7 +1269,7 @@ const VideoItemFactory = {
     // The <li> carries the same thing as aria-posinset; read out here as well
     // it would only be said twice.
     number.setAttribute('aria-hidden', 'true');
-    lead.appendChild(number);
+    slot.appendChild(number);
 
     // Only where reordering is on. A grip on a row that cannot be dragged is
     // a control that does nothing, and the number stays put to say so.
@@ -1232,9 +1288,33 @@ const VideoItemFactory = {
       ? `#${place.number} — hold and drag to reorder`
       : 'Hold and drag to reorder';
     handle.appendChild(Utils.createBtnIcon('icons/buttons/menu-burger.svg', ''));
-    lead.appendChild(handle);
+    slot.appendChild(handle);
 
     return lead;
+  },
+
+  /**
+   * The video's picture. Lazy and low priority, so only the rows near the
+   * screen ask for one and never ahead of the popup itself; sent with no
+   * referrer; never draggable, or dragging a card by its picture would drag
+   * the image instead of the card. Decorative to assistive tech: the title
+   * beside it already says what it is.
+   */
+  createThumb(src) {
+    const img = document.createElement('img');
+    img.className = 'row-thumb';
+    img.alt = '';
+    img.width = CONFIG.THUMB.WIDTH;
+    img.height = CONFIG.THUMB.HEIGHT;
+    img.loading = 'lazy';
+    img.referrerPolicy = 'no-referrer';
+    img.draggable = false;
+    img.setAttribute('fetchpriority', 'low');
+    // Offline, or a video YouTube no longer has: an empty frame, not a
+    // broken-image icon.
+    img.addEventListener('error', () => img.parentElement?.classList.add('is-missing'), { once: true });
+    img.src = src;
+    return img;
   },
 
   createTitle(video) {
@@ -1436,10 +1516,11 @@ const VideoItemFactory = {
     // called.
     const pills = document.createElement('div');
     pills.className = 'meta-pills';
-    // A video added by its link is waiting on YouTube for its title and its
-    // type: say so, rather than showing "Video" for a type nobody knows yet.
+    // A video added by its link is waiting on YouTube for its title: say so.
     if (!video.title) pills.appendChild(this.createPendingPill());
-    if (video.kind || video.title) pills.appendChild(this.createKindPill(video.kind));
+    // Only the exception is labelled. Nearly everything saved is a video, and
+    // a VIDEO pill on every card was noise the type chips already cover.
+    if (video.kind === 'short') pills.appendChild(this.createKindPill('short'));
     if (video.channel) pills.appendChild(this.createChannelPill(video.channel));
     row.appendChild(pills);
 
@@ -1506,7 +1587,7 @@ const VideoItemFactory = {
       if (e.target?.closest('.tag-pill-remove')) return;
       e.preventDefault();
       e.stopPropagation();
-      searchFor(Query.text('tag', tag.name));
+      TagBar.toggle(tag.name);
     });
 
     pillRemove.addEventListener('click', async (e) => {
@@ -1920,6 +2001,10 @@ async function displayVideos() {
     // ---- ACTIVE / ARCHIVE VIEWS ----
     const source = AppState.view === 'archive' ? archivedVideos : activeVideos;
 
+    // Before any early return: an empty result still needs the bar, since the
+    // lit tag in it is the way out of the filter that emptied the list.
+    TagBar.render(source);
+
     if (source.length === 0) {
       updateTypeCounts([]);
       if (AppState.view === 'archive') {
@@ -2266,8 +2351,9 @@ function setupVideoListHandlers() {
     if (e.target.closest('.tag-add-btn')) return;
     if (e.target.closest('.tag-row')) return;
     if (e.target.closest('.video-actions')) return;
-    // The lead slot is the card's place in the list, not a way into it.
-    if (e.target.closest('.row-lead')) return;
+    // The lead slot is the card's place in the list, not a way into it — its
+    // picture excepted, which is the video, as a thumbnail is everywhere else.
+    if (e.target.closest('.row-lead') && !e.target.closest('.row-thumb')) return;
 
     if (e.target.closest('.video-left')) {
       if (WLEUrl.isSafeOpenUrl(url)) {
@@ -2454,6 +2540,7 @@ function updateGroupNotes() {
   }
 
   if (!AppState.detachEnabled) changed.push('mini player off');
+  if (!AppState.thumbnailsEnabled) changed.push('thumbnails off');
   if (Styling.mode !== 'random') changed.push(`${Styling.mode} colours`);
   if (Styling.glass > 0) changed.push(`${Styling.glass}% glass`);
   if (AppState.supporter && AppState.hideJobsMatchBanner) changed.push('banner hidden');
@@ -2657,6 +2744,24 @@ const Backup = {
     setTimeout(() => URL.revokeObjectURL(href), 60 * 1000);
 
     this.status(`Exported ${plural(videos.length, 'video')} as ${name}, in your downloads.`, 'ok');
+    const now = Date.now();
+    chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.LAST_EXPORT]: now });
+    this.showLastExport(now);
+  },
+
+  /**
+   * When the list was last saved to a file, in the hint under the buttons: the
+   * one fact that tells you whether a backup is worth making again.
+   */
+  showLastExport(ms) {
+    const hint = DOMCache.backupHint;
+    if (!hint) return;
+    const when = typeof ms === 'number' && ms > 0
+      ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+      : '';
+    hint.textContent = when
+      ? `Last export: ${when}. Importing only ever adds.`
+      : 'A JSON file of your list. Importing only ever adds.';
   },
 
   /**
@@ -2709,7 +2814,7 @@ const Backup = {
   openHere() {
     DOMCache.settingsModal?.classList.remove('hidden');
     if (DOMCache.libraryGroup) DOMCache.libraryGroup.open = true;
-    this.status('Press Import and choose your file — this window stays open while you do.');
+    this.status('Press Import and choose your file, or drop it on this window — it stays open while you do.');
     DOMCache.importBtn?.focus();
   },
 
@@ -2845,6 +2950,36 @@ const AddLink = {
   },
 
   /**
+   * What the link in the box points at, shown before it is added: the
+   * picture and the id. A mistyped id shows the wrong video — or none — here,
+   * rather than turning up in the list as an "Unknown Title" later.
+   */
+  preview() {
+    const box = DOMCache.addLinkPreview;
+    if (!box) return;
+
+    const raw = DOMCache.addLinkInput?.value.trim() || '';
+    const link = raw ? WLEUrl.parseLink(raw) : null;
+    if (!link || link.error) {
+      box.hidden = true;
+      return;
+    }
+
+    const img = DOMCache.addLinkPreviewThumb;
+    const src = Utils.thumbnailUrl(link.url);
+    if (img) {
+      img.hidden = !src;
+      img.classList.remove('is-missing');
+      if (src && img.getAttribute('src') !== src) img.src = src;
+    }
+    if (DOMCache.addLinkPreviewText) {
+      DOMCache.addLinkPreviewText.textContent =
+        `youtu.be/${link.id}${link.kind === 'short' ? ' · Short' : ''}`;
+    }
+    box.hidden = false;
+  },
+
+  /**
    * The one way a link becomes a video, for the box and for a paste alike.
    * @returns {Promise<{kind: 'error'|'exists'|'added'|'failed', message: string}>}
    */
@@ -2885,7 +3020,10 @@ const AddLink = {
       const outcome = await this.add(raw);
       if (outcome.kind === 'failed') return;
       if (outcome.kind !== 'error') AudioManager.play(AppState.soundEnabled);
-      if (outcome.kind === 'added') input.value = '';
+      if (outcome.kind === 'added') {
+        input.value = '';
+        this.preview();
+      }
       this.status(outcome.message, { error: 'error', added: 'ok' }[outcome.kind] || null);
     } finally {
       this.busy = false;
@@ -2935,7 +3073,30 @@ function setupLibrary() {
       AddLink.submit();
     });
     // What the line said was about the last link, not the one being typed.
-    input.addEventListener('input', () => AddLink.status('', null));
+    input.addEventListener('input', () => {
+      AddLink.status('', null);
+      AddLink.preview();
+    });
+  }
+
+  const previewThumb = DOMCache.addLinkPreviewThumb;
+  if (previewThumb) {
+    previewThumb.referrerPolicy = 'no-referrer';
+    previewThumb.addEventListener('error', () => previewThumb.classList.add('is-missing'));
+  }
+
+  // In the window Import opens, a file can be dropped anywhere on it. Only a
+  // drag carrying files is taken: dragging a card to reorder it is not one.
+  if (PageMode.isWindow) {
+    document.addEventListener('dragover', (e) => {
+      if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+    });
+    document.addEventListener('drop', (e) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      e.preventDefault();
+      Backup.importFile(file);
+    });
   }
 
   DOMCache.addLinkBtn?.addEventListener('click', () => AddLink.submit());
@@ -3167,6 +3328,29 @@ function toggleMiniPlayer() {
   displayVideos();
 }
 
+// ============================================
+// THUMBNAILS
+// ============================================
+function updateThumbnailsSwitch() {
+  const sw = DOMCache.thumbnailsSwitch;
+  if (sw) sw.setAttribute('aria-checked', AppState.thumbnailsEnabled ? 'true' : 'false');
+  updateGroupNotes();
+}
+
+/** Off means no picture is asked for anywhere: the list and the link preview. */
+function toggleThumbnails() {
+  AudioManager.play(AppState.soundEnabled);
+  AppState.thumbnailsEnabled = !AppState.thumbnailsEnabled;
+  chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.THUMBNAILS]: AppState.thumbnailsEnabled });
+  updateThumbnailsSwitch();
+  AddLink.preview();
+  displayVideos();
+}
+
+function setupThumbnailsToggle() {
+  DOMCache.thumbnailsSwitch?.addEventListener('click', () => toggleThumbnails());
+}
+
 function setupMiniPlayerToggle() {
   const sw = DOMCache.miniPlayerSwitch;
   if (sw) sw.addEventListener('click', () => toggleMiniPlayer());
@@ -3235,6 +3419,203 @@ function searchFor(text) {
   SearchBar.open({ focus: false });
   displayVideos();
 }
+
+// ============================================
+// THE TAG BAR
+// Every tag on the list on screen, most used first, one click from filtering
+// by it. It filters through the same query the search box holds — tag:name —
+// so there is still one filter, readable in one place; but it does not unfold
+// the box to say so, because the chip it lights already does, and a second
+// row appearing under the first on every click was the clutter this avoids.
+// ============================================
+const TagBar = {
+  signature: null,
+  frame: null,
+
+  activeTag() {
+    const query = Query.parse(AppState.query);
+    return query.field === 'tag' ? query.value : '';
+  },
+
+  /** Tags carried by these videos: most used first, then alphabetical. */
+  collect(videos) {
+    const byKey = new Map();
+    videos.forEach((video) => {
+      (video.tags || []).forEach((tag) => {
+        const key = tag.name.toLowerCase();
+        const entry = byKey.get(key) || { key, name: tag.name, count: 0 };
+        entry.count += 1;
+        byKey.set(key, entry);
+      });
+    });
+    return [...byKey.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  },
+
+  /** Filter by this tag or, when it already is the filter, stop filtering. */
+  toggle(name) {
+    AudioManager.play(AppState.soundEnabled);
+    if (this.activeTag() === String(name).toLowerCase()) {
+      SearchBar.close();
+      return;
+    }
+    const text = Query.text('tag', name);
+    // Written into the box as well, folded or not: opening it shows what the
+    // list is filtered by, and editing it edits that filter.
+    if (DOMCache.tagSearchInput) DOMCache.tagSearchInput.value = text;
+    AppState.setQuery(text);
+    displayVideos();
+  },
+
+  render(videos) {
+    const bar = DOMCache.tagBar;
+    const track = DOMCache.tagBarTrack;
+    if (!bar || !track) return;
+
+    const active = this.activeTag();
+    const tags = this.collect(videos);
+    // The tag the list is filtered by stays even where nothing on screen
+    // carries it, so the way out of the filter never disappears with it.
+    if (active && !tags.some((t) => t.key === active)) {
+      tags.unshift({ key: active, name: active, count: 0 });
+    }
+
+    // Rebuilt only when what it shows has changed. The list is redrawn on
+    // every heart and every delete; a bar rebuilt each time would lose its
+    // scroll position and the keyboard focus inside it.
+    const signature = JSON.stringify([
+      tags.map((t) => [t.key, t.name, t.count]), active, Styling.mode, Styling.color
+    ]);
+    if (signature === this.signature) return;
+    this.signature = signature;
+
+    bar.hidden = tags.length === 0;
+
+    const scroll = track.scrollLeft;
+    const focused = track.contains(document.activeElement) ? document.activeElement.dataset.tag : null;
+
+    track.textContent = '';
+    tags.forEach((tag) => track.appendChild(this.chip(tag, tag.key === active)));
+
+    // One stop on the Tab key for the whole bar; the arrows move within it.
+    const home = track.querySelector('.tag-chip[aria-pressed="true"]') || track.firstElementChild;
+    if (home) home.tabIndex = 0;
+
+    track.scrollLeft = scroll;
+    if (focused) {
+      const again = [...track.children].find((c) => c.dataset.tag === focused);
+      if (again) {
+        track.querySelectorAll('.tag-chip').forEach((c) => { c.tabIndex = c === again ? 0 : -1; });
+        again.focus({ preventScroll: true });
+      }
+    }
+    if (active) this.reveal(track.querySelector('.tag-chip[aria-pressed="true"]'));
+    this.updateArrows();
+  },
+
+  chip(tag, pressed) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tag-chip';
+    btn.dataset.tag = tag.key;
+    btn.tabIndex = -1;
+    btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+
+    // The colour is a dot, not the fill: twenty saturated pills in a row
+    // shout over the list they are meant to sort. Lit, the chip takes the
+    // whole palette, as a channel pill does while it is the filter.
+    const palette = Styling.paletteFor(tag.name);
+    const dot = document.createElement('span');
+    dot.className = 'tag-chip-dot';
+    dot.style.background = palette.fill;
+
+    const label = document.createElement('span');
+    label.className = 'tag-chip-label';
+    label.textContent = tag.name;
+
+    btn.append(dot, label);
+    btn.title = pressed
+      ? `Stop filtering by "${tag.name}"`
+      : `${plural(tag.count, 'video')} tagged "${tag.name}"`;
+
+    if (pressed) {
+      btn.style.borderColor = palette.border;
+      btn.style.background = palette.tint;
+      btn.style.color = palette.light;
+    }
+    return btn;
+  },
+
+  /** Scrolls the bar, and only the bar, until this chip is clear of the arrows. */
+  reveal(chip) {
+    const track = DOMCache.tagBarTrack;
+    if (!chip || !track) return;
+    const margin = 30;
+    const left = chip.offsetLeft - margin;
+    const right = chip.offsetLeft + chip.offsetWidth + margin - track.clientWidth;
+    if (track.scrollLeft > left) track.scrollLeft = Math.max(0, left);
+    else if (track.scrollLeft < right) track.scrollLeft = right;
+  },
+
+  /** An arrow shows only on a side where there is more to see. */
+  updateArrows() {
+    const bar = DOMCache.tagBar;
+    const track = DOMCache.tagBarTrack;
+    if (!bar || !track || bar.hidden) return;
+    const max = track.scrollWidth - track.clientWidth;
+    bar.classList.toggle('can-prev', track.scrollLeft > 1);
+    bar.classList.toggle('can-next', track.scrollLeft < max - 1);
+  },
+
+  page(direction) {
+    const track = DOMCache.tagBarTrack;
+    if (!track) return;
+    track.scrollBy({ left: direction * Math.max(80, Math.round(track.clientWidth * 0.7)), behavior: 'smooth' });
+  },
+
+  setup() {
+    const track = DOMCache.tagBarTrack;
+    if (!track) return;
+
+    track.addEventListener('click', (e) => {
+      const chip = e.target.closest('.tag-chip');
+      if (chip) this.toggle(chip.querySelector('.tag-chip-label').textContent);
+    });
+
+    track.addEventListener('keydown', (e) => {
+      const chips = [...track.querySelectorAll('.tag-chip')];
+      const i = chips.indexOf(document.activeElement);
+      const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: chips.length - 1 }[e.key];
+      if (i < 0 || to === undefined) return;
+      e.preventDefault();
+      const target = chips[Math.max(0, Math.min(chips.length - 1, to))];
+      chips.forEach((c) => { c.tabIndex = c === target ? 0 : -1; });
+      target.focus({ preventScroll: true });
+      this.reveal(target);
+    });
+
+    // A frame at most, however fast the bar is flung.
+    track.addEventListener('scroll', () => {
+      if (this.frame) return;
+      this.frame = requestAnimationFrame(() => {
+        this.frame = null;
+        this.updateArrows();
+      });
+    }, { passive: true });
+
+    // A mouse wheel only turns vertically, and nothing up here scrolls that
+    // way — so over the bar, down means along.
+    track.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      if (track.scrollWidth <= track.clientWidth) return;
+      e.preventDefault();
+      track.scrollLeft += e.deltaY;
+    }, { passive: false });
+
+    DOMCache.tagBarPrev?.addEventListener('click', () => this.page(-1));
+    DOMCache.tagBarNext?.addEventListener('click', () => this.page(1));
+    window.addEventListener('resize', () => this.updateArrows());
+  }
+};
 
 function setupSearch() {
   if (!DOMCache.tagSearchInput) return;
@@ -3619,6 +4000,8 @@ async function init() {
         {
           [CONFIG.STORAGE_KEYS.SOUND]: true,
           [CONFIG.STORAGE_KEYS.DETACH]: true,
+          [CONFIG.STORAGE_KEYS.THUMBNAILS]: true,
+          [CONFIG.STORAGE_KEYS.LAST_EXPORT]: 0,
           [CONFIG.STORAGE_KEYS.TYPE_FILTER]: 'all',
           [CONFIG.STORAGE_KEYS.FAVOURITES_ONLY]: false,
           [CONFIG.STORAGE_KEYS.AUDIO_MIX]: null,
@@ -3630,6 +4013,7 @@ async function init() {
 
     AppState.soundEnabled = prefs[CONFIG.STORAGE_KEYS.SOUND] !== false;
     AppState.detachEnabled = prefs[CONFIG.STORAGE_KEYS.DETACH] !== false;
+    AppState.thumbnailsEnabled = prefs[CONFIG.STORAGE_KEYS.THUMBNAILS] !== false;
     AppState.typeFilter = ['video', 'short'].includes(prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER])
       ? prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER]
       : 'all';
@@ -3642,6 +4026,8 @@ async function init() {
 
     updateSoundIcon();
     updateMiniPlayerSwitch();
+    updateThumbnailsSwitch();
+    Backup.showLastExport(prefs[CONFIG.STORAGE_KEYS.LAST_EXPORT]);
     updateTypeFilterUI();
     updateFavouriteFilterUI();
     updateMixerUI();
@@ -3651,6 +4037,8 @@ async function init() {
     setupMixer();
     setupSoundToggle();
     setupMiniPlayerToggle();
+    setupThumbnailsToggle();
+    TagBar.setup();
     setupWikiButton();
     setupLibrary();
     setupStyling();
