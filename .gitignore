@@ -1,0 +1,29 @@
+# Nothing tracked today matches anything here: this keeps what should never
+# enter a public repo from getting in by accident.
+
+# The Web Store package. Built by scripts/package.sh from what is committed;
+# the zip itself is a build output, not source.
+dist/
+*.zip
+*.crx
+
+# The private key Chrome writes when you "Pack extension". It is the
+# extension's identity: anyone holding it can publish updates as you.
+*.pem
+
+# Operating systems
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Tooling, should any ever be added (tests, linters, secrets for them)
+node_modules/
+*.log
+.env
+.env.*

@@ -217,6 +217,17 @@ Then open `chrome://extensions/`, turn on **Developer mode**, click
 Requires Chrome 116+ for the detached mini player (older versions fall back to
 the classic Picture-in-Picture). Firefox 109+ is supported.
 
+**Packaging for the Chrome Web Store**
+
+```bash
+./scripts/package.sh   # → dist/watch-later-enhanced-<version>.zip
+```
+
+It zips an allow-list of the files the extension loads, taken from the last
+commit rather than the folder: the README, the store copy in `docs/` and the
+logos and promo banners in `imgs/` stay out of what users install, and an
+uncommitted edit can never ship by accident.
+
 ## How it is built
 
 Vanilla JavaScript, no build step, no dependencies, no framework. Clone it and
@@ -288,9 +299,10 @@ it runs.
 ```text
 .
 ├── docs/               # Chrome Web Store listing copy
+├── imgs/               # Logos and store promo banners — repo and listing only, not packaged
+├── scripts/package.sh  # Builds the Web Store zip from an allow-list
 ├── fonts/              # Inter, bundled (woff2 + OFL licence) — no CDN
 ├── icons/              # Extension icons (48px, 128px) and button glyphs
-├── imgs/               # Logos and store banners
 ├── sounds/             # popup-click.mp3, video-saved.mp3
 ├── background.js       # Service worker: opens and serialises the mini player window
 ├── content.js          # Saving, title extraction, type detection, backfill, HUD
