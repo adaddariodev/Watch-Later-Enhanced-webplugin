@@ -58,6 +58,17 @@ WHAT YOU GET
   Alt + left click anything on YouTube. A small on-screen confirmation shows the
   video's real title. You never leave the page you were on.
 
+▸ SAVE FROM A LINK, TOO
+  Someone sent you a video? Copy the link, open the extension and paste it
+  anywhere on your list — done. Any YouTube link works: youtube.com, youtu.be
+  from the Share button, Shorts, live streams, the mobile site. There is also a
+  box that shows the video's thumbnail before you add it, so a wrong link is
+  caught straight away.
+
+▸ SEE WHAT YOU SAVED
+  Every video in your list shows its thumbnail, the channel that published it,
+  and a Shorts label when it is one. Click the picture to open the video.
+
 ▸ A MINI PLAYER YOU CAN PIN ON TOP
   Pop any video out of the browser into its own window. Minimize the browser,
   switch to another app, drag the window wherever you want — it keeps playing.
@@ -70,24 +81,30 @@ WHAT YOU GET
   mini player" from the video's own menu, or use the button that appears when
   you hover it.
 
+▸ FIND IT AGAIN IN ONE CLICK
+  All your tags sit in one bar above the list, most used first: click one to
+  see only those videos. Search looks at video titles and your tags at the same
+  time. Click a channel name to see everything you saved from it.
+
 ▸ FAVOURITES
   Mark the ones worth coming back to with a heart, and show only those with
   one click. It narrows whatever you are already looking at, so you can see
   your favourite Shorts, or your favourites tagged "music".
 
-▸ FIND IT AGAIN IN ONE KEYSTROKE
-  Search looks at video titles and at your own tags at the same time. Click a
-  channel name to see everything you saved from it. Give videos colour-coded
-  tags for the things their titles don't say.
-
 ▸ YOUR ORDER, NOT AN ALGORITHM'S
-  Drag and drop to prioritise your queue. Every card shows its number in the
-  list and takes its new one the moment you move it — and the number is where
-  a video really sits, so it stays honest while you search.
+  Drag and drop to prioritise your queue — and your Archive, which keeps an
+  order of its own. Every card shows its number and takes its new one the
+  moment you move it.
 
-▸ KNOW WHAT YOU SAVED
-  Every item shows whether it is a Video or a Shorts, and which channel it
-  came from. One click narrows the list to either kind.
+▸ TO WATCH, ARCHIVE, TRASH
+  Finished videos leave your queue without disappearing. Deletions can be
+  undone.
+
+▸ BACK UP AND MOVE YOUR LIST
+  Export your whole list to a file, and import it on another computer or in
+  another browser. Importing only ever adds — nothing already on your list is
+  changed or removed — and one click undoes it. A plain list of links works
+  as an import too.
 
 ▸ SOUNDS ON YOUR TERMS
   A small mixer: set the volume of each sound with a slider or by typing a
@@ -95,21 +112,14 @@ WHAT YOU GET
 
 ▸ MAKE IT LOOK HOW YOU WANT
   Tags and the channel highlight take their colour from one setting: a colour
-  per name, worked out from its letters — or one neutral grey for everything,
-  or a single colour you give it as a HEX code. A Glass slider turns the
-  cards, the toolbar and the settings panel into frosted panes over a lit
-  backdrop, as strong or as subtle as you like. And the popup sizes itself to
-  your screen, so a large monitor shows more without a small laptop
-  overflowing.
-
-▸ TO WATCH, ARCHIVE, TRASH
-  Finished videos leave your queue without disappearing. Deletions can be
-  undone.
+  per name, one neutral grey for everything, or a single colour you choose. A
+  Glass slider turns the popup into frosted panes over a lit backdrop. And the
+  popup sizes itself to your screen, so a large monitor shows more without a
+  small laptop overflowing.
 
 ▸ A GUIDE THAT'S ALREADY INSTALLED
   A searchable user guide ships inside the extension, with every shortcut
-  explained. It works offline. Next to it, a link to the release notes, and
-  the version you're running.
+  explained and step-by-step examples for import and export. It works offline.
 
 
 WHY THIS ONE
@@ -117,15 +127,18 @@ WHY THIS ONE
 ▸ TRULY PRIVATE
   No account. No sign-in. No tracking. No cloud. Your list is stored on your
   own machine and never sent anywhere. The extension talks to nobody but
-  YouTube — not even for a font.
+  YouTube — not even for a font. Thumbnails come from YouTube's own image
+  server and are cached by your browser; switch them off in Settings and the
+  popup makes no request at all.
 
 ▸ ONE PERMISSION
   The extension asks for "storage" and nothing else. It cannot read your tabs
   or your browsing history, because it never asks to.
 
 ▸ GENUINELY LIGHTWEIGHT
-  Zero dependencies, no frameworks, no background polling. It stays out of your
-  browser's way.
+  Zero dependencies, no frameworks, no background polling. Thumbnails are the
+  smallest size YouTube offers and load only for what is on screen. It stays
+  out of your browser's way.
 
 ▸ OPEN SOURCE
   Every line is public and auditable. Nothing is hidden.
@@ -137,11 +150,12 @@ SHORTCUTS
   Alt + Shift + left click  Play a video in the mini player — on a thumbnail,
                             or on the player itself to pop out what you're
                             watching
-  /                    Open the search box in the extension popup
-  Space or K           Play / pause              (in the mini player)
-  Left / Right         Skip 5 seconds            (in the mini player)
-  M                    Mute                      (in the mini player)
-  Esc                  Close the mini player
+  Ctrl / Cmd + V            Paste a YouTube link onto your list to save it
+  /                         Open the search box in the extension popup
+  Space or K                Play / pause              (in the mini player)
+  Left / Right              Skip 5 seconds            (in the mini player)
+  M                         Mute                      (in the mini player)
+  Esc                       Close the mini player
 
 
 Source code and issue tracker:
@@ -163,7 +177,11 @@ behind it.
 * The feature list is kept in the order the popup shows things, so a reader
   comparing the two is never hunting. If a section moves in the UI, move it
   here too.
-* "Talks to nobody but YouTube" is true as of 2.7.2 and is enforced by the
-  extension's own CSP (`style-src 'self'; font-src 'self'`). Anything that
-  later adds a CDN, an analytics snippet or a remote webfont has to come out
-  of this copy at the same time.
+* "Talks to nobody but YouTube" is true as of 3.1.0: the only hosts are
+  youtube.com (from YouTube tabs) and i.ytimg.com, YouTube's image server, for
+  thumbnails — which can be switched off, and the copy says so. Fonts and
+  styles are kept local by the extension's own CSP (`style-src 'self';
+  font-src 'self'`). Anything that later adds a CDN, an analytics snippet or a
+  remote webfont has to come out of this copy at the same time.
+* The detailed description has a 16,000-character limit; this one is far
+  under it.
