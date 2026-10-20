@@ -78,7 +78,11 @@ browser, move to another app, drag the window anywhere — it keeps playing.
 * **While detached:** `Space`/`K` play and pause, `←` `→` seek five seconds,
   `M` mutes, `Esc` closes. Closing and returning to the tab also sit in the
   browser's own title bar on that window, so the overlay does not repeat them —
-  it shows the video's title and a **Pinned** badge, and fades out of the way.
+  it shows the video's title, and only while the player's controls are up.
+* **Pinned:** the floating window opens in the video's own shape, so the
+  picture fills it with no black bands, and the mini player window it came
+  from steps aside as a background tab in your browser window — one window on
+  screen for one video. Unpinning puts that window back where it stood.
 
 There is only ever one mini player: asking for the video already in it brings
 that window forward, and asking for another puts it in the same window. It is a
@@ -286,9 +290,17 @@ it runs.
   itself.
 * **Document PiP for the pin, and only for it** — **Pin on top** is the one
   place a floating always-on-top player earns its ownership problem, and the
-  window it came from minimizes rather than closes so there is something for
-  it to belong to. It is a button rather than a setting because a browser only
-  grants that window in answer to a click inside the page.
+  page it came from stays open so there is something for it to belong to. Its
+  window does not: the worker moves that page into the browser window as a
+  background tab — through a minimized stopover window, since Chrome will not
+  move a tab out of a popup directly — and pops it back out where it stood on
+  unpin. With no browser window to take it, the mini player window minimizes
+  instead. It is a button rather than a setting because a browser only grants
+  that window in answer to a click inside the page.
+* **Drags relayed into the pinned player** — YouTube's volume slider follows a
+  drag by listening to the document the player was built in, which is not the
+  floating window's; while a slider is being dragged, moves and releases are
+  copied across, so it tracks the pointer there too.
 * **One mini player, serialised in the worker** — requests queue behind each
   other there, so a double-click cannot race two windows into existence; the
   second either focuses the window already showing that video or replaces what

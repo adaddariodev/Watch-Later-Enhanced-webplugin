@@ -214,7 +214,7 @@
 
   // Closing and returning to the tab belong to the browser's own title bar on
   // the floating window, so this file no longer draws either — a drawing pin,
-  // seen from the side, is all that is left.
+  // seen from the side, for the button that pins, is all that is left.
   const ICONS = {
     pin: ['M9 4h6', 'M10 4v7l-3 3v1h10v-1l-3-3V4', 'M12 15v5']
   };
@@ -435,18 +435,11 @@
       // ours sat directly underneath them, saying the same thing twice. Esc
       // still closes it, and the browser's own X fires the same teardown.
       //
-      // What the browser's bar does not say is which video this is, or that
-      // the window floats above the others, so that is all this one adds.
-      const pinState = doc.createElement('span');
-      pinState.className = 'wle-pip-pinned';
-      pinState.appendChild(createIcon(doc, ICONS.pin));
-      const pinText = doc.createElement('span');
-      pinText.className = 'wle-pip-pinned-text';
-      pinText.textContent = 'Pinned';
-      pinState.appendChild(pinText);
-      pinState.title = 'This player stays above your other windows';
-
-      bar.append(title, pinState);
+      // Nor a "Pinned" badge: a window that floats above everything says so
+      // by doing it. What the browser's bar does not say is which video this
+      // is, so that is all this one adds — and only while the player's own
+      // controls are showing.
+      bar.append(title);
 
       return bar;
     },
@@ -500,7 +493,91 @@
       pipWindow.document.addEventListener('keydown', (event) => this.handleKey(event));
       pipWindow.document.addEventListener('pointermove', () => this.wakeBar());
 
+      this.relayDrags(pipWindow);
       this.wakeBar();
+    },
+
+    /**
+     * YouTube follows a drag on its volume slider by listening to the
+     * document the player was built in — this tab's. In the floating window
+     * the pointer's moves and its release land on that window's document
+     * instead, so the slider took the press and then never heard the pointer
+     * move or let go: it jumped to where it was clicked and would not follow.
+     *
+     * Copies are handed across while the button is held, to the listeners
+     * they would have reached had the player never moved. The positions need
+     * no translating: the slider is measured in the floating window, which is
+     * where the pointer's coordinates come from too.
+     *
+     * Only for a press on a slider. A copy lands on the tab's document itself,
+     * not on the control it was meant for, and to anything there that asks
+     * where a release happened, that reads as "outside" — the sort of thing
+     * that closes a menu under the item being chosen. role="slider" is an
+     * ARIA contract; the class names after it are for the day it is not.
+     */
+    DRAG_TARGETS: '[role="slider"], .ytp-volume-panel, .ytp-volume-slider',
+
+    relayDrags(pipWindow) {
+      const doc = pipWindow.document;
+      let dragging = false;
+
+      const relay = (event) => {
+        if (!dragging) return;
+
+        const init = {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          view: window,
+          screenX: event.screenX,
+          screenY: event.screenY,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          movementX: event.movementX,
+          movementY: event.movementY,
+          ctrlKey: event.ctrlKey,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          metaKey: event.metaKey,
+          button: event.button,
+          buttons: event.buttons
+        };
+
+        try {
+          const copy = event.type.startsWith('pointer')
+            ? new PointerEvent(event.type, {
+                ...init,
+                pointerId: event.pointerId,
+                pointerType: event.pointerType,
+                isPrimary: event.isPrimary,
+                width: event.width,
+                height: event.height,
+                pressure: event.pressure
+              })
+            : new MouseEvent(event.type, init);
+          document.dispatchEvent(copy);
+        } catch (error) {
+          console.warn('WLE: a drag could not be handed to the player:', error);
+        }
+      };
+
+      doc.addEventListener('pointerdown', (event) => {
+        // Not instanceof Element: the player came from another document, and
+        // whose Element its nodes answer to is not worth betting on.
+        dragging = event.button === 0 &&
+          Boolean(event.target?.closest?.(this.DRAG_TARGETS));
+      }, true);
+
+      ['pointermove', 'mousemove', 'pointerup', 'mouseup', 'pointercancel'].forEach((type) => {
+        doc.addEventListener(type, relay, true);
+      });
+
+      // The release arrives twice, pointerup and then mouseup, and the slider
+      // may be waiting for either: stop only once both have gone across. A
+      // cancelled pointer gets no mouseup at all.
+      doc.addEventListener('pointerup', () => setTimeout(() => { dragging = false; }, 0), true);
+      doc.addEventListener('mouseup', () => { dragging = false; }, true);
+      doc.addEventListener('pointercancel', () => { dragging = false; }, true);
     },
 
     handleKey(event) {
@@ -562,28 +639,47 @@
       }
     },
 
+    /**
+     * The window takes the video's shape. The browser draws its frame and
+     * title bar whatever we do, but everything inside them can be picture —
+     * and a window of any other shape is picture plus black bands. The saved
+     * size was the right shape for the last video, which may not have been
+     * this one's, so what is kept from it is how big it was: its area,
+     * re-cut to this video.
+     */
     async resolveSize(video) {
       const data = await readStorage({ [DETACH.KEYS.SIZE]: null });
       const saved = data[DETACH.KEYS.SIZE];
-
-      if (saved && Number.isFinite(saved.width) && Number.isFinite(saved.height)) {
-        return this.clampSize(saved.width, saved.height);
-      }
 
       const ratio = video.videoWidth && video.videoHeight
         ? video.videoWidth / video.videoHeight
         : 16 / 9;
 
-      return this.clampSize(DETACH.DEFAULT_WIDTH, Math.round(DETACH.DEFAULT_WIDTH / ratio));
+      const area = saved && Number.isFinite(saved.width) && Number.isFinite(saved.height)
+        ? saved.width * saved.height
+        : DETACH.DEFAULT_WIDTH * DETACH.DEFAULT_WIDTH * 9 / 16;
+
+      return this.fitSize(area, ratio);
     },
 
-    clampSize(width, height) {
-      const maxWidth = Math.max(DETACH.MIN_SIZE.width, Math.round((window.screen?.availWidth || 1280) * 0.8));
-      const maxHeight = Math.max(DETACH.MIN_SIZE.height, Math.round((window.screen?.availHeight || 720) * 0.8));
+    /**
+     * That much area at that shape, kept above the smallest usable player and
+     * inside the screen. Both sides scale together, so a limit changes the
+     * size and never the shape.
+     */
+    fitSize(area, ratio) {
+      const maxWidth = Math.max(DETACH.MIN_SIZE.width, (window.screen?.availWidth || 1280) * 0.8);
+      const maxHeight = Math.max(DETACH.MIN_SIZE.height, (window.screen?.availHeight || 720) * 0.8);
+
+      const width = Math.sqrt(area * ratio);
+      const height = width / ratio;
+
+      const grow = Math.max(1, DETACH.MIN_SIZE.width / width, DETACH.MIN_SIZE.height / height);
+      const scale = grow * Math.min(1, maxWidth / (width * grow), maxHeight / (height * grow));
 
       return {
-        width: Math.min(Math.max(Math.round(width), DETACH.MIN_SIZE.width), maxWidth),
-        height: Math.min(Math.max(Math.round(height), DETACH.MIN_SIZE.height), maxHeight)
+        width: Math.round(width * scale),
+        height: Math.round(height * scale)
       };
     },
 
@@ -1387,8 +1483,21 @@
 
       const note = document.createElement('div');
       note.className = 'wle-mini-note';
-      note.textContent = 'Playing in the pinned player';
       note.hidden = true;
+
+      const noteText = document.createElement('p');
+      noteText.className = 'wle-mini-note-text';
+      noteText.textContent = 'Playing in the pinned player';
+
+      // While pinned, this page waits as a tab in the browser window: whoever
+      // opens that tab needs a way to have the video back.
+      const unpinBtn = document.createElement('button');
+      unpinBtn.type = 'button';
+      unpinBtn.className = 'wle-detach-placeholder-btn';
+      unpinBtn.textContent = 'Bring the video back';
+      unpinBtn.addEventListener('click', () => DetachedPlayer.close({ focus: true }));
+
+      note.append(noteText, unpinBtn);
 
       bar.append(title, pinBtn);
       document.body.append(bar, note);
@@ -1426,10 +1535,12 @@
      * While pinned the player lives in the floating window, so this one would
      * otherwise be a black rectangle with no explanation.
      *
-     * It cannot simply be closed: a document picture-in-picture window belongs
-     * to the document that opened it, so closing this one would take the
-     * floating player down with it. Minimizing is as far out of the way as it
-     * can get, and it comes back the moment the video does.
+     * This page cannot simply be closed: a document picture-in-picture window
+     * belongs to the document that opened it, so closing it would take the
+     * floating player down with it. Its window can go, though — the worker
+     * moves the page into the browser window as a tab and closes this one, so
+     * the floating player is the only window left. It comes back, where it
+     * stood, the moment the video does.
      */
     setPinned(pinned, { focus = false } = {}) {
       if (!this.active || this.pinned === Boolean(pinned)) return;
@@ -1483,6 +1594,10 @@
       window.addEventListener('resize', () => {
         clearTimeout(this.sizeTimer);
         this.sizeTimer = setTimeout(() => {
+          // Pinned, this page is a tab in a browser window, and that
+          // window's size is not the mini player's.
+          if (this.pinned) return;
+
           const width = window.outerWidth;
           const height = window.outerHeight;
           if (!Number.isFinite(width) || !Number.isFinite(height)) return;

@@ -68,6 +68,16 @@ body.wle-pip-body {
   display: none !important;
 }
 
+/* Buttons that act on the page this player came from, or ask for a window of
+   their own, have nothing to do in a floating one: theater mode, YouTube's
+   in-page miniplayer, and picture-in-picture inside picture-in-picture. Fewer
+   things on the bar leaves more of the bar for the progress line. */
+.wle-pip-stage .ytp-size-button,
+.wle-pip-stage .ytp-miniplayer-button,
+.wle-pip-stage .ytp-pip-button {
+  display: none !important;
+}
+
 /* The detach button travels inside the player; content.css does not. */
 .wle-pip-stage .wle-ytp-detach-btn {
   display: inline-flex !important;
@@ -95,59 +105,28 @@ body.wle-pip-body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px 10px 16px;
   color: #fff;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
-  transition: background 0.25s ease;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  opacity: 1;
+  transition: opacity 0.25s ease;
   z-index: 2147483000;
   pointer-events: none;
 }
 
-/* Idle: the whole bar goes, leaving nothing but the video. Closing and going
-   back to the tab live in the browser's own title bar above this window, so
-   there is no control down here that has to stay reachable. */
-.wle-pip-bar.idle {
-  background: transparent;
-}
-
-.wle-pip-bar.idle .wle-pip-title,
-.wle-pip-bar.idle .wle-pip-pinned {
+/* The title comes and goes with YouTube's own controls, so at rest there is
+   nothing over the picture at all. Closing and going back to the tab live in
+   the browser's own title bar above this window, so there is no control down
+   here that has to stay reachable. The idle timer is the fallback for the day
+   YouTube stops saying when its controls are hidden. */
+.wle-pip-bar.idle,
+.wle-pip-root:has(.html5-video-player.ytp-autohide) .wle-pip-bar {
   opacity: 0;
-}
-
-/* This window floats above the others by its nature — there is nothing to
-   switch, only something to say. A chip, not a button, so it does not promise
-   an action it cannot perform. */
-.wle-pip-pinned {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.10);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: auto;
-  cursor: default;
-  user-select: none;
-  transition: opacity 0.25s ease;
-}
-
-.wle-pip-pinned .wle-pip-icon {
-  width: 13px;
-  height: 13px;
 }
 
 .wle-pip-title {
   flex: 1 1 auto;
   min-width: 0;
-  opacity: 1;
-  transition: opacity 0.25s ease;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.3;
@@ -157,15 +136,8 @@ body.wle-pip-body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
-.wle-pip-icon {
-  width: 16px;
-  height: 16px;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .wle-pip-bar,
-  .wle-pip-title,
-  .wle-pip-pinned {
+  .wle-pip-bar {
     transition: none;
   }
 }

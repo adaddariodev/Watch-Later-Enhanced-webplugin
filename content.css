@@ -336,20 +336,27 @@ html.wle-mini-window:hover .wle-mini-bar {
 }
 
 /* The stage is empty while the player floats in the pinned window, so this
-   stands in for it rather than leaving a black rectangle. */
+   stands in for it rather than leaving a black rectangle — in the tab this
+   page becomes while it is pinned. */
 .wle-mini-note {
   position: fixed;
   inset: 0;
   z-index: 2147483002;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 14px;
   padding: 20px;
   background: #0f0f0f;
   color: #aaa;
   font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 13px;
   text-align: center;
+}
+
+.wle-mini-note-text {
+  margin: 0;
 }
 
 .wle-mini-note[hidden] {

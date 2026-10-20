@@ -482,17 +482,21 @@
         <p>
           To put it above everything, click <strong>Pin on top</strong> in its
           corner. The video moves into a floating player that stays on top of
-          every other application, and the window it came from minimizes itself
-          so only one window is left on screen. Close the pinned player and that
-          window comes back with the video in it.
+          every other application, and the window it came from steps aside: it
+          becomes a tab at the end of your browser window, in the background,
+          so the floating player is the only window left on screen. Close the
+          pinned player and the mini player window comes back where it was,
+          with the video in it.
         </p>
         <p class="wiki-note">
-          That window is minimized rather than closed because it has to stay: a
-          floating player belongs to the window that opened it, and closing that
-          window closes the player with it. It is the same rule that decides
+          That page is kept as a tab rather than closed because it has to stay:
+          a floating player belongs to the page that opened it, and closing that
+          page closes the player with it. It is the same rule that decides
           everything above — which is why opening the mini player from a video
           page gives you a window rather than a floating player. One tied to the
-          tab would die the moment you closed it.
+          tab would die the moment you closed it. Open that tab and you will
+          find a button to bring the video back; with no browser window open to
+          hold it, the mini player window is minimized instead.
         </p>
         <p class="wiki-note">
           Pinning is a button rather than a setting on purpose: browsers only hand out an
@@ -509,8 +513,12 @@
           <li>
             The browser draws that window with its own small title bar, and that bar already
             carries the buttons to close it and to go back to the tab. Watch Later Enhanced
-            does not draw its own copies underneath: over the video you get the title and a
-            <strong>Pinned</strong> badge, and both fade away while you watch.
+            does not draw its own copies underneath: over the video you get only the title,
+            and only while the player's own controls are showing.
+          </li>
+          <li>
+            A pinned player opens in the shape of the video it is showing, so the picture fills
+            it with no black bands above and below — as big as you last made it.
           </li>
         </ul>
 
@@ -540,11 +548,11 @@
         <p>
           A <strong>pinned</strong> player is the one exception, because it is a
           floating player rather than a window: closing it hands the video back
-          to the mini player window it came from, which comes out of the taskbar
-          with it. The buttons for that are the ones your browser draws on its
+          to the mini player window it came from, which reappears where it
+          stood. The buttons for that are the ones your browser draws on its
           own small title bar — the × and the one that goes back — so the
           extension does not repeat them. What it draws over the video is the
-          title and the Pinned badge, and both fade away while you watch.
+          title, and only while the player's own controls are showing.
         </p>
 
         <h3>What your browser needs</h3>
@@ -1177,9 +1185,10 @@
           The window itself outlives the page it came from, so navigating or
           closing that tab does not touch it. A <strong>pinned</strong> player
           is the exception: it is a floating player rather than a window, and it
-          belongs to the window that opened it — closing that window closes the
-          player with it, handing the video back. Unpin it, or leave its window
-          minimized where the pin put it.
+          belongs to the page that opened it, which waits as a tab in your
+          browser window while the video is pinned. Closing that tab, or the
+          browser window it is in, closes the player with it. Unpin it first,
+          or leave that tab where the pin put it.
         </p>
 
         <h3>"Could not save — storage may be full"</h3>
