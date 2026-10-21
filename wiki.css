@@ -268,6 +268,14 @@ body {
   color: var(--accent);
 }
 
+/* One step down: the parts of a section that compares things, each named. */
+.wiki-content h4 {
+  margin: 22px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
 .wiki-content p {
   margin: 0 0 14px;
   color: #e6e6e6;

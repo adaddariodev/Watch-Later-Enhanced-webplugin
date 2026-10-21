@@ -70,11 +70,13 @@ body.wle-pip-body {
 
 /* Buttons that act on the page this player came from, or ask for a window of
    their own, have nothing to do in a floating one: theater mode, YouTube's
-   in-page miniplayer, and picture-in-picture inside picture-in-picture. Fewer
-   things on the bar leaves more of the bar for the progress line. */
+   in-page miniplayer, picture-in-picture inside picture-in-picture, and full
+   screen, which a picture-in-picture window is never allowed. Fewer things
+   on the bar leaves more of the bar for the progress line. */
 .wle-pip-stage .ytp-size-button,
 .wle-pip-stage .ytp-miniplayer-button,
-.wle-pip-stage .ytp-pip-button {
+.wle-pip-stage .ytp-pip-button,
+.wle-pip-stage .ytp-fullscreen-button {
   display: none !important;
 }
 

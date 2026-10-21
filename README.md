@@ -75,22 +75,31 @@ browser, move to another app, drag the window anywhere — it keeps playing.
 * **From the popup:** the mini-player button on a saved video plays it
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
-* **While detached:** `Space`/`K` play and pause, `←` `→` seek five seconds,
-  `M` mutes, `Esc` closes. Closing and returning to the tab also sit in the
-  browser's own title bar on that window, so the overlay does not repeat them —
-  it shows the video's title, and only while the player's controls are up.
-* **Pinned:** the floating window opens in the video's own shape, so the
-  picture fills it with no black bands, and the mini player window it came
-  from steps aside as a background tab in your browser window — one window on
-  screen for one video. Unpinning puts that window back where it stood.
+* **Pinned with YouTube controls:** `Space`/`K` play and pause, `←` `→` seek
+  five seconds, `M` mutes, `Esc` closes. Closing and returning to the tab also
+  sit in the browser's own title bar on that window, so the overlay does not
+  repeat them — it shows the video's title, and only while the player's
+  controls are up.
+* **Pinned, two ways** — chosen under **Settings → Pinned player**:
+  * **Video only** (default): the browser's own picture-in-picture. No bar
+    along the top, smooth, and the mini player window steps aside as a
+    background tab — one window on screen for one video. The controls are the
+    browser's, and captions do not show.
+  * **YouTube controls**: YouTube's whole player — volume, captions, quality —
+    in a floating window shaped like the video. The browser draws its own
+    title bar on it, and the mini player window stays open behind it.
+
+  Unpinning puts the video back in the mini player window, where it stood.
 
 There is only ever one mini player: asking for the video already in it brings
-that window forward, and asking for another puts it in the same window. It is a
-window of its own, so closing the page it came from leaves it playing.
+that window forward (or, while it is pinned, leaves it floating where it is),
+and asking for another puts it in the same window. It is a window of its own,
+so closing the page it came from leaves it playing.
 
-> The pin is a button rather than a setting because it has to be: a browser
-> only grants an always-on-top window in response to a click inside the page,
-> so no preference can ask for one on your behalf.
+> The pin itself is a button because it has to be: a browser only grants an
+> always-on-top window in response to a click inside the page, so no
+> preference can ask for one on your behalf. The setting only picks which kind
+> of window that click asks for.
 
 ### Organise it the way you think
 
@@ -288,15 +297,22 @@ it runs.
   given up is the hand-off of the already-decoded `<video>`, so the window
   starts at the second the page had reached rather than receiving the frame
   itself.
-* **Document PiP for the pin, and only for it** — **Pin on top** is the one
-  place a floating always-on-top player earns its ownership problem, and the
-  page it came from stays open so there is something for it to belong to. Its
-  window does not: the worker moves that page into the browser window as a
-  background tab — through a minimized stopover window, since Chrome will not
-  move a tab out of a popup directly — and pops it back out where it stood on
-  unpin. With no browser window to take it, the mini player window minimizes
-  instead. It is a button rather than a setting because a browser only grants
+* **Picture-in-picture for the pin, and only for it** — **Pin on top** is the
+  one place a floating always-on-top player earns its ownership problem, and
+  the page it came from stays open so there is something for it to belong to.
+  It is a button rather than something automatic because a browser only grants
   that window in answer to a click inside the page.
+* **Two pins, because neither has everything** — measured in Chromium, not
+  guessed. A document picture-in-picture window (the **YouTube controls** pin)
+  carries the browser's title bar, which no page can remove, and shows only the
+  frames its opener draws: with the opener in a background tab or a minimized
+  window that is ~4 fps against 30, so that pin leaves the mini player window
+  where it is. The browser's own video picture-in-picture (**Video only**) has
+  no bar and stays at full frame rate with its page hidden, so for that one the
+  worker moves the page into the browser window as a background tab — through
+  a minimized stopover window, since Chrome will not move a tab out of a popup
+  directly — and pops it back out where it stood on unpin. With no browser
+  window to take it, the mini player window minimizes instead.
 * **Drags relayed into the pinned player** — YouTube's volume slider follows a
   drag by listening to the document the player was built in, which is not the
   floating window's; while a slider is being dragged, moves and releases are

@@ -473,7 +473,7 @@
           player floating in front of a window, with a play symbol in it.
         </p>
 
-        <h3>Pinning it on top</h3>
+        <h3 id="pinning">Pinning it on top</h3>
         <p>
           The mini player is a window of its own, however you opened it. It
           survives minimizing the browser and closing the page it came from,
@@ -482,11 +482,64 @@
         <p>
           To put it above everything, click <strong>Pin on top</strong> in its
           corner. The video moves into a floating player that stays on top of
-          every other application, and the window it came from steps aside: it
-          becomes a tab at the end of your browser window, in the background,
-          so the floating player is the only window left on screen. Close the
-          pinned player and the mini player window comes back where it was,
-          with the video in it.
+          every other application. Close the pinned player and the video goes
+          back into the mini player window, which comes back where it was.
+        </p>
+        <p>
+          That floating player comes in two kinds, and you choose which one the
+          button gives under <strong>Settings → Pinned player</strong>. There are two
+          because the browser will not give one with everything in it: each has
+          something the other cannot have.
+        </p>
+
+        <table class="wiki-table">
+          <thead>
+            <tr><th></th><th>Video only <em>(default)</em></th><th>YouTube controls</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>What floats</td>
+              <td>The video, alone, in your browser's own picture-in-picture window</td>
+              <td>YouTube's whole player, in a floating window the extension builds</td>
+            </tr>
+            <tr>
+              <td>Bar along the top</td>
+              <td>None — the window is all picture</td>
+              <td>Your browser's own small title bar, with the site's name, a ×, and a button back to the tab</td>
+            </tr>
+            <tr>
+              <td>Controls</td>
+              <td>The browser's, when you hover the video: play and pause, back to the tab, close, and whatever else YouTube offers it (skip ad, next video)</td>
+              <td>YouTube's own: volume slider, captions, quality, chapters, skip ad — plus the keys below</td>
+            </tr>
+            <tr>
+              <td>Captions</td>
+              <td>Not shown — YouTube draws them over the player, and only the picture floats</td>
+              <td>Shown, as on YouTube</td>
+            </tr>
+            <tr>
+              <td>Windows on screen</td>
+              <td>One. The mini player window steps aside while you watch</td>
+              <td>Two. The mini player window stays open behind the floating one</td>
+            </tr>
+            <tr>
+              <td>Shape and size</td>
+              <td>The video's shape, always, at a size the browser picks; drag its corner to change it</td>
+              <td>Opens in the video's shape, as big as you last made it</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>Video only</h4>
+        <p>
+          The window that pops up is the one your browser uses for any video's
+          picture-in-picture: just the picture, with the browser's controls
+          appearing when you hover it. While it floats, the mini player window
+          steps aside: it becomes a tab at the end of your browser window, in the
+          background, so the floating video is the only window left on screen.
+          Open that tab and you will find a <strong>Bring the video back</strong>
+          button; close the floating video, or use its button back to the tab,
+          and the mini player window comes back where it stood.
         </p>
         <p class="wiki-note">
           That page is kept as a tab rather than closed because it has to stay:
@@ -494,47 +547,68 @@
           page closes the player with it. It is the same rule that decides
           everything above — which is why opening the mini player from a video
           page gives you a window rather than a floating player. One tied to the
-          tab would die the moment you closed it. Open that tab and you will
-          find a button to bring the video back; with no browser window open to
-          hold it, the mini player window is minimized instead.
-        </p>
-        <p class="wiki-note">
-          Pinning is a button rather than a setting on purpose: browsers only hand out an
-          always-on-top window in answer to a click on the page itself, so nothing can ask for
-          one on your behalf.
+          tab would die the moment you closed it. With no browser window open to
+          hold the tab, the mini player window is minimized instead.
         </p>
 
-        <h3>While it is open</h3>
+        <h4>YouTube controls</h4>
+        <p>
+          The whole player moves into the floating window — the same controls,
+          captions and settings you have on YouTube, the volume slider included.
+          The window opens in the shape of the video, so the picture fills it,
+          and over it the extension draws only the video's title, which comes
+          and goes with YouTube's own controls.
+        </p>
+        <p>
+          The price is two things the browser decides, not the extension:
+        </p>
         <ul>
-          <li>YouTube's own controls are there, so play, volume, captions, quality, chapters and the skip-ad button all work as usual.</li>
-          <li>The page you opened it from stops playing, so you never end up with two soundtracks — one of them from a window you cannot see.</li>
-          <li>There is only ever one mini player. Asking for the video that is already in it brings that window forward; asking for another puts it in the same window.</li>
-          <li>The window remembers the size you gave it and opens that way next time.</li>
           <li>
-            The browser draws that window with its own small title bar, and that bar already
-            carries the buttons to close it and to go back to the tab. Watch Later Enhanced
-            does not draw its own copies underneath: over the video you get only the title,
-            and only while the player's own controls are showing.
+            <strong>The bar along the top stays.</strong> Your browser draws it on every
+            window of this kind, and no page or extension can hide or restyle it — the video
+            simply starts below it. If you want the picture and nothing else, that is what
+            <strong>Video only</strong> is for.
           </li>
           <li>
-            A pinned player opens in the shape of the video it is showing, so the picture fills
-            it with no black bands above and below — as big as you last made it.
+            <strong>The mini player window has to stay open.</strong> This floating window can
+            only show as many frames as the page behind it is drawing, and a page the browser
+            cannot see — a background tab, a minimized window — draws none. Hidden, it drops
+            the video to about four frames a second, which is a stutter you will notice at
+            once. So the mini player window is left where it is: put the floating player
+            wherever you like, and leave the window behind it open rather than minimizing it.
           </li>
         </ul>
 
         <p class="wiki-note">
-          That title bar belongs to the browser, not to the page, so no extension can hide or
-          restyle it — the video simply starts below it.
+          Pinning is a button rather than something that happens by itself on purpose: browsers
+          only hand out an always-on-top window in answer to a click on the page itself, so
+          nothing can ask for one on your behalf. The setting only decides which kind that
+          click asks for, and a change applies from the next pin.
         </p>
 
-        <h3>Controls inside the window</h3>
+        <h3>While it is open</h3>
+        <ul>
+          <li>In the mini player window, YouTube's own controls are there, so play, volume, captions, quality, chapters and the skip-ad button all work as usual — and in a pinned player with <strong>YouTube controls</strong> too.</li>
+          <li>The page you opened it from stops playing, so you never end up with two soundtracks — one of them from a window you cannot see.</li>
+          <li>There is only ever one mini player. Asking for the video that is already in it brings that window forward; asking for another puts it in the same window. While it is pinned, asking for the same video leaves it floating where it is.</li>
+          <li>The window remembers the size you gave it and opens that way next time.</li>
+          <li>
+            A pinned player with <strong>YouTube controls</strong> is drawn by the browser with
+            its own small title bar, and that bar already carries the buttons to close it and to
+            go back to the tab. Watch Later Enhanced does not draw its own copies underneath:
+            over the video you get only the title, and only while the player's own controls are
+            showing.
+          </li>
+        </ul>
+
+        <h3>Keys inside a pinned player with YouTube controls</h3>
         <table class="wiki-table">
           <thead><tr><th>Key</th><th>What it does</th></tr></thead>
           <tbody>
             <tr><td><kbd>Space</kbd> or <kbd>K</kbd></td><td>Play / pause</td></tr>
             <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Back / forward 5 seconds</td></tr>
             <tr><td><kbd>M</kbd></td><td>Mute / unmute</td></tr>
-            <tr><td><kbd>Esc</kbd></td><td>Close the mini player</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Close the pinned player, back into the mini player window</td></tr>
           </tbody>
         </table>
 
@@ -549,17 +623,25 @@
           A <strong>pinned</strong> player is the one exception, because it is a
           floating player rather than a window: closing it hands the video back
           to the mini player window it came from, which reappears where it
-          stood. The buttons for that are the ones your browser draws on its
-          own small title bar — the × and the one that goes back — so the
-          extension does not repeat them. What it draws over the video is the
-          title, and only while the player's own controls are showing.
+          stood. The buttons for that are the browser's own — the × and the one
+          that goes back to the tab, on the title bar of a player with
+          <strong>YouTube controls</strong>, or over the picture when you hover a
+          <strong>Video only</strong> one — so the extension does not repeat them.
+          <kbd>Esc</kbd> does the same in a player with YouTube controls, and the
+          <strong>Bring the video back</strong> button on the page left behind
+          does it for either kind.
+        </p>
+        <p>
+          Closing a <strong>Video only</strong> player with its × may pause the video:
+          that is the browser's own rule for its picture-in-picture window. The button
+          back to the tab keeps it playing.
         </p>
 
         <h3>What your browser needs</h3>
         <ul>
-          <li><strong>Chrome, Edge and other Chromium browsers, version 116 or newer:</strong> the full floating window described above.</li>
-          <li><strong>Browsers without it:</strong> the extension falls back to the classic picture-in-picture window, which also floats on top but carries only basic controls.</li>
-          <li><strong>Neither available:</strong> a short message appears on the page and nothing else changes.</li>
+          <li><strong>Chrome, Edge and other Chromium browsers, version 116 or newer:</strong> both kinds of pinned player.</li>
+          <li><strong>Older Chromium browsers:</strong> <strong>Video only</strong>, whatever the setting says — the floating window with YouTube's controls needs version 116.</li>
+          <li><strong>Browsers with neither, Firefox among them:</strong> the mini player window works as described, without the <strong>Pin on top</strong> button.</li>
         </ul>
 
         <div class="wiki-note">
@@ -712,6 +794,29 @@
 
         <h3>Detached mini player</h3>
         <p>Turns the floating mini player on and off, everywhere. It is on by default.</p>
+
+        <h3>Pinned player</h3>
+        <p>
+          What <strong>Pin on top</strong> gives you, in the mini player window. Two choices,
+          because the browser has two kinds of floating window and neither has everything:
+        </p>
+        <ul>
+          <li>
+            <strong>Video only</strong> <em>(default)</em> — the picture alone, in the browser's
+            own picture-in-picture window: no bar along the top, smooth, and the only window
+            on screen. The controls are the browser's, and captions do not show.
+          </li>
+          <li>
+            <strong>YouTube controls</strong> — YouTube's whole player, volume slider and
+            captions included, in a window with the browser's own title bar. The mini player
+            window stays open behind it, because hiding it would make the video stutter.
+          </li>
+        </ul>
+        <p>
+          The line under the two choices sums up the one selected, and <strong>How they
+          differ</strong> opens <a href="#pinning">Pinning it on top</a>, which compares them
+          point by point. A change applies from the next pin: one already floating stays as it is.
+        </p>
 
         <h3>Thumbnails</h3>
         <p>
@@ -1185,10 +1290,31 @@
           The window itself outlives the page it came from, so navigating or
           closing that tab does not touch it. A <strong>pinned</strong> player
           is the exception: it is a floating player rather than a window, and it
-          belongs to the page that opened it, which waits as a tab in your
-          browser window while the video is pinned. Closing that tab, or the
-          browser window it is in, closes the player with it. Unpin it first,
-          or leave that tab where the pin put it.
+          belongs to the page that opened it. With <strong>Video only</strong>,
+          that page waits as a tab in your browser window while the video is
+          pinned, and closing that tab, or the browser window it is in, closes
+          the player with it. With <strong>YouTube controls</strong>, the page is
+          the mini player window itself, so closing that window does the same.
+          Unpin it first, or leave the page where the pin put it.
+        </p>
+
+        <h3>The pinned video stutters</h3>
+        <p>
+          That is a pinned player with <strong>YouTube controls</strong> whose mini player
+          window has been minimized. A floating window of that kind can only show the frames
+          the page behind it draws, and the browser stops drawing a page it cannot see — down
+          to about four frames a second. Bring the mini player window back up and the video
+          is smooth again; if you would rather it stayed out of sight, switch
+          <strong>Settings → Pinned player</strong> to <strong>Video only</strong>, which is
+          smooth with its page hidden.
+        </p>
+
+        <h3>I cannot get rid of the bar along the top of the pinned player</h3>
+        <p>
+          With <strong>YouTube controls</strong> that bar is drawn by the browser itself, on
+          every floating window of that kind, and no extension can hide it. Choose
+          <strong>Video only</strong> under <strong>Settings → Pinned player</strong>: that
+          window has no bar at all — at the cost of YouTube's own controls inside it.
         </p>
 
         <h3>"Could not save — storage may be full"</h3>

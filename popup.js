@@ -19,6 +19,7 @@ const CONFIG = {
     LAST_PROMPT: 'lastDonatePrompt',
     HIDE_JM_BANNER: 'hideJobsMatchBanner',
     DETACH: 'detachEnabled',
+    PIN_MODE: 'pinMode',
     MINI_WINDOW_SIZE: 'miniWindowSize',
     TYPE_FILTER: 'typeFilter',
     FAVOURITES_ONLY: 'favouritesOnly',
@@ -237,6 +238,9 @@ const DOMCache = {
   supporterUnlockBtn: null,
   supporterUnlockStatus: null,
   miniPlayerSwitch: null,
+  pinMode: null,
+  pinModeText: null,
+  pinModeGuide: null,
   wikiBtn: null,
   typeFilter: null,
   favouritesFilter: null,
@@ -289,6 +293,9 @@ const DOMCache = {
     this.supporterUnlockBtn = document.getElementById('supporter-unlock-btn');
     this.supporterUnlockStatus = document.getElementById('supporter-unlock-status');
     this.miniPlayerSwitch = document.getElementById('toggle-mini-player');
+    this.pinMode = document.getElementById('pin-mode');
+    this.pinModeText = document.getElementById('pin-mode-text');
+    this.pinModeGuide = document.getElementById('pin-mode-guide');
     this.wikiBtn = document.getElementById('open-wiki');
     this.typeFilter = document.getElementById('type-filter');
     this.favouritesFilter = document.getElementById('favourites-filter');
@@ -334,6 +341,7 @@ const AppState = {
   supporter: false,
   hideJobsMatchBanner: false,
   detachEnabled: true,
+  pinMode: 'video', // 'video' | 'controls' — what Pin on top gives, see PIN_MODE
   thumbnailsEnabled: true,
 
   setSoundEnabled(value) {
@@ -2533,6 +2541,7 @@ function updateGroupNotes() {
   }
 
   if (!AppState.detachEnabled) changed.push('mini player off');
+  if (AppState.pinMode === 'controls') changed.push('pinned with controls');
   if (!AppState.thumbnailsEnabled) changed.push('thumbnails off');
   if (Styling.mode !== 'random') changed.push(`${Styling.mode} colours`);
   if (Styling.glass > 0) changed.push(`${Styling.glass}% glass`);
@@ -3350,6 +3359,68 @@ function setupMiniPlayerToggle() {
 }
 
 // ============================================
+// PINNED PLAYER
+// What the mini player's Pin on top gives. The browser offers two floating
+// windows and neither has everything, so the choice is the user's; detach.js
+// reads it at the next pin. The guide's section on pinning has the whole story.
+// ============================================
+const PIN_MODES = {
+  video: "Just the video, in your browser's own floating window: no title bar, smooth, and the mini player window steps aside as a tab. The controls are the browser's.",
+  controls: "YouTube's controls — volume, captions, quality — under your browser's own title bar. The mini player window stays open behind it: hidden, the video stutters."
+};
+
+function updatePinModeUI() {
+  DOMCache.pinMode?.querySelectorAll('.mode-chip').forEach((chip) => {
+    const on = chip.dataset.pinMode === AppState.pinMode;
+    chip.setAttribute('aria-checked', on ? 'true' : 'false');
+    chip.tabIndex = on ? 0 : -1;
+  });
+  if (DOMCache.pinModeText) DOMCache.pinModeText.textContent = PIN_MODES[AppState.pinMode];
+  updateGroupNotes();
+}
+
+function setPinMode(mode) {
+  if (!Object.hasOwn(PIN_MODES, mode) || mode === AppState.pinMode) return;
+  AudioManager.play(AppState.soundEnabled);
+  AppState.pinMode = mode;
+  chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.PIN_MODE]: mode });
+  updatePinModeUI();
+}
+
+function setupPinMode() {
+  const group = DOMCache.pinMode;
+  DOMCache.pinModeGuide?.addEventListener('click', () => openWiki('pinning'));
+  if (!group) return;
+
+  const chips = Array.from(group.querySelectorAll('.mode-chip'));
+
+  group.addEventListener('click', (e) => {
+    const chip = e.target.closest('.mode-chip');
+    if (chip) setPinMode(chip.dataset.pinMode);
+  });
+
+  // The same keys as the colour chips, because it is the same control.
+  group.addEventListener('keydown', (e) => {
+    const edge = { Home: 0, End: chips.length - 1 }[e.key];
+    if (edge !== undefined) {
+      e.preventDefault();
+      setPinMode(chips[edge]?.dataset.pinMode);
+      chips[edge]?.focus();
+      return;
+    }
+
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!step) return;
+
+    e.preventDefault();
+    const current = chips.findIndex((c) => c.dataset.pinMode === AppState.pinMode);
+    const next = chips[(current + step + chips.length) % chips.length];
+    setPinMode(next?.dataset.pinMode);
+    next?.focus();
+  });
+}
+
+// ============================================
 // SEARCH HANDLING
 // ============================================
 
@@ -3993,6 +4064,7 @@ async function init() {
         {
           [CONFIG.STORAGE_KEYS.SOUND]: true,
           [CONFIG.STORAGE_KEYS.DETACH]: true,
+          [CONFIG.STORAGE_KEYS.PIN_MODE]: 'video',
           [CONFIG.STORAGE_KEYS.THUMBNAILS]: true,
           [CONFIG.STORAGE_KEYS.LAST_EXPORT]: 0,
           [CONFIG.STORAGE_KEYS.TYPE_FILTER]: 'all',
@@ -4006,6 +4078,9 @@ async function init() {
 
     AppState.soundEnabled = prefs[CONFIG.STORAGE_KEYS.SOUND] !== false;
     AppState.detachEnabled = prefs[CONFIG.STORAGE_KEYS.DETACH] !== false;
+    AppState.pinMode = Object.hasOwn(PIN_MODES, prefs[CONFIG.STORAGE_KEYS.PIN_MODE])
+      ? prefs[CONFIG.STORAGE_KEYS.PIN_MODE]
+      : 'video';
     AppState.thumbnailsEnabled = prefs[CONFIG.STORAGE_KEYS.THUMBNAILS] !== false;
     AppState.typeFilter = ['video', 'short'].includes(prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER])
       ? prefs[CONFIG.STORAGE_KEYS.TYPE_FILTER]
@@ -4019,6 +4094,7 @@ async function init() {
 
     updateSoundIcon();
     updateMiniPlayerSwitch();
+    updatePinModeUI();
     updateThumbnailsSwitch();
     Backup.showLastExport(prefs[CONFIG.STORAGE_KEYS.LAST_EXPORT]);
     updateTypeFilterUI();
@@ -4030,6 +4106,7 @@ async function init() {
     setupMixer();
     setupSoundToggle();
     setupMiniPlayerToggle();
+    setupPinMode();
     setupThumbnailsToggle();
     TagBar.setup();
     setupWikiButton();

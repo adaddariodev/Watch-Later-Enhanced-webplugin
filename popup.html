@@ -365,6 +365,20 @@
             </button>
           </div>
 
+          <!-- What Pin on top gives. Two, because the browser will not hand
+               out one window with everything in it: the line under the chips
+               says what the chosen one costs, and the guide says why. -->
+          <p class="settings-subhead">Pinned player</p>
+
+          <div id="pin-mode" class="mode-chips" role="radiogroup" aria-label="Pinned player">
+            <button class="mode-chip" type="button" role="radio" data-pin-mode="video" aria-checked="true" tabindex="0" title="The video alone, in your browser's own floating window">Video only</button>
+            <button class="mode-chip" type="button" role="radio" data-pin-mode="controls" aria-checked="false" tabindex="-1" title="YouTube's whole player, in a floating window with your browser's title bar">YouTube controls</button>
+          </div>
+          <p class="settings-hint pin-mode-hint">
+            <span id="pin-mode-text"></span>
+            <button id="pin-mode-guide" class="pin-mode-guide" type="button">How they differ</button>
+          </p>
+
           <p class="settings-subhead">Thumbnails</p>
 
           <div id="thumbnails-row" class="settings-options">

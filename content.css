@@ -363,6 +363,13 @@ html.wle-mini-window:hover .wle-mini-bar {
   display: none;
 }
 
+/* Hidden while pinned. display: flex above would otherwise win over the
+   attribute and leave the pin button focused and live under the note, where
+   Enter would pin a second time. */
+.wle-mini-bar[hidden] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wle-mini-bar {
     transition: none;
