@@ -1453,6 +1453,55 @@
     DetachedPlayer.open();
   }
 
+  // ============================================
+  // ONE SOUNDTRACK WHILE PINNED
+  // The mini player window's page is a whole YouTube page hidden behind its
+  // stage. With its player floating elsewhere, YouTube can build itself
+  // another one in there — reported after closing the browser window in
+  // front of it — and that one plays where nobody can see it: a second
+  // soundtrack, no picture, and pausing the pinned video does not reach it.
+  // While pinned, nothing in this page plays but the pinned video.
+  // ============================================
+  const StrayPlayback = {
+    wired: false,
+
+    watch() {
+      if (this.wired) return;
+      this.wired = true;
+      // Media events do not bubble, but the capture phase still passes the
+      // document on its way down to the element.
+      document.addEventListener('play', (event) => this.check(event.target), true);
+    },
+
+    /** The pinned video, or anything inside the player it belongs to. */
+    isPinned(media) {
+      const player = DetachedPlayer.player ||
+        MiniWindow.stage?.querySelector('#movie_player, .html5-video-player');
+      return media === document.pictureInPictureElement || Boolean(player?.contains(media));
+    },
+
+    check(media) {
+      if (!MiniWindow.pinned || typeof media?.pause !== 'function') return;
+      if (this.isPinned(media)) return;
+
+      try {
+        media.muted = true;
+        media.pause();
+      } catch (error) {
+        console.warn('WLE: a second player could not be stopped:', error);
+      }
+      console.info('WLE: stopped a second player in the mini player page while pinned —',
+        media.currentSrc || media.src || media.tagName);
+    },
+
+    /** On pinning: whatever is already playing in here that is not the pin. */
+    sweep() {
+      document.querySelectorAll('video, audio').forEach((media) => {
+        if (!media.paused) this.check(media);
+      });
+    }
+  };
+
   /** The way back, from the page the pinned video left behind. */
   function unpinPlayer() {
     if (DetachedPlayer.pipWindow) DetachedPlayer.close({ focus: true });
@@ -1522,6 +1571,7 @@
       this.buildBar();
       this.watchSize();
       VideoPin.watch();
+      StrayPlayback.watch();
 
       // Warm the mini player stylesheet now. Pinning has to call
       // requestWindow() inside the click that asked for it, and a cold fetch
@@ -1663,6 +1713,7 @@
 
       if (this.bar) this.bar.hidden = this.pinned;
       if (this.note) this.note.hidden = !this.pinned;
+      if (this.pinned) StrayPlayback.sweep();
 
       if (this.parked) askWindow(WINDOW_MESSAGES.HIDE);
       else if (!this.pinned) askWindow(WINDOW_MESSAGES.SHOW, { focus });
