@@ -44,7 +44,6 @@
     HIDE: 'wle-mini-window-hide',
     SHOW: 'wle-mini-window-show',
     OPEN: 'wle-mini-window-open',
-    PING: 'wle-mini-window-ping',
     FLOAT_PREPARE: 'wle-float-prepare',
     FLOAT_PIN: 'wle-float-pin',
     FLOAT_RELEASE: 'wle-float-release'
@@ -56,11 +55,10 @@
 
   /**
    * Ask the service worker to move this page's window out of the way while
-   * its video is pinned (HIDE: the page becomes a background tab in the
-   * browser window, or its window is minimized when no browser window can
-   * take it), or to bring it back (SHOW: a mini player window again, where it
-   * stood). Best effort: an older browser, a torn-down worker or a window the
-   * user already closed must not break pinning.
+   * its video is pinned (HIDE: the window is minimized), or to bring it back
+   * (SHOW: up again, the way it stood). Best effort: an older browser, a
+   * torn-down worker or a window the user already closed must not break
+   * pinning.
    *
    * @param {boolean} focus whether restoring should also raise the window.
    *   Only true when the user asked for the video back — a player that closes
@@ -1381,8 +1379,10 @@
   //
   // 'video' (Minimal, in Settings) is the browser's own picture-in-picture:
   // the video and nothing else, no title bar, and smooth wherever its page
-  // is. So its page can step aside as a background tab, and only one window
-  // is left on screen. The controls are the browser's, not YouTube's.
+  // is. So it floats from a page with no window at all (THE MINIMAL PIN, WITH
+  // NO WINDOW BEHIND IT, below), or failing that its page's window is
+  // minimized, and only one window is left on screen. The controls are the
+  // browser's, and the extension popup's — not YouTube's.
   //
   // 'controls' (Complete) is a document picture-in-picture window holding
   // YouTube's whole player: volume, captions, quality. The browser draws its
@@ -1467,10 +1467,11 @@
   //
   // If the floating player is not ready — still loading, or YouTube would not
   // play the embed — the same click pins the old way: picture-in-picture from
-  // this page, which then steps aside as a tab.
+  // this page, whose window is then minimized.
   // ============================================
   const FloatingPin = {
     prepared: null,   // the video the floating player was asked to get ready
+    pinning: false,   // a pin is on its way and has not been answered
 
     /** Have the floating player load this video, while nobody needs it yet. */
     prepare() {
@@ -1512,6 +1513,10 @@
      * still pin the old way with it.
      */
     pin() {
+      // A double click is one pin: the second would open the old way beside
+      // the first.
+      if (this.pinning) return;
+
       const videoId = WLEUrl.extractVideoId(window.location.href);
       const video = DetachedPlayer.findVideo();
       if (!videoId || !video) {
@@ -1519,11 +1524,24 @@
         return;
       }
 
+      // Its sound and speed go along: whoever muted it or set it to 1.5× did
+      // not mean the floating player to undo that.
+      const sound = {
+        muted: video.muted,
+        volume: Math.round(video.volume * 100),
+        rate: video.playbackRate
+      };
+
+      this.pinning = true;
       try {
         chrome.runtime.sendMessage(
-          { type: WINDOW_MESSAGES.FLOAT_PIN, videoId, time: video.currentTime || 0 },
+          { type: WINDOW_MESSAGES.FLOAT_PIN, videoId, time: video.currentTime || 0, sound },
           (response) => {
-            if (chrome.runtime.lastError || !response?.ok) {
+            this.pinning = false;
+            const failed = chrome.runtime.lastError || !response?.ok;
+            // Under way from an earlier click: that one answers for both.
+            if (failed && response?.busy) return;
+            if (failed) {
               VideoPin.open();
               return;
             }
@@ -1533,6 +1551,7 @@
           }
         );
       } catch (error) {
+        this.pinning = false;
         console.info('WLE: could not reach the background worker —', error?.message);
         VideoPin.open();
       }
@@ -1722,8 +1741,8 @@
       noteText.className = 'wle-mini-note-text';
       noteText.textContent = 'Playing in the pinned player';
 
-      // While pinned, this page waits as a tab in the browser window: whoever
-      // opens that tab needs a way to have the video back.
+      // While pinned, this page waits in a minimized window: whoever brings
+      // that window up needs a way to have the video back.
       const unpinBtn = document.createElement('button');
       unpinBtn.type = 'button';
       unpinBtn.className = 'wle-detach-placeholder-btn';
@@ -1787,11 +1806,11 @@
      * player down with it.
      *
      * @param {boolean} [park] whether its window should step aside — the
-     *   worker moves this page into the browser window as a tab and closes this
-     *   one, so the floating player is the only window left. Only for the
-     *   browser's own picture-in-picture: a document one shows only the frames
-     *   this page draws, and a page out of sight draws none. Either way the
-     *   window comes back, where it stood, the moment the video does.
+     *   worker minimizes it, so the floating player is the only window left
+     *   on screen. Only for the browser's own picture-in-picture: a document
+     *   one shows only the frames this page draws, and a page out of sight
+     *   draws none. Either way the window comes back, the way it stood, the
+     *   moment the video does.
      */
     setPinned(pinned, { focus = false, park = false } = {}) {
       if (!this.active || this.pinned === Boolean(pinned)) return;
@@ -1848,8 +1867,8 @@
       window.addEventListener('resize', () => {
         clearTimeout(this.sizeTimer);
         this.sizeTimer = setTimeout(() => {
-          // Parked, this page is a tab in a browser window, and that
-          // window's size is not the mini player's.
+          // Parked, the window is minimized, and that is not a size to open
+          // at next time.
           if (this.parked) return;
 
           const width = window.outerWidth;
@@ -1980,14 +1999,6 @@
     const data = await readStorage({ [DETACH.KEYS.ENABLED]: true, [DETACH.KEYS.PIN_MODE]: 'video' });
     DetachState.enabled = data[DETACH.KEYS.ENABLED] !== false;
     setPinMode(data[DETACH.KEYS.PIN_MODE]);
-
-    // The worker asks before it acts on a pinned page parked among the user's
-    // tabs: one reloaded or sent elsewhere since is theirs now, and answers no.
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message?.type !== WINDOW_MESSAGES.PING) return false;
-      sendResponse({ mini: MiniWindow.active });
-      return false;
-    });
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;

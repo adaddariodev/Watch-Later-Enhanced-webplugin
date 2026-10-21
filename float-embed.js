@@ -22,11 +22,18 @@
 
   const PORT_NAME = 'wle-float-embed';
   const WATCH_INTERVAL = 500;
+  // A video asked for while one floats that has not started by then is one
+  // YouTube will not play in an embed.
+  const LOAD_GIVE_UP = 10000;
   const embedId = location.pathname.match(/^\/embed\/([\w-]{11})/)?.[1] || null;
 
   let port = null;
   let primed = false;
+  let pinning = false;    // a pin was asked for and has not been answered
+  let cancelled = false;  // ...and the worker gave up on it meanwhile
+  let unpinning = false;  // leaving the window to go back to the mini player
   let watchTimer = null;
+  let loadTimer = null;
 
   const video = () => document.querySelector('video.html5-main-video') || document.querySelector('video');
 
@@ -61,12 +68,48 @@
     });
   }
 
+  /**
+   * The player's state, at once — or null while the page world, or the
+   * player's API in it, is not there yet: commands sent before then are lost.
+   */
+  function stateNow() {
+    let state = null;
+    const id = nextId++;
+    answers.set(id, (answer) => {
+      state = answer;
+    });
+    document.dispatchEvent(new CustomEvent('wle-float-command', { detail: JSON.stringify({ id, cmd: 'state' }) }));
+    answers.delete(id);
+    return state;
+  }
+
+  /** Silent and still: what this player is whenever it is not floating. */
+  function hush() {
+    player('pause');
+    player('mute', true);
+    const v = video();
+    if (v) {
+      v.pause();
+      v.muted = true;
+    }
+  }
+
   // ---- The worker ----
+  // The port is down for a moment every time the worker idles. A report that
+  // only says how things are can wait for the next one; these say that
+  // something happened, and the worker must not miss them.
+  const MUST_ARRIVE = new Set(['left', 'pin-result', 'load-failed']);
+  const outbox = [];
+
   function send(message) {
+    if (!port) {
+      if (MUST_ARRIVE.has(message.type)) outbox.push(message);
+      return;
+    }
     try {
-      port?.postMessage(message);
+      port.postMessage(message);
     } catch {
-      // The worker went away mid-send; onDisconnect reconnects.
+      if (MUST_ARRIVE.has(message.type)) outbox.push(message);
     }
   }
 
@@ -111,6 +154,7 @@
       watch(false);
       setTimeout(connect, 100);
     });
+    while (port && outbox.length) send(outbox.shift());
     report('status');
   }
 
@@ -118,12 +162,17 @@
   /**
    * The embed starts muted, on its own. Once the video's details are in —
    * all picture-in-picture needs — it waits, paused, for the pin, so the
-   * floating player does not run ahead of the mini player.
+   * floating player does not run ahead of the mini player. While it waits it
+   * asks for the smallest picture YouTube has: it is a second copy of a
+   * video already playing in the mini player, and may never be watched.
    *
    * Checked rather than waited for: this script arrives once the page has
    * loaded, and by then the video may have started already — an event that
    * fired before anyone listened is not coming again. Muted autoplay that
-   * was refused or is slow gets asked for directly, once.
+   * was refused or is slow gets asked for directly, once; one that starts
+   * after the checks have given up still gets caught by the event. The
+   * player's API is waited for too: it comes in a script of its own, which
+   * may arrive after this one.
    */
   const PRIME_STEP = 250;
   const PRIME_KICK = 2000;
@@ -134,13 +183,11 @@
     if (primed) return;
     const v = video();
 
-    if (v && v.readyState >= 1) {
+    if (v && v.readyState >= 1 && stateNow()) {
       primed = true;
-      if (!document.pictureInPictureElement) {
-        // Through the player, so its own state agrees, and on the element
-        // as well, in case the page-world half is not in yet.
-        player('pause');
-        v.pause();
+      if (!document.pictureInPictureElement && !pinning) {
+        hush();
+        player('quality', 'lowest');
       }
       report('status');
       return;
@@ -154,13 +201,18 @@
     if (primeWaited < PRIME_GIVE_UP) setTimeout(prime, PRIME_STEP);
   }
 
+  document.addEventListener('playing', () => prime(), true);
+
   // ---- The pin ----
   /**
    * Called while handling the message that carries the click, so the window
-   * can be asked for. The request goes first: it is what spends the click.
-   * Then the video picks up where the mini player was, with sound.
+   * can be asked for, and the request goes first: it is what spends the click.
+   * The video moves to where the mini player was at once, but only plays,
+   * with the mini player's sound and speed, once the window is there — a
+   * refused or late window must not leave a hidden player making noise
+   * beside the mini player that pinned the old way instead.
    */
-  function pin(time) {
+  function pin({ time, muted, volume, rate }) {
     const v = video();
     if (!v || v.readyState < 1) {
       send({ type: 'pin-result', ok: false, reason: 'not ready' });
@@ -181,29 +233,49 @@
       return;
     }
 
+    pinning = true;
+    cancelled = false;
     player('seek', time);
-    player('mute', false);
-    player('play');
 
     request.then(
-      () => send({ type: 'pin-result', ok: true }),
-      (error) => send({ type: 'pin-result', ok: false, reason: String(error?.message || error) })
+      () => {
+        pinning = false;
+        if (cancelled) {
+          // Too late: the mini player pinned the old way meanwhile.
+          hush();
+          document.exitPictureInPicture().catch(() => {});
+          return;
+        }
+        player('quality', 'auto');
+        player('rate', rate);
+        player('volume', volume);
+        player('mute', muted);
+        player('play');
+        send({ type: 'pin-result', ok: true });
+        // The last report was sent on the way in, silent and still.
+        report('status');
+      },
+      (error) => {
+        pinning = false;
+        hush();
+        send({ type: 'pin-result', ok: false, reason: String(error?.message || error) });
+      }
     );
   }
 
   document.addEventListener('enterpictureinpicture', () => report('status'), true);
 
   /**
-   * The browser's × pauses the video on its way out; its button back to the
-   * tab does not. That is how the worker tells "done with it" from "give it
-   * back to me". The pause arrives just ahead of this event, or just after:
-   * a moment's wait settles it.
+   * The window closed. Only "Back to mini player" means "give it back"; the
+   * browser's ×, another site taking the one picture-in-picture window there
+   * is, anything else, means this video is done — so it falls silent here,
+   * and the worker closes the page.
    */
   document.addEventListener('leavepictureinpicture', () => {
-    setTimeout(() => {
-      const v = video();
-      report('left', { paused: !v || v.paused });
-    }, 250);
+    const reopen = unpinning;
+    unpinning = false;
+    if (!reopen) hush();
+    report('left', { reopen });
   }, true);
 
   // ---- The remote control ----
@@ -212,20 +284,34 @@
     watchTimer = on ? setInterval(() => report('state'), WATCH_INTERVAL) : null;
   }
 
+  /** After a video is loaded into the floating player: does it play? */
+  function watchLoad(arg) {
+    clearTimeout(loadTimer);
+    loadTimer = setTimeout(async () => {
+      const state = await player('state');
+      if (state?.playing) return;
+      send({ type: 'load-failed', videoId: arg?.videoId, start: arg?.start });
+    }, LOAD_GIVE_UP);
+  }
+
   const COMMANDS = new Set(['play', 'pause', 'seek', 'seekBy', 'volume', 'mute', 'rate', 'quality', 'load']);
 
   async function command(cmd, arg) {
-    if (cmd === 'unpin') {
-      // Back to the mini player: leave the window without pausing.
-      await document.exitPictureInPicture().catch(() => {});
-      return;
-    }
-    if (cmd === 'stop') {
-      await player('pause');
+    if (cmd === 'unpin' || cmd === 'stop') {
+      // Back to the mini player keeps the video going; stop does not.
+      if (cmd === 'stop') hush();
+      if (!document.pictureInPictureElement) {
+        // Not floating after all: nothing will fire on its way out, so say
+        // it here.
+        report('left', { reopen: cmd === 'unpin' });
+        return;
+      }
+      unpinning = cmd === 'unpin';
       await document.exitPictureInPicture().catch(() => {});
       return;
     }
     if (!COMMANDS.has(cmd)) return;
+    if (cmd === 'load') watchLoad(arg);
     await player(cmd, arg);
     report('state');
   }
@@ -233,7 +319,15 @@
   function onMessage(message) {
     switch (message?.type) {
       case 'pin':
-        pin(Number(message.time) || 0);
+        pin(message);
+        break;
+      case 'pin-cancel':
+        if (pinning) {
+          cancelled = true;
+        } else if (document.pictureInPictureElement) {
+          hush();
+          document.exitPictureInPicture().catch(() => {});
+        }
         break;
       case 'command':
         command(String(message.cmd), message.arg);

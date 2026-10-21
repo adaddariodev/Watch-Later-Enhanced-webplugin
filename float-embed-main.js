@@ -49,14 +49,17 @@
       if (list(call('getAvailablePlaybackRates')).includes(wanted)) call('setPlaybackRate', wanted);
     },
     // setPlaybackQualityRange is the call YouTube's own menu makes; the
-    // older setPlaybackQuality is kept as a second try.
+    // older setPlaybackQuality is kept as a second try. 'lowest' is the last
+    // real level: the player lists them best first, then 'auto'.
     quality: (level) => {
-      const wanted = String(level || '');
+      const levels = list(call('getAvailableQualityLevels'));
+      let wanted = String(level || '');
       if (wanted === 'auto') {
         call('setPlaybackQualityRange', 'auto', 'auto');
         return;
       }
-      if (!list(call('getAvailableQualityLevels')).includes(wanted)) return;
+      if (wanted === 'lowest') wanted = levels.filter((q) => q !== 'auto').at(-1) || '';
+      if (!levels.includes(wanted)) return;
       call('setPlaybackQualityRange', wanted, wanted);
       call('setPlaybackQuality', wanted);
     },

@@ -3526,6 +3526,9 @@ const Remote = {
   render(message) {
     const panel = this.el('remote');
     const floating = message.floating === true && message.status?.state;
+    // The donate callout drops down over the remote: it must not cover the
+    // controls of a video that is playing.
+    if (floating && panel.hidden) hideDonateCallout();
     panel.hidden = !floating;
     if (!floating) return;
 
@@ -3585,10 +3588,17 @@ const Remote = {
       this.seeking = false;
     });
 
+    // A drag fires input for every pixel; one level per frame is all the
+    // player can show anyway, and the last one always goes.
     const volume = this.el('remote-volume');
+    let volumeFrame = 0;
     volume.addEventListener('input', () => {
       this.setting = true;
-      this.send('volume', Number(volume.value));
+      if (volumeFrame) return;
+      volumeFrame = requestAnimationFrame(() => {
+        volumeFrame = 0;
+        this.send('volume', Number(volume.value));
+      });
     });
     volume.addEventListener('change', () => {
       this.setting = false;
@@ -4075,6 +4085,8 @@ function hideDonateCallout() {
 
 function maybeShowDonateCallout() {
   if (!DOMCache.donateCallout) return;
+  // Not over the remote control: see Remote.render.
+  if (document.getElementById('remote')?.hidden === false) return;
 
   chrome.storage.local.get(
     { [CONFIG.STORAGE_KEYS.SUPPORTER]: false, [CONFIG.STORAGE_KEYS.LAST_PROMPT]: 0 },

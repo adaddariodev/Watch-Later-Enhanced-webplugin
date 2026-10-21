@@ -21,6 +21,10 @@ const frame = document.getElementById('player');
  * script inside it pauses it until the pin. wle_float marks the embed as
  * ours, so the content scripts run in this one and in no embed on any other
  * site.
+ *
+ * widget_referrer says, inside the page, what the worker's rule says in the
+ * request's Referer: the player checks where it is embedded from both sides,
+ * and an extension page has no web address to give it.
  */
 function embedUrl(videoId, start) {
   const params = new URLSearchParams({
@@ -29,6 +33,7 @@ function embedUrl(videoId, start) {
     playsinline: '1',
     rel: '0',
     start: String(Math.max(0, Math.floor(Number(start) || 0))),
+    widget_referrer: 'https://www.youtube.com/',
     wle_float: '1'
   });
   return `https://www.youtube.com/embed/${videoId}?${params}`;

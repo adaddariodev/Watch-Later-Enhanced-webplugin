@@ -326,7 +326,7 @@ it runs.
   requires, for requests outside any tab only. The optional `background`
   permission keeps Chrome running after its last window. If the floating
   player is not ready, the same click pins the old way: picture-in-picture
-  from the mini player's page, which then steps aside as a tab.
+  from the mini player's page, whose window is then minimized.
 * **Drags relayed into the pinned player** — YouTube's volume slider follows a
   drag by listening to the document the player was built in, which is not the
   floating window's; while a slider is being dragged, moves and releases are

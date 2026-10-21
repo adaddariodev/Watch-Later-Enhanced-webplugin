@@ -569,8 +569,8 @@
           floating window when you click <strong>Pin on top</strong>. Getting it
           ready takes a few seconds: if you pin before it is, or YouTube will not
           play the video there, the click pins the older way — the floating video
-          belongs to the mini player's page, which steps aside as a tab at the end
-          of your browser window, and closing that window closes it.
+          belongs to the mini player's page, whose window is minimized while it
+          floats, and closing that window closes it.
         </p>
 
         <h4>Complete: YouTube's whole player</h4>
@@ -1323,17 +1323,20 @@
           page has no window, so only closing Chrome itself ends it — and closing
           your last window does exactly that, unless <strong>Keep playing when the
           browser closes</strong> is on. If it was pinned the older way (see
-          <a href="#pinning">Pinning it on top</a>), its page waits as a tab in your
-          browser window, and closing that tab or window closes it. With
+          <a href="#pinning">Pinning it on top</a>), its page waits in the minimized
+          mini player window, and closing that window closes it. With
           <strong>Complete</strong>, the page is the mini player window itself, so
           closing that window does the same.
         </p>
 
-        <h3>Pin on top left a tab in my browser window</h3>
+        <h3>Pin on top left the mini player window minimized</h3>
         <p>
           The floating player was not ready yet — it takes a few seconds after the mini
           player opens — or YouTube would not play the video in it, so the click pinned
-          the older way. Unpin and pin again after a moment. If it happens every time,
+          the older way. Unpin and pin again after a moment. The window is also kept,
+          minimized, when it is the only window you have open and <strong>Keep playing
+          when the browser closes</strong> is off: closing it would close Chrome, and the
+          video with it. If it happens every time,
           the extension's service worker console (<em>chrome://extensions</em> →
           Watch Later Enhanced → service worker) says why.
         </p>
