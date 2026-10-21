@@ -15,6 +15,7 @@ version=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' manifest.json)
 
 files="manifest.json LICENSE
   background.js content.js content.css detach.js detach.css url-utils.js
+  float.html float.js float-embed.js float-embed-main.js
   popup.html popup.css popup.js wiki.html wiki.css wiki.js
   icons sounds fonts"
 

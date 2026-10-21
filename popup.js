@@ -241,6 +241,8 @@ const DOMCache = {
   pinMode: null,
   pinModePoints: null,
   pinModeGuide: null,
+  keepPlayingRow: null,
+  keepPlayingSwitch: null,
   wikiBtn: null,
   typeFilter: null,
   favouritesFilter: null,
@@ -296,6 +298,8 @@ const DOMCache = {
     this.pinMode = document.getElementById('pin-mode');
     this.pinModePoints = document.getElementById('pin-mode-points');
     this.pinModeGuide = document.getElementById('pin-mode-guide');
+    this.keepPlayingRow = document.getElementById('keep-playing-row');
+    this.keepPlayingSwitch = document.getElementById('toggle-keep-playing');
     this.wikiBtn = document.getElementById('open-wiki');
     this.typeFilter = document.getElementById('type-filter');
     this.favouritesFilter = document.getElementById('favourites-filter');
@@ -3368,8 +3372,8 @@ function setupMiniPlayerToggle() {
 // whole story is in the guide.
 const PIN_MODES = {
   video: {
-    pros: ['No bar over the picture', 'Smooth, even with its page out of sight', 'One window on screen'],
-    cons: ["The browser's controls, not YouTube's", 'No captions']
+    pros: ['No bar over the picture', 'No window or tab left behind it', 'Outlives the window it came from'],
+    cons: ['Its controls are in this popup, not on the video', 'No captions on the floating video']
   },
   controls: {
     pros: ["YouTube's controls: volume, quality, chapters", 'Captions', "Opens in the video's shape"],
@@ -3402,8 +3406,200 @@ function updatePinModeUI() {
     ...cons.map((text) => pinPoint(text, 'con'))
   );
 
+  // Keeping Chrome running only matters to the pin that outlives windows.
+  DOMCache.keepPlayingRow?.classList.toggle('hidden', AppState.pinMode !== 'video');
+
   updateGroupNotes();
 }
+
+// ============================================
+// KEEP PLAYING WHEN THE BROWSER CLOSES
+// A Minimal floating video belongs to no window, but it still belongs to the
+// browser: when the last window closes, Chrome quits and takes it along. The
+// "background" permission keeps Chrome running instead, with an icon by the
+// clock. Optional, and asked for only from this switch: a browser that stays
+// running is something to choose, not to find out about.
+// ============================================
+const KEEP_PLAYING = { permissions: ['background'] };
+
+async function updateKeepPlayingSwitch() {
+  const sw = DOMCache.keepPlayingSwitch;
+  if (!sw) return;
+  const on = await chrome.permissions.contains(KEEP_PLAYING).catch(() => false);
+  sw.setAttribute('aria-checked', on ? 'true' : 'false');
+}
+
+function setupKeepPlaying() {
+  DOMCache.keepPlayingSwitch?.addEventListener('click', () => {
+    AudioManager.play(AppState.soundEnabled);
+    const on = DOMCache.keepPlayingSwitch.getAttribute('aria-checked') === 'true';
+    // Asked for inside the click: the browser grants permissions only then.
+    const change = on ? chrome.permissions.remove(KEEP_PLAYING) : chrome.permissions.request(KEEP_PLAYING);
+    change.catch((error) => console.warn('Could not change the background permission:', error))
+      .finally(() => updateKeepPlayingSwitch());
+  });
+  updateKeepPlayingSwitch();
+}
+
+// ============================================
+// REMOTE CONTROL
+// The browser's picture-in-picture window, which a Minimal pin floats in,
+// has the browser's play button and nothing of YouTube's. The rest is here:
+// position, volume, speed, quality, the next video on the list, and the way
+// back to the mini player. Everything goes through the service worker to the
+// player itself (see THE FLOATING PLAYER WITH NO WINDOW in background.js),
+// and its state comes back the same way, twice a second while this is open.
+// ============================================
+const QUALITY_LABELS = {
+  highres: 'Highest',
+  hd2160: '2160p',
+  hd1440: '1440p',
+  hd1080: '1080p',
+  hd720: '720p',
+  large: '480p',
+  medium: '360p',
+  small: '240p',
+  tiny: '144p',
+  auto: 'Auto'
+};
+
+const Remote = {
+  port: null,
+  state: null,
+  seeking: false,    // the position slider is in the user's hand: leave it be
+  setting: false,    // so is the volume slider
+
+  el(id) {
+    return document.getElementById(id);
+  },
+
+  connect() {
+    try {
+      this.port = chrome.runtime.connect({ name: 'wle-remote' });
+    } catch {
+      this.port = null;
+      return;
+    }
+    this.port.onMessage.addListener((message) => {
+      if (message?.type === 'state') this.render(message);
+    });
+    // The worker is stopped when it idles; while this popup is open the
+    // remote should keep working, so it simply asks again.
+    this.port.onDisconnect.addListener(() => {
+      this.port = null;
+      setTimeout(() => this.connect(), 300);
+    });
+  },
+
+  send(cmd, arg) {
+    try {
+      this.port?.postMessage({ cmd, arg });
+    } catch {
+      // Reconnecting; the next press will get through.
+    }
+  },
+
+  time(seconds) {
+    const total = Math.max(0, Math.floor(Number(seconds) || 0));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = String(total % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+  },
+
+  /** Replace a select's options only when the list itself changed. */
+  fill(select, values, label, current) {
+    const key = values.join('|');
+    if (select.dataset.key !== key) {
+      select.dataset.key = key;
+      select.replaceChildren(...values.map((value) => {
+        const option = document.createElement('option');
+        option.value = String(value);
+        option.textContent = label(value);
+        return option;
+      }));
+    }
+    select.disabled = values.length < 2;
+    if (document.activeElement !== select) select.value = String(current);
+  },
+
+  render(message) {
+    const panel = this.el('remote');
+    const floating = message.floating === true && message.status?.state;
+    panel.hidden = !floating;
+    if (!floating) return;
+
+    const s = message.status.state;
+    this.state = s;
+
+    this.el('remote-title').textContent = s.title || 'YouTube video';
+    this.el('remote-title').title = s.title || '';
+    this.el('remote-author').textContent = s.author || '';
+
+    const seek = this.el('remote-seek');
+    seek.max = String(Math.max(0, Math.floor(s.duration)));
+    if (!this.seeking) seek.value = String(Math.floor(s.time));
+    this.el('remote-time').textContent = this.time(this.seeking ? seek.value : s.time);
+    this.el('remote-duration').textContent = this.time(s.duration);
+
+    this.el('remote-play').classList.toggle('is-playing', s.playing);
+
+    const volume = this.el('remote-volume');
+    if (!this.setting) volume.value = String(s.muted ? 0 : s.volume);
+    this.el('remote-volume').closest('.remote-volume').classList.toggle('is-muted', s.muted || s.volume === 0);
+
+    this.fill(this.el('remote-rate'), s.rates.length ? s.rates : [s.rate],
+      (rate) => (Number(rate) === 1 ? 'Normal' : `${rate}×`), s.rate);
+    this.fill(this.el('remote-quality'), s.qualities.length ? s.qualities : [s.quality],
+      (q) => QUALITY_LABELS[q] || q, s.quality);
+  },
+
+  /** The video after this one in To Watch, or the first one there. */
+  async next() {
+    const videos = (await StorageManager.getVideos()).filter((v) => !v.watched);
+    const ids = videos.map((v) => WLEUrl.extractVideoId(v.url)).filter(Boolean);
+    const at = ids.indexOf(this.state?.videoId);
+    const next = ids[at + 1] || (at === -1 ? ids[0] : null);
+    if (next) this.send('load', { videoId: next });
+    else showToast('Nothing after this one in To Watch');
+  },
+
+  setup() {
+    if (!this.el('remote')) return;
+
+    this.el('remote-play').addEventListener('click', () => this.send(this.state?.playing ? 'pause' : 'play'));
+    this.el('remote-back').addEventListener('click', () => this.send('seekBy', -10));
+    this.el('remote-forward').addEventListener('click', () => this.send('seekBy', 10));
+    this.el('remote-next').addEventListener('click', () => this.next());
+    this.el('remote-mute').addEventListener('click', () => this.send('mute', !(this.state?.muted)));
+    this.el('remote-unpin').addEventListener('click', () => this.send('unpin'));
+    this.el('remote-stop').addEventListener('click', () => this.send('stop'));
+
+    const seek = this.el('remote-seek');
+    seek.addEventListener('input', () => {
+      this.seeking = true;
+      this.el('remote-time').textContent = this.time(seek.value);
+    });
+    seek.addEventListener('change', () => {
+      this.send('seek', Number(seek.value));
+      this.seeking = false;
+    });
+
+    const volume = this.el('remote-volume');
+    volume.addEventListener('input', () => {
+      this.setting = true;
+      this.send('volume', Number(volume.value));
+    });
+    volume.addEventListener('change', () => {
+      this.setting = false;
+    });
+
+    this.el('remote-rate').addEventListener('change', (e) => this.send('rate', Number(e.target.value)));
+    this.el('remote-quality').addEventListener('change', (e) => this.send('quality', e.target.value));
+
+    this.connect();
+  }
+};
 
 function setPinMode(mode) {
   if (!Object.hasOwn(PIN_MODES, mode) || mode === AppState.pinMode) return;
@@ -4133,6 +4329,8 @@ async function init() {
     setupSoundToggle();
     setupMiniPlayerToggle();
     setupPinMode();
+    setupKeepPlaying();
+    Remote.setup();
     setupThumbnailsToggle();
     TagBar.setup();
     setupWikiButton();

@@ -3,8 +3,10 @@
   "name": "Watch Later Enhanced: Save YouTube Videos & Mini Player",
   "version": "3.1.0",
   "description": "Save any YouTube video with Alt + left click or its link. Tag it, sort it, back it up, and watch in a floating mini player.",
-  "permissions": ["storage"],
-  
+  "permissions": ["storage", "offscreen", "declarativeNetRequestWithHostAccess"],
+  "optional_permissions": ["background"],
+  "host_permissions": ["https://www.youtube.com/*"],
+
   "browser_specific_settings": {
     "gecko": {
       "id": "watch-later-enhanced@adaddario.dev",
@@ -40,6 +42,19 @@
       ],
       "js": ["url-utils.js", "content.js", "detach.js"],
       "css": ["content.css"]
+    },
+    {
+      "matches": ["https://www.youtube.com/embed/*"],
+      "include_globs": ["*wle_float=1*"],
+      "all_frames": true,
+      "js": ["float-embed.js"]
+    },
+    {
+      "matches": ["https://www.youtube.com/embed/*"],
+      "include_globs": ["*wle_float=1*"],
+      "all_frames": true,
+      "world": "MAIN",
+      "js": ["float-embed-main.js"]
     }
   ],
   

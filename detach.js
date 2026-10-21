@@ -44,7 +44,10 @@
     HIDE: 'wle-mini-window-hide',
     SHOW: 'wle-mini-window-show',
     OPEN: 'wle-mini-window-open',
-    PING: 'wle-mini-window-ping'
+    PING: 'wle-mini-window-ping',
+    FLOAT_PREPARE: 'wle-float-prepare',
+    FLOAT_PIN: 'wle-float-pin',
+    FLOAT_RELEASE: 'wle-float-release'
   };
 
   // Set once the page is on its way out, so teardown does not ask the worker
@@ -1446,12 +1449,95 @@
     }
 
     if (Support.nativePip()) {
-      VideoPin.open();
+      FloatingPin.pin();
       return;
     }
 
     DetachedPlayer.open();
   }
+
+  // ============================================
+  // THE MINIMAL PIN, WITH NO WINDOW BEHIND IT
+  // The browser's own picture-in-picture, opened not from this page but from
+  // an embed of the same video that the extension keeps in an offscreen
+  // document — no window, no tab, nothing the user closes by closing the
+  // browser. This page only asks for it to be made ready, and hands over the
+  // click that opens it: see THE FLOATING PLAYER WITH NO WINDOW in
+  // background.js. Once it floats, this window closes.
+  //
+  // If the floating player is not ready — still loading, or YouTube would not
+  // play the embed — the same click pins the old way: picture-in-picture from
+  // this page, which then steps aside as a tab.
+  // ============================================
+  const FloatingPin = {
+    prepared: null,   // the video the floating player was asked to get ready
+
+    /** Have the floating player load this video, while nobody needs it yet. */
+    prepare() {
+      if (!MiniWindow.active || !DetachState.enabled) return;
+
+      if (DetachState.pinMode !== 'video' || !Support.nativePip()) {
+        this.release();
+        return;
+      }
+
+      const videoId = WLEUrl.extractVideoId(window.location.href);
+      if (!videoId || videoId === this.prepared) return;
+      this.prepared = videoId;
+
+      const time = Math.floor(DetachedPlayer.findVideo()?.currentTime || 0);
+      try {
+        chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.FLOAT_PREPARE, videoId, time },
+          () => void chrome.runtime.lastError);
+      } catch (error) {
+        console.info('WLE: could not reach the background worker —', error?.message);
+      }
+    },
+
+    /** The other mode was chosen: what was loaded for this one can go. */
+    release() {
+      if (!this.prepared) return;
+      this.prepared = null;
+      try {
+        chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.FLOAT_RELEASE }, () => void chrome.runtime.lastError);
+      } catch {
+        // Nothing to release with no worker to ask.
+      }
+    },
+
+    /**
+     * Inside the click. The message goes out before anything else happens,
+     * because it is what carries the click to the floating player; the
+     * answer comes back while the click still counts, so a refusal can
+     * still pin the old way with it.
+     */
+    pin() {
+      const videoId = WLEUrl.extractVideoId(window.location.href);
+      const video = DetachedPlayer.findVideo();
+      if (!videoId || !video) {
+        VideoPin.open();
+        return;
+      }
+
+      try {
+        chrome.runtime.sendMessage(
+          { type: WINDOW_MESSAGES.FLOAT_PIN, videoId, time: video.currentTime || 0 },
+          (response) => {
+            if (chrome.runtime.lastError || !response?.ok) {
+              VideoPin.open();
+              return;
+            }
+            // Floating now; the worker closes this window. Silence it first,
+            // so the hand-over is one soundtrack throughout.
+            video.pause();
+          }
+        );
+      } catch (error) {
+        console.info('WLE: could not reach the background worker —', error?.message);
+        VideoPin.open();
+      }
+    }
+  };
 
   // ============================================
   // ONE SOUNDTRACK WHILE PINNED
@@ -1572,6 +1658,7 @@
       this.watchSize();
       VideoPin.watch();
       StrayPlayback.watch();
+      FloatingPin.prepare();
 
       // Warm the mini player stylesheet now. Pinning has to call
       // requestWindow() inside the click that asked for it, and a cold fetch
@@ -1836,6 +1923,8 @@
       MiniWindow.start();
       MiniWindow.reclaim();
       MiniWindow.refreshTitle();
+      // Autoplay moved on to another video: the floating player follows.
+      FloatingPin.prepare();
       return;
     }
 
@@ -1880,6 +1969,7 @@
   function setPinMode(value) {
     DetachState.pinMode = DETACH.PIN_MODES.includes(value) ? value : DETACH.PIN_MODES[0];
     MiniWindow.refreshPinButton();
+    FloatingPin.prepare();
   }
 
   async function init() {

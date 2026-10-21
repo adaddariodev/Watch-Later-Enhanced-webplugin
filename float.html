@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<!-- The page that owns the floating player of the Minimal pin. It is an
+     offscreen document: no window, no tab, nothing in the taskbar — and so
+     nothing the user can close by closing their browser windows. It holds one
+     YouTube embed; float.js loads it, the scripts inside the embed do the rest.
+     Sized like a large player, because YouTube picks the quality to fit the
+     player it is drawn in, and this is the one it is drawn in. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Watch Later Enhanced: floating player</title>
+  <script src="float.js" defer></script>
+</head>
+<body>
+  <iframe
+    id="player"
+    width="1280"
+    height="720"
+    allow="autoplay; encrypted-media; picture-in-picture"
+    referrerpolicy="strict-origin-when-cross-origin"
+    title="Floating player"
+  ></iframe>
+</body>
+</html>

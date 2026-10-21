@@ -28,7 +28,10 @@ const MESSAGES = {
   HIDE: 'wle-mini-window-hide',
   SHOW: 'wle-mini-window-show',
   OPEN: 'wle-mini-window-open',
-  PING: 'wle-mini-window-ping'   // worker → page: are you still the mini player?
+  PING: 'wle-mini-window-ping',   // worker → page: are you still the mini player?
+  FLOAT_PREPARE: 'wle-float-prepare',
+  FLOAT_PIN: 'wle-float-pin',
+  FLOAT_RELEASE: 'wle-float-release'
 };
 
 const MINI_WINDOW = {
@@ -150,6 +153,23 @@ async function serveMiniWindow(videoId, startAt, home) {
   // stop: the point of the mini player is to move a video, not to clone it.
   const announce = () =>
     chrome.storage.local.set({ [MINI_WINDOW.OPENED_KEY]: { videoId, at: Date.now() } });
+
+  // A video already floating with no window behind it: the next one plays in
+  // that same floating window. Opening a mini player beside it would be a
+  // second soundtrack, and a window the floating player exists to avoid.
+  if (await floatingVideo()) {
+    const port = await embedPort();
+    if (port) {
+      port.postMessage({ type: 'command', cmd: 'load', arg: { videoId, start: Math.max(0, Math.floor(Number(startAt) || 0)) } });
+      await chrome.storage.session.set({ [FLOAT.KEY]: { videoId } });
+      await announce();
+      return;
+    }
+    // No embed answering: whatever floated is gone. Forget it, and open a
+    // mini player as usual.
+    await chrome.storage.session.remove(FLOAT.KEY);
+    await closeFloatDocument();
+  }
 
   const open = await currentMiniPlayer();
   if (open) {
@@ -361,8 +381,317 @@ async function unparkMiniPlayer(tabId, focused) {
   }
 }
 
+// ============================================
+// THE FLOATING PLAYER WITH NO WINDOW (the Minimal pin)
+//
+// The browser's own picture-in-picture closes with the document that opened
+// it. Opened from the mini player's page, that page must stay somewhere — a
+// window, or a tab in the user's browser window — and closing the browser
+// closes it. So the Minimal pin opens it from somewhere the user cannot close:
+// an offscreen document (float.html) holding a YouTube embed of the same
+// video. No window, no tab, nothing in the taskbar. With the optional
+// "background" permission Chrome keeps running when its last window closes,
+// and the video with it.
+//
+// The catch is that picture-in-picture is only granted in answer to a click,
+// and an offscreen document never gets one. The click on Pin on top happens
+// in the mini player's page; its message to this worker carries the gesture,
+// and a message sent on while handling it carries it on — so the pin message
+// is forwarded to the embed synchronously, over a port the embed keeps open,
+// and the embed opens the window. Measured in Chromium: 30 frames a second,
+// no window anywhere, and it outlives the window it was asked for from.
+//
+// Getting ready takes seconds (the embed loads the video), so it happens
+// while the mini player is open, before anyone reaches for the button.
+// ============================================
+const FLOAT = {
+  DOC: 'float.html',
+  TARGET: 'wle-float',            // what float.js answers to
+  EMBED_PORT: 'wle-float-embed',  // float-embed.js
+  REMOTE_PORT: 'wle-remote',      // the popup's remote control
+  KEY: 'wleFloating',             // session: the video floating, if one is
+  RULE_ID: 1,
+  // Long enough for the window to open, short enough that the mini player
+  // can still use the same click for the old way if this one fails.
+  PIN_TIMEOUT: 2500
+};
+
+const Floating = {
+  port: null,         // to the embed's content script
+  status: null,       // its last report: { embedId, ready, pinned, state }
+  remotes: new Set(), // open remote controls
+  pinWaiter: null
+};
+
+/** The video floating with no window behind it, if any. */
+async function floatingVideo() {
+  const data = await chrome.storage.session.get(FLOAT.KEY);
+  return data?.[FLOAT.KEY]?.videoId || null;
+}
+
+/**
+ * The port to the embed. The worker may have been restarted since, and the
+ * embed reconnects within a moment: give it that moment.
+ */
+async function embedPort(wait = 1500) {
+  const until = Date.now() + wait;
+  while (!Floating.port && Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return Floating.port;
+}
+
+/**
+ * An embed loaded from an extension page sends no Referer, and YouTube
+ * refuses to play an embed it cannot place (its "Error 153"). This gives the
+ * floating player's embed one — only requests made outside any tab, which is
+ * where an offscreen document's are, so no embed on any website is touched.
+ * Session rules go with the browser, so it is set again whenever needed.
+ */
+async function ensureReferer() {
+  await chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: [FLOAT.RULE_ID],
+    addRules: [{
+      id: FLOAT.RULE_ID,
+      priority: 1,
+      action: {
+        type: 'modifyHeaders',
+        requestHeaders: [{ header: 'referer', operation: 'set', value: 'https://www.youtube.com/' }]
+      },
+      condition: {
+        urlFilter: '|https://www.youtube.com/embed/',
+        resourceTypes: ['sub_frame'],
+        tabIds: [chrome.tabs.TAB_ID_NONE]
+      }
+    }]
+  });
+}
+
+async function hasFloatDocument() {
+  if (chrome.runtime.getContexts) {
+    const contexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+    return contexts.length > 0;
+  }
+  return Boolean(await chrome.offscreen.hasDocument?.());
+}
+
+let creatingFloatDocument = null;
+
+/**
+ * IFRAME_SCRIPTING is what this page truthfully does, and it matters which
+ * reasons are given: with AUDIO_PLAYBACK alone, Chrome closes the document
+ * thirty seconds after the sound stops — a paused floating video would
+ * vanish.
+ */
+async function ensureFloatDocument() {
+  if (await hasFloatDocument()) return;
+  creatingFloatDocument ??= chrome.offscreen.createDocument({
+    url: FLOAT.DOC,
+    reasons: ['IFRAME_SCRIPTING', 'AUDIO_PLAYBACK'],
+    justification: 'Plays the pinned video in the browser\'s picture-in-picture window without keeping a tab or a window open for it.'
+  }).finally(() => {
+    creatingFloatDocument = null;
+  });
+  await creatingFloatDocument;
+}
+
+async function closeFloatDocument() {
+  Floating.status = null;
+  if (await hasFloatDocument()) await chrome.offscreen.closeDocument().catch(() => {});
+}
+
+/** The mini player is open on this video: have the floating one ready. */
+async function prepareFloating(videoId, start) {
+  if (!VIDEO_ID.test(String(videoId || ''))) return;
+  // One already floating is not replaced from a mini player's page.
+  if (await floatingVideo()) return;
+
+  const ready = Floating.status;
+  if (ready && (ready.state?.videoId || ready.embedId) === videoId) return;
+
+  await ensureReferer();
+  await ensureFloatDocument();
+  await chrome.runtime.sendMessage({ target: FLOAT.TARGET, type: 'load', videoId, start }).catch(() => {});
+}
+
+/** Nothing needs the floating player any more: free what it holds. */
+async function releaseFloating() {
+  if (await floatingVideo()) return;
+  await closeFloatDocument();
+}
+
+/**
+ * The floating window closed. Its × pauses the video: done with it, so it
+ * goes. Its button back to the tab does not: the video goes back into a mini
+ * player window, at the second it had reached.
+ */
+async function leftFloating(report) {
+  const videoId = report.state?.videoId || report.embedId;
+  const time = report.state?.time || 0;
+
+  await chrome.storage.session.remove(FLOAT.KEY);
+  await closeFloatDocument();
+  relayToRemotes({ type: 'state', floating: false });
+
+  if (!report.paused && videoId) await serveMiniWindow(videoId, time);
+}
+
+function relayToRemotes(message) {
+  for (const remote of Floating.remotes) {
+    try {
+      remote.postMessage(message);
+    } catch {
+      Floating.remotes.delete(remote);
+    }
+  }
+}
+
+function onEmbedMessage(message) {
+  switch (message?.type) {
+    case 'status':
+    case 'state':
+      Floating.status = message;
+      relayToRemotes({ type: 'state', floating: message.pinned === true, status: message });
+      break;
+    case 'pin-result':
+      Floating.pinWaiter?.(message.ok === true, message.reason);
+      break;
+    case 'left':
+      Floating.status = message;
+      inTurn(() => leftFloating(message));
+      break;
+    default:
+      break;
+  }
+}
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === FLOAT.EMBED_PORT) {
+    // Only the embed inside our own offscreen document: a frame outside any
+    // tab, at a YouTube embed address.
+    const url = port.sender?.url || '';
+    if (port.sender?.tab || !url.startsWith('https://www.youtube.com/embed/')) {
+      port.disconnect();
+      return;
+    }
+    Floating.port = port;
+    port.onMessage.addListener(onEmbedMessage);
+    port.onDisconnect.addListener(() => {
+      if (Floating.port === port) Floating.port = null;
+    });
+    if (Floating.remotes.size) port.postMessage({ type: 'watch', on: true });
+    return;
+  }
+
+  if (port.name === FLOAT.REMOTE_PORT) {
+    if (!String(port.sender?.url || '').startsWith(chrome.runtime.getURL(''))) {
+      port.disconnect();
+      return;
+    }
+    Floating.remotes.add(port);
+    port.onDisconnect.addListener(() => {
+      Floating.remotes.delete(port);
+      if (!Floating.remotes.size) Floating.port?.postMessage({ type: 'watch', on: false });
+    });
+    port.onMessage.addListener((message) => onRemoteMessage(message));
+    Floating.port?.postMessage({ type: 'watch', on: true });
+    floatingVideo().then((videoId) => {
+      try {
+        port.postMessage({ type: 'state', floating: Boolean(videoId), status: Floating.status });
+      } catch {
+        // Closed already.
+      }
+    });
+  }
+});
+
+const REMOTE_COMMANDS = new Set(['play', 'pause', 'seek', 'seekBy', 'volume', 'mute', 'rate', 'quality', 'load', 'unpin', 'stop']);
+
+function onRemoteMessage(message) {
+  const cmd = String(message?.cmd || '');
+  if (!REMOTE_COMMANDS.has(cmd)) return;
+  if (cmd === 'load') {
+    // The next video is a mini player request like any other: it lands in
+    // the floating window when one is open.
+    const videoId = String(message.arg?.videoId || '');
+    if (VIDEO_ID.test(videoId)) inTurn(() => serveMiniWindow(videoId, 0));
+    return;
+  }
+  Floating.port?.postMessage({ type: 'command', cmd, arg: message.arg });
+}
+
+/**
+ * Only the content script on a YouTube page has any business moving a window
+ * about. Nothing outside this extension can reach the message listener —
+ * there is no externally_connectable — but an extension page of our own
+ * could, and moving whatever tab happens to ask is not a behaviour worth
+ * leaving lying around.
+ */
+function isFromYouTubeTab(sender) {
+  return typeof sender?.tab?.id === 'number' &&
+    /^https?:\/\/([\w-]+\.)*youtube\.com\//.test(sender?.url || '');
+}
+
+/**
+ * The click on Pin on top, still in hand. Everything up to postMessage is
+ * synchronous: an await before it would let the gesture go, and the embed
+ * would be refused its window.
+ */
+function pinFloating(message, sender, sendResponse) {
+  const status = Floating.status;
+  const ready = Floating.port && status?.ready &&
+    (status.state?.videoId || status.embedId) === message.videoId;
+
+  if (!ready) {
+    console.info('WLE: the floating player is not ready, pinning the old way');
+    sendResponse({ ok: false, reason: 'not ready' });
+    return false;
+  }
+
+  Floating.port.postMessage({ type: 'pin', time: Number(message.time) || 0 });
+
+  const tabId = sender.tab.id;
+  new Promise((resolve) => {
+    Floating.pinWaiter = (ok, reason) => resolve({ ok, reason });
+    setTimeout(() => resolve({ ok: false, reason: 'no answer' }), FLOAT.PIN_TIMEOUT);
+  }).then(async ({ ok, reason }) => {
+    Floating.pinWaiter = null;
+    sendResponse({ ok });
+    if (!ok) {
+      console.info('WLE: the floating player could not pin, pinning the old way —', reason);
+      return;
+    }
+
+    // Recorded before the mini player window goes, so its closing is not
+    // taken for the end of the floating player too.
+    await chrome.storage.session.set({ [FLOAT.KEY]: { videoId: message.videoId } });
+    await chrome.tabs.remove(tabId).catch(() => {});
+    relayToRemotes({ type: 'state', floating: true, status: Floating.status });
+  });
+  return true;
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const type = message && message.type;
+
+  // Answered first and without waiting in line: see pinFloating.
+  if (type === MESSAGES.FLOAT_PIN) {
+    if (!isFromYouTubeTab(sender)) {
+      sendResponse({ ok: false, reason: 'not a youtube window' });
+      return false;
+    }
+    return pinFloating(message, sender, sendResponse);
+  }
+
+  if (type === MESSAGES.FLOAT_PREPARE || type === MESSAGES.FLOAT_RELEASE) {
+    if (!isFromYouTubeTab(sender)) return false;
+    inTurn(() => (type === MESSAGES.FLOAT_PREPARE
+      ? prepareFloating(String(message.videoId || ''), Number(message.time) || 0)
+      : releaseFloating())).catch((error) => {
+      console.info('WLE: the floating player could not be prepared —', error?.message);
+    });
+    return false;
+  }
 
   // Opening a mini player is the one thing the popup asks for too, and the
   // popup is an extension page with no sender.tab — so it is answered before
@@ -380,18 +709,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (type !== MESSAGES.HIDE && type !== MESSAGES.SHOW) return false;
 
-  // Only the content script on a YouTube page has any business moving a
-  // window about. Nothing outside this extension can reach this listener —
-  // there is no externally_connectable — but an extension page of our own
-  // could, and moving whatever tab happens to ask is not a behaviour worth
-  // leaving lying around.
-  const tabId = sender?.tab?.id;
-  const fromYouTube = /^https?:\/\/([\w-]+\.)*youtube\.com\//.test(sender?.url || '');
-
-  if (typeof tabId !== 'number' || !fromYouTube) {
+  if (!isFromYouTubeTab(sender)) {
     sendResponse({ ok: false, reason: 'not a youtube window' });
     return false;
   }
+  const tabId = sender.tab.id;
 
   const work = inTurn(() => type === MESSAGES.HIDE
     ? parkMiniPlayer(tabId)
@@ -420,6 +742,9 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   const data = await chrome.storage.session.get(OPEN_KEY);
   if (data?.[OPEN_KEY]?.tabId === tabId) {
     await chrome.storage.session.remove(OPEN_KEY);
+    // The floating player was being kept ready for this mini player. Unless
+    // it is the one floating now, nothing needs it.
+    inTurn(() => releaseFloating());
   }
 });
 

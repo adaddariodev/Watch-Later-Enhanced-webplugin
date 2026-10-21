@@ -81,10 +81,14 @@ browser, move to another app, drag the window anywhere — it keeps playing.
   repeat them — it shows the video's title, and only while the player's
   controls are up.
 * **Pinned, two ways** — chosen under **Settings → Pinned player**:
-  * **Minimal** (default): the browser's own picture-in-picture. No bar
-    along the top, smooth, and the mini player window steps aside as a
-    background tab — one window on screen for one video. The controls are the
-    browser's, and captions do not show.
+  * **Minimal** (default): the browser's own picture-in-picture, with no
+    window or tab left behind it — the mini player window closes once the
+    video floats, and closing your browser windows does not touch it. Its
+    controls live in the extension's popup while it floats: play/pause,
+    position, volume and mute, speed, quality, the next video in To Watch,
+    back to the mini player, stop. Captions do not show in it. With **Keep
+    playing when the browser closes** on, Chrome stays running after its
+    last window, and the video with it.
   * **Complete**: YouTube's whole player — volume, captions, quality —
     in a floating window shaped like the video. The browser draws its own
     title bar on it, and the mini player window stays open behind it.
@@ -308,11 +312,21 @@ it runs.
   frames its opener draws: with the opener in a background tab or a minimized
   window that is ~4 fps against 30, so that pin leaves the mini player window
   where it is. The browser's own video picture-in-picture (**Minimal**) has
-  no bar and stays at full frame rate with its page hidden, so for that one the
-  worker moves the page into the browser window as a background tab — through
-  a minimized stopover window, since Chrome will not move a tab out of a popup
-  directly — and pops it back out where it stood on unpin. With no browser
-  window to take it, the mini player window minimizes instead.
+  no bar and stays at full frame rate with its page hidden.
+* **Minimal floats from an offscreen document** — a picture-in-picture
+  window closes with the page that opened it, and every page in a tab or a
+  window closes with the browser. An offscreen document is neither, so the
+  Minimal pin is opened from one (`float.html`) holding a YouTube embed of the
+  same video, prepared while the mini player is open. The click on **Pin on
+  top** happens in the mini player's page; its message carries the gesture to
+  the worker, which hands it on synchronously over a port to a content script
+  inside the embed (`float-embed.js`), which opens the window. The player's
+  own API is reached from the page world (`float-embed-main.js`), and a
+  `declarativeNetRequest` session rule gives the embed the Referer YouTube
+  requires, for requests outside any tab only. The optional `background`
+  permission keeps Chrome running after its last window. If the floating
+  player is not ready, the same click pins the old way: picture-in-picture
+  from the mini player's page, which then steps aside as a tab.
 * **Drags relayed into the pinned player** — YouTube's volume slider follows a
   drag by listening to the document the player was built in, which is not the
   floating window's; while a slider is being dragged, moves and releases are
