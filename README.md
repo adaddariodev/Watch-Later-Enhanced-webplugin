@@ -75,17 +75,17 @@ browser, move to another app, drag the window anywhere — it keeps playing.
 * **From the popup:** the mini-player button on a saved video plays it
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
-* **Pinned with YouTube controls:** `Space`/`K` play and pause, `←` `→` seek
+* **Pinned, Complete:** `Space`/`K` play and pause, `←` `→` seek
   five seconds, `M` mutes, `Esc` closes. Closing and returning to the tab also
   sit in the browser's own title bar on that window, so the overlay does not
   repeat them — it shows the video's title, and only while the player's
   controls are up.
 * **Pinned, two ways** — chosen under **Settings → Pinned player**:
-  * **Video only** (default): the browser's own picture-in-picture. No bar
+  * **Minimal** (default): the browser's own picture-in-picture. No bar
     along the top, smooth, and the mini player window steps aside as a
     background tab — one window on screen for one video. The controls are the
     browser's, and captions do not show.
-  * **YouTube controls**: YouTube's whole player — volume, captions, quality —
+  * **Complete**: YouTube's whole player — volume, captions, quality —
     in a floating window shaped like the video. The browser draws its own
     title bar on it, and the mini player window stays open behind it.
 
@@ -303,11 +303,11 @@ it runs.
   It is a button rather than something automatic because a browser only grants
   that window in answer to a click inside the page.
 * **Two pins, because neither has everything** — measured in Chromium, not
-  guessed. A document picture-in-picture window (the **YouTube controls** pin)
+  guessed. A document picture-in-picture window (the **Complete** pin)
   carries the browser's title bar, which no page can remove, and shows only the
   frames its opener draws: with the opener in a background tab or a minimized
   window that is ~4 fps against 30, so that pin leaves the mini player window
-  where it is. The browser's own video picture-in-picture (**Video only**) has
+  where it is. The browser's own video picture-in-picture (**Minimal**) has
   no bar and stays at full frame rate with its page hidden, so for that one the
   worker moves the page into the browser window as a background tab — through
   a minimized stopover window, since Chrome will not move a tab out of a popup

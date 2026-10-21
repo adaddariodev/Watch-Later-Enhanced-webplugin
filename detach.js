@@ -1376,17 +1376,17 @@
   // neither gives everything and the browser decides what each one costs —
   // measured, not guessed:
   //
-  // 'video' is the browser's own picture-in-picture: the video and nothing
-  // else, no title bar, and smooth wherever its page is. So its page can step
-  // aside as a background tab, and only one window is left on screen. The
-  // controls are the browser's, not YouTube's.
+  // 'video' (Minimal, in Settings) is the browser's own picture-in-picture:
+  // the video and nothing else, no title bar, and smooth wherever its page
+  // is. So its page can step aside as a background tab, and only one window
+  // is left on screen. The controls are the browser's, not YouTube's.
   //
-  // 'controls' is a document picture-in-picture window holding YouTube's whole
-  // player: volume, captions, quality. The browser draws its own title bar on
-  // it, which no page can remove, and it shows only as many frames as the page
-  // it belongs to is drawing. Hidden — a background tab, a minimized window —
-  // that page draws none, and the video drops to four frames a second. So for
-  // this one the mini player window stays where it is.
+  // 'controls' (Complete) is a document picture-in-picture window holding
+  // YouTube's whole player: volume, captions, quality. The browser draws its
+  // own title bar on it, which no page can remove, and it shows only as many
+  // frames as the page it belongs to is drawing. Hidden — a background tab, a
+  // minimized window — that page draws none, and the video drops to four
+  // frames a second. So for this one the mini player window stays where it is.
   // ============================================
   const VideoPin = {
     wired: false,
@@ -1612,8 +1612,8 @@
 
       const controls = DetachState.pinMode === 'controls' && Support.documentPip();
       this.pinBtn.title = controls
-        ? "Float the player, with YouTube's controls, above every other window (change it in Settings → Pinned player)"
-        : 'Float the video above every other window, on its own (change it in Settings → Pinned player)';
+        ? "Float the player, with YouTube's controls, above every other window (Complete — change it in Settings → Pinned player)"
+        : 'Float the video above every other window, on its own (Minimal — change it in Settings → Pinned player)';
       this.pinBtn.setAttribute('aria-label', controls
         ? "Pin the player, with YouTube's controls, on top of other windows"
         : 'Pin the video on top of other windows');

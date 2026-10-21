@@ -239,7 +239,7 @@ const DOMCache = {
   supporterUnlockStatus: null,
   miniPlayerSwitch: null,
   pinMode: null,
-  pinModeText: null,
+  pinModePoints: null,
   pinModeGuide: null,
   wikiBtn: null,
   typeFilter: null,
@@ -294,7 +294,7 @@ const DOMCache = {
     this.supporterUnlockStatus = document.getElementById('supporter-unlock-status');
     this.miniPlayerSwitch = document.getElementById('toggle-mini-player');
     this.pinMode = document.getElementById('pin-mode');
-    this.pinModeText = document.getElementById('pin-mode-text');
+    this.pinModePoints = document.getElementById('pin-mode-points');
     this.pinModeGuide = document.getElementById('pin-mode-guide');
     this.wikiBtn = document.getElementById('open-wiki');
     this.typeFilter = document.getElementById('type-filter');
@@ -341,7 +341,7 @@ const AppState = {
   supporter: false,
   hideJobsMatchBanner: false,
   detachEnabled: true,
-  pinMode: 'video', // 'video' | 'controls' — what Pin on top gives, see PIN_MODE
+  pinMode: 'video', // 'video' (Minimal) | 'controls' (Complete) — what Pin on top gives
   thumbnailsEnabled: true,
 
   setSoundEnabled(value) {
@@ -2541,7 +2541,7 @@ function updateGroupNotes() {
   }
 
   if (!AppState.detachEnabled) changed.push('mini player off');
-  if (AppState.pinMode === 'controls') changed.push('pinned with controls');
+  if (AppState.pinMode === 'controls') changed.push('complete pin');
   if (!AppState.thumbnailsEnabled) changed.push('thumbnails off');
   if (Styling.mode !== 'random') changed.push(`${Styling.mode} colours`);
   if (Styling.glass > 0) changed.push(`${Styling.glass}% glass`);
@@ -3364,10 +3364,30 @@ function setupMiniPlayerToggle() {
 // windows and neither has everything, so the choice is the user's; detach.js
 // reads it at the next pin. The guide's section on pinning has the whole story.
 // ============================================
+// What each one gives and what it costs, a line each: read at a glance, the
+// whole story is in the guide.
 const PIN_MODES = {
-  video: "Just the video, in your browser's own floating window: no title bar, smooth, and the mini player window steps aside as a tab. The controls are the browser's.",
-  controls: "YouTube's controls — volume, captions, quality — under your browser's own title bar. The mini player window stays open behind it: hidden, the video stutters."
+  video: {
+    pros: ['No bar over the picture', 'Smooth, even with its page out of sight', 'One window on screen'],
+    cons: ["The browser's controls, not YouTube's", 'No captions']
+  },
+  controls: {
+    pros: ["YouTube's controls: volume, quality, chapters", 'Captions', "Opens in the video's shape"],
+    cons: ["The browser's title bar along the top", 'The mini player window stays open behind it', 'Stutters if that window is minimized']
+  }
 };
+
+function pinPoint(text, kind) {
+  const li = document.createElement('li');
+  li.className = `pin-point pin-point-${kind}`;
+
+  const label = document.createElement('span');
+  label.className = 'pin-point-kind';
+  label.textContent = kind === 'pro' ? 'Pro: ' : 'Con: ';
+
+  li.append(label, text);
+  return li;
+}
 
 function updatePinModeUI() {
   DOMCache.pinMode?.querySelectorAll('.mode-chip').forEach((chip) => {
@@ -3375,7 +3395,13 @@ function updatePinModeUI() {
     chip.setAttribute('aria-checked', on ? 'true' : 'false');
     chip.tabIndex = on ? 0 : -1;
   });
-  if (DOMCache.pinModeText) DOMCache.pinModeText.textContent = PIN_MODES[AppState.pinMode];
+
+  const { pros, cons } = PIN_MODES[AppState.pinMode];
+  DOMCache.pinModePoints?.replaceChildren(
+    ...pros.map((text) => pinPoint(text, 'pro')),
+    ...cons.map((text) => pinPoint(text, 'con'))
+  );
+
   updateGroupNotes();
 }
 
