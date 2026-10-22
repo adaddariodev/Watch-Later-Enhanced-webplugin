@@ -1473,8 +1473,14 @@
     prepared: null,   // the video the floating player was asked to get ready
     pinning: false,   // a pin is on its way and has not been answered
 
-    /** Have the floating player load this video, while nobody needs it yet. */
-    prepare() {
+    /**
+     * Have the floating player load this video, while nobody needs it yet.
+     *
+     * @param {boolean} [again] ask even for the video already asked for: the
+     *   floating player may have gone since (a pin that fell back, a window
+     *   brought back up). The worker reloads it only if it has.
+     */
+    prepare({ again = false } = {}) {
       if (!MiniWindow.active || !DetachState.enabled) return;
 
       if (DetachState.pinMode !== 'video' || !Support.nativePip()) {
@@ -1483,7 +1489,7 @@
       }
 
       const videoId = WLEUrl.extractVideoId(window.location.href);
-      if (!videoId || videoId === this.prepared) return;
+      if (!videoId || (videoId === this.prepared && !again)) return;
       this.prepared = videoId;
 
       const time = Math.floor(DetachedPlayer.findVideo()?.currentTime || 0);
@@ -1524,12 +1530,25 @@
         return;
       }
 
-      // Its sound and speed go along: whoever muted it or set it to 1.5× did
-      // not mean the floating player to undo that.
+      // During an ad the element plays the ad, on the ad's clock: the
+      // floating player would start the video wherever the ad had got to.
+      // The old pin keeps this same element, and the video after the ad.
+      const ytPlayer = video.closest('.html5-video-player');
+      if (ytPlayer?.classList.contains('ad-showing') || ytPlayer?.classList.contains('ad-interrupting')) {
+        VideoPin.open();
+        return;
+      }
+
+      // Its sound, speed and pause go along: whoever muted it or set it to
+      // 1.5× did not mean the floating player to undo that. The volume is the
+      // slider's: the element's own is YouTube's loudness-normalised level,
+      // and the embed normalises again.
+      const slider = parseFloat(ytPlayer?.querySelector('.ytp-volume-panel')?.getAttribute('aria-valuenow'));
       const sound = {
         muted: video.muted,
-        volume: Math.round(video.volume * 100),
-        rate: video.playbackRate
+        volume: Math.round(slider >= 0 && slider <= 100 ? slider : video.volume * 100),
+        rate: video.playbackRate,
+        paused: video.paused
       };
 
       this.pinning = true;
@@ -1543,6 +1562,9 @@
             if (failed && response?.busy) return;
             if (failed) {
               VideoPin.open();
+              // The floating player may have gone, or never got this far:
+              // ask again, so the next pin can float.
+              this.prepare({ again: true });
               return;
             }
             // Floating now; the worker closes this window. Silence it first,
@@ -1980,6 +2002,9 @@
     // aside for it comes back now: once the stage is down, nothing would ask.
     VideoPin.close();
     MiniWindow.setPinned(false);
+    // The worker has closed the floating player; switched back on, this page
+    // must ask for it again.
+    FloatingPin.release();
     // Leaving the stage up would strip the page with no way back out of it.
     MiniWindow.teardown();
   }
@@ -1999,6 +2024,13 @@
     const data = await readStorage({ [DETACH.KEYS.ENABLED]: true, [DETACH.KEYS.PIN_MODE]: 'video' });
     DetachState.enabled = data[DETACH.KEYS.ENABLED] !== false;
     setPinMode(data[DETACH.KEYS.PIN_MODE]);
+
+    // A mini player window brought back up — kept minimized behind a
+    // floating video that has since gone, say — asks for the floating player
+    // again; the worker reloads it only if it is not there.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') FloatingPin.prepare({ again: true });
+    });
 
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;

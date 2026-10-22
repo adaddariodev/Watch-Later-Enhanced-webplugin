@@ -44,9 +44,13 @@
       if (value > 0) call('unMute');
     },
     mute: (on) => call(on ? 'mute' : 'unMute'),
+    // YouTube's menu also takes custom speeds between the ones it lists, so
+    // the list only bounds it.
     rate: (rate) => {
+      const rates = list(call('getAvailablePlaybackRates')).filter((r) => Number.isFinite(r));
       const wanted = num(rate, 1);
-      if (list(call('getAvailablePlaybackRates')).includes(wanted)) call('setPlaybackRate', wanted);
+      if (rates.length && (wanted < Math.min(...rates) || wanted > Math.max(...rates))) return;
+      call('setPlaybackRate', wanted);
     },
     // setPlaybackQualityRange is the call YouTube's own menu makes; the
     // older setPlaybackQuality is kept as a second try. 'lowest' is the last
@@ -66,9 +70,30 @@
     load: (arg) => {
       const videoId = String(arg?.videoId || '');
       if (!/^[\w-]{11}$/.test(videoId)) return;
+      hearErrors();
       call('loadVideoById', { videoId, startSeconds: Math.max(0, num(arg?.start)) });
     }
   };
+
+  /**
+   * A video YouTube will not play in an embed (age-restricted, embedding
+   * turned off, private) says so through the player's own error event: 100,
+   * 101, 150 and the like. Passed on at once, rather than left for the
+   * isolated world to notice the video never started.
+   */
+  let heard = null;
+  function hearErrors() {
+    const p = player();
+    if (!p || heard === p || typeof p.addEventListener !== 'function') return;
+    heard = p;
+    try {
+      p.addEventListener('onError', (code) => {
+        document.dispatchEvent(new CustomEvent('wle-float-error', { detail: JSON.stringify({ code: num(code?.data ?? code) }) }));
+      });
+    } catch {
+      // A player without its event API: the isolated world's timer still covers it.
+    }
+  }
 
   function state() {
     const p = player();

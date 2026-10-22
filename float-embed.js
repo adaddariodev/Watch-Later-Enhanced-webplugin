@@ -123,6 +123,9 @@
       embedId,
       ready: primed && Boolean(v) && v.readyState >= 1,
       pinned: Boolean(document.pictureInPictureElement),
+      // On the way back to the mini player: not floating any more, but the
+      // report of that is still to come.
+      leaving: unpinning,
       state,
       ...extra
     });
@@ -212,7 +215,7 @@
    * refused or late window must not leave a hidden player making noise
    * beside the mini player that pinned the old way instead.
    */
-  function pin({ time, muted, volume, rate }) {
+  function pin({ time, muted, volume, rate, paused }) {
     const v = video();
     if (!v || v.readyState < 1) {
       send({ type: 'pin-result', ok: false, reason: 'not ready' });
@@ -250,7 +253,8 @@
         player('rate', rate);
         player('volume', volume);
         player('mute', muted);
-        player('play');
+        // Pinned while paused, it floats paused, as the old pin did.
+        if (!paused) player('play');
         send({ type: 'pin-result', ok: true });
         // The last report was sent on the way in, silent and still.
         report('status');
@@ -284,19 +288,39 @@
     watchTimer = on ? setInterval(() => report('state'), WATCH_INTERVAL) : null;
   }
 
-  /** After a video is loaded into the floating player: does it play? */
+  /**
+   * After a video is loaded into the floating player: does it play? The
+   * player's own error says no at once; a video that has not started at all
+   * by the time limit says no too. Anything that plays — an ad before it
+   * counts — says yes, and so does a person pausing or stopping it meanwhile.
+   */
+  let loading = null;
+
   function watchLoad(arg) {
     clearTimeout(loadTimer);
-    loadTimer = setTimeout(async () => {
-      const state = await player('state');
-      if (state?.playing) return;
-      send({ type: 'load-failed', videoId: arg?.videoId, start: arg?.start });
-    }, LOAD_GIVE_UP);
+    loading = { videoId: arg?.videoId, start: arg?.start };
+    loadTimer = setTimeout(() => loadFailed(), LOAD_GIVE_UP);
   }
+
+  function loadSettled() {
+    clearTimeout(loadTimer);
+    loading = null;
+  }
+
+  function loadFailed() {
+    if (!loading) return;
+    const failed = loading;
+    loadSettled();
+    send({ type: 'load-failed', ...failed });
+  }
+
+  document.addEventListener('playing', () => loadSettled(), true);
+  document.addEventListener('wle-float-error', () => loadFailed());
 
   const COMMANDS = new Set(['play', 'pause', 'seek', 'seekBy', 'volume', 'mute', 'rate', 'quality', 'load']);
 
   async function command(cmd, arg) {
+    if (cmd === 'pause' || cmd === 'unpin' || cmd === 'stop') loadSettled();
     if (cmd === 'unpin' || cmd === 'stop') {
       // Back to the mini player keeps the video going; stop does not.
       if (cmd === 'stop') hush();

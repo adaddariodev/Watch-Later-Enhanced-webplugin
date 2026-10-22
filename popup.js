@@ -3406,10 +3406,19 @@ function updatePinModeUI() {
     ...cons.map((text) => pinPoint(text, 'con'))
   );
 
-  // Keeping Chrome running only matters to the pin that outlives windows.
-  DOMCache.keepPlayingRow?.classList.toggle('hidden', AppState.pinMode !== 'video');
-
+  showKeepPlayingRow();
   updateGroupNotes();
+}
+
+/**
+ * Keeping Chrome running only matters to the pin that outlives windows — but
+ * a switch left on stays shown whatever the mode: the permission is Chrome's
+ * own, it goes on keeping Chrome running, and this is the only place to turn
+ * it off.
+ */
+function showKeepPlayingRow() {
+  const on = DOMCache.keepPlayingSwitch?.getAttribute('aria-checked') === 'true';
+  DOMCache.keepPlayingRow?.classList.toggle('hidden', AppState.pinMode !== 'video' && !on);
 }
 
 // ============================================
@@ -3427,6 +3436,7 @@ async function updateKeepPlayingSwitch() {
   if (!sw) return;
   const on = await chrome.permissions.contains(KEEP_PLAYING).catch(() => false);
   sw.setAttribute('aria-checked', on ? 'true' : 'false');
+  showKeepPlayingRow();
 }
 
 function setupKeepPlaying() {
@@ -3507,8 +3517,13 @@ const Remote = {
     return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
   },
 
-  /** Replace a select's options only when the list itself changed. */
+  /**
+   * Replace a select's options only when the list itself changed. A current
+   * value the player does not list (a custom speed) is added, so the menu
+   * says what is playing rather than going blank.
+   */
   fill(select, values, label, current) {
+    if (!values.map(String).includes(String(current))) values = [...values, current];
     const key = values.join('|');
     if (select.dataset.key !== key) {
       select.dataset.key = key;

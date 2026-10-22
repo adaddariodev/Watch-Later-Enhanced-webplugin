@@ -276,6 +276,7 @@ const FLOAT = {
 const Floating = {
   port: null,         // to the embed's content script
   status: null,       // its last report: { embedId, ready, pinned, state }
+  loading: null,      // the video the page was last asked to load
   remotes: new Set(), // open remote controls
   pinWaiter: null
 };
@@ -352,6 +353,7 @@ async function ensureFloatDocument() {
 
 async function closeFloatDocument() {
   Floating.status = null;
+  Floating.loading = null;
   if (await hasFloatDocument()) await chrome.offscreen.closeDocument().catch(() => {});
 }
 
@@ -361,11 +363,16 @@ async function prepareFloating(videoId, start) {
   // One already floating is not replaced from a mini player's page.
   if (await floatingVideo()) return;
 
-  const ready = Floating.status;
-  if (ready && (ready.state?.videoId || ready.embedId) === videoId) return;
+  // What was asked for, not what was last reported: an embed being replaced
+  // still reports the video it is leaving until the new one connects. The
+  // report only stands in after a worker restart, which forgets the asking.
+  const status = Floating.status;
+  const asked = Floating.loading ?? (status?.state?.videoId || status?.embedId);
+  if (asked === videoId && await hasFloatDocument()) return;
 
   await ensureReferer();
   await ensureFloatDocument();
+  Floating.loading = videoId;
   await chrome.runtime.sendMessage({ target: FLOAT.TARGET, type: 'load', videoId, start }).catch(() => {});
 }
 
@@ -431,6 +438,10 @@ async function floatingLoadFailed(report) {
 async function retireMiniWindow(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (!tab) return;
+  // Only the mini player's own window: a tab of the user's is theirs, and
+  // its page has already paused itself.
+  const own = await chrome.windows.get(tab.windowId).catch(() => null);
+  if (own?.type !== 'popup') return;
 
   const others = (await chrome.windows.getAll()).filter((win) => win.id !== tab.windowId && !win.alwaysOnTop);
   const keepsRunning = await chrome.permissions.contains({ permissions: ['background'] });
@@ -458,6 +469,7 @@ function onEmbedMessage(message) {
     case 'state':
       Floating.status = message;
       relayToRemotes({ type: 'state', floating: message.pinned === true, status: message });
+      if (message.type === 'status') reconcile(message);
       break;
     case 'pin-result':
       Floating.pinWaiter?.(message.ok === true, message.reason);
@@ -474,6 +486,19 @@ function onEmbedMessage(message) {
   }
 }
 
+/**
+ * The embed says, as it connects, that nothing floats — while a video is
+ * recorded as floating. A report that it left can be lost: posted to a
+ * worker already stopping, before the port knew it was gone. Without this the
+ * next video would load into a page nobody can see, and play there. Not on
+ * the way back to the mini player: that report is still to come.
+ */
+async function reconcile(report) {
+  if (report.pinned !== false || report.leaving || Floating.pinWaiter) return;
+  if (!(await floatingVideo())) return;
+  inTurn(() => leftFloating({ ...report, reopen: false }));
+}
+
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === FLOAT.EMBED_PORT) {
     // Only the embed inside our own offscreen document: a frame outside any
@@ -484,7 +509,11 @@ chrome.runtime.onConnect.addListener((port) => {
       return;
     }
     Floating.port = port;
-    port.onMessage.addListener(onEmbedMessage);
+    // Only the current embed is listened to: one being replaced can still be
+    // talking about the video it is leaving.
+    port.onMessage.addListener((message) => {
+      if (Floating.port === port) onEmbedMessage(message);
+    });
     // In this same worker a port only goes when its frame does — a reloaded
     // or closed embed — so what it said about being ready goes with it.
     // (A worker stopped for idling takes everything in memory anyway.)
@@ -583,15 +612,16 @@ function pinFloating(message, sender, sendResponse) {
     return false;
   }
 
-  // The mini player's sound and speed come along: whoever muted it or set
-  // it to 1.5× did not mean the floating player to undo that.
+  // The mini player's sound, speed and pause come along: whoever muted it or
+  // set it to 1.5× did not mean the floating player to undo that.
   const sound = message.sound || {};
   Floating.port.postMessage({
     type: 'pin',
     time: Number(message.time) || 0,
     muted: sound.muted === true,
     volume: Number.isFinite(Number(sound.volume)) ? Number(sound.volume) : 100,
-    rate: Number.isFinite(Number(sound.rate)) ? Number(sound.rate) : 1
+    rate: Number.isFinite(Number(sound.rate)) ? Number(sound.rate) : 1,
+    paused: sound.paused === true
   });
 
   const tabId = sender.tab.id;
@@ -644,9 +674,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (type === MESSAGES.FLOAT_PREPARE || type === MESSAGES.FLOAT_RELEASE) {
     if (!isFromYouTubeTab(sender)) return false;
-    inTurn(() => (type === MESSAGES.FLOAT_PREPARE
-      ? prepareFloating(String(message.videoId || ''), Number(message.time) || 0)
-      : releaseFloating())).catch((error) => {
+    inTurn(async () => {
+      // Only the mini player this worker opened: any other page carrying its
+      // marker would take the one floating player over from it.
+      if ((await currentMiniPlayer())?.tabId !== sender.tab.id) return;
+      await (type === MESSAGES.FLOAT_PREPARE
+        ? prepareFloating(String(message.videoId || ''), Number(message.time) || 0)
+        : releaseFloating());
+    }).catch((error) => {
       console.info('WLE: the floating player could not be prepared —', error?.message);
     });
     return false;

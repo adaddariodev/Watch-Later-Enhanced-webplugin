@@ -1387,12 +1387,12 @@ a.icon-btn {
    REMOTE CONTROL
    A video pinned with Minimal floats in the browser's own picture-in-picture
    window, which carries only the browser's buttons; the rest of YouTube's
-   controls are here, above the list, while it floats. Fixed chrome like the
-   toolbar under it, so it never scrolls away from the hand reaching for it.
+   controls are here, at the top of the list, while it floats. It scrolls
+   with the list: fixed above the toolbar it took ~210px from a popup that can
+   be 400px tall, and left the list less than a row.
    ========================================= */
 .remote {
-  flex-shrink: 0;
-  margin: 10px 22px 4px 12px;
+  margin: 10px 0 4px;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--glass-fill);

@@ -39,64 +39,6 @@
     <span class="jm-copy">Find your next best EU tech job</span>
   </a>
 
-  <!-- The remote control for a video pinned with Minimal. That video floats in
-       the browser's own picture-in-picture window, which only carries the
-       browser's play button — so the rest of YouTube's controls are here.
-       Shown only while one floats; popup.js fills it from the service worker. -->
-  <section id="remote" class="remote" hidden aria-label="Floating video">
-    <div class="remote-head">
-      <span class="remote-kicker">Floating now</span>
-      <span id="remote-title" class="remote-title"></span>
-      <span id="remote-author" class="remote-author"></span>
-    </div>
-
-    <div class="remote-seek">
-      <span id="remote-time" class="remote-time">0:00</span>
-      <input id="remote-seek" class="mixer-slider remote-range" type="range" min="0" max="0" step="1" value="0" aria-label="Position in the video" />
-      <span id="remote-duration" class="remote-time">0:00</span>
-    </div>
-
-    <div class="remote-row">
-      <button id="remote-back" class="icon-btn remote-btn" type="button" title="Back 10 seconds" aria-label="Back 10 seconds">
-        <svg class="remote-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6 8.5 6V6l-8.5 6z"/></svg>
-      </button>
-      <button id="remote-play" class="icon-btn remote-btn remote-play" type="button" title="Play / pause" aria-label="Play or pause">
-        <svg class="remote-icon remote-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-        <svg class="remote-icon remote-icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
-      </button>
-      <button id="remote-forward" class="icon-btn remote-btn" type="button" title="Forward 10 seconds" aria-label="Forward 10 seconds">
-        <svg class="remote-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
-      </button>
-      <button id="remote-next" class="icon-btn remote-btn" type="button" title="Next video in your To Watch list" aria-label="Next video in your To Watch list">
-        <svg class="remote-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-      </button>
-
-      <span class="remote-volume">
-        <button id="remote-mute" class="icon-btn remote-btn" type="button" title="Mute / unmute" aria-label="Mute or unmute">
-          <img class="btn-icon remote-icon-sound" src="icons/buttons/volume.svg" alt="" />
-          <img class="btn-icon remote-icon-muted" src="icons/buttons/volume-mute.svg" alt="" />
-        </button>
-        <input id="remote-volume" class="mixer-slider remote-range" type="range" min="0" max="100" step="1" value="100" aria-label="Volume" />
-      </span>
-    </div>
-
-    <div class="remote-row remote-options">
-      <label class="remote-select">
-        <span>Speed</span>
-        <select id="remote-rate" aria-label="Playback speed"></select>
-      </label>
-      <label class="remote-select">
-        <span>Quality</span>
-        <select id="remote-quality" aria-label="Video quality"></select>
-      </label>
-    </div>
-
-    <div class="remote-row remote-actions">
-      <button id="remote-unpin" class="remote-action" type="button" title="Put the video back into the mini player window">Back to mini player</button>
-      <button id="remote-stop" class="remote-action" type="button" title="Close the floating video">Stop</button>
-    </div>
-  </section>
-
   <!-- Outside <main>, which is the scrolling half: the tabs and the filters
        are the popup's fixed chrome, so nothing ever passes underneath them.
        They used to be sticky inside the list, which pinned them in the same
@@ -192,6 +134,66 @@
   </div>
 
   <main>
+    <!-- The remote control for a video pinned with Minimal. That video floats in
+         the browser's own picture-in-picture window, which only carries the
+         browser's play button — so the rest of YouTube's controls are here.
+         Shown only while one floats; popup.js fills it from the service worker.
+         Inside <main>, at the top of the list, so it scrolls away with it: fixed
+         above the toolbar it left a short popup with no room for the list. -->
+    <section id="remote" class="remote" hidden aria-label="Floating video">
+      <div class="remote-head">
+        <span class="remote-kicker">Floating now</span>
+        <span id="remote-title" class="remote-title"></span>
+        <span id="remote-author" class="remote-author"></span>
+      </div>
+
+      <div class="remote-seek">
+        <span id="remote-time" class="remote-time">0:00</span>
+        <input id="remote-seek" class="mixer-slider remote-range" type="range" min="0" max="0" step="1" value="0" aria-label="Position in the video" />
+        <span id="remote-duration" class="remote-time">0:00</span>
+      </div>
+
+      <div class="remote-row">
+        <button id="remote-back" class="icon-btn remote-btn" type="button" title="Back 10 seconds" aria-label="Back 10 seconds">
+          <svg class="remote-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6 8.5 6V6l-8.5 6z"/></svg>
+        </button>
+        <button id="remote-play" class="icon-btn remote-btn remote-play" type="button" title="Play / pause" aria-label="Play or pause">
+          <svg class="remote-icon remote-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="remote-icon remote-icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+        </button>
+        <button id="remote-forward" class="icon-btn remote-btn" type="button" title="Forward 10 seconds" aria-label="Forward 10 seconds">
+          <svg class="remote-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
+        </button>
+        <button id="remote-next" class="icon-btn remote-btn" type="button" title="Next video in your To Watch list" aria-label="Next video in your To Watch list">
+          <svg class="remote-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+
+        <span class="remote-volume">
+          <button id="remote-mute" class="icon-btn remote-btn" type="button" title="Mute / unmute" aria-label="Mute or unmute">
+            <img class="btn-icon remote-icon-sound" src="icons/buttons/volume.svg" alt="" />
+            <img class="btn-icon remote-icon-muted" src="icons/buttons/volume-mute.svg" alt="" />
+          </button>
+          <input id="remote-volume" class="mixer-slider remote-range" type="range" min="0" max="100" step="1" value="100" aria-label="Volume" />
+        </span>
+      </div>
+
+      <div class="remote-row remote-options">
+        <label class="remote-select">
+          <span>Speed</span>
+          <select id="remote-rate" aria-label="Playback speed"></select>
+        </label>
+        <label class="remote-select">
+          <span>Quality</span>
+          <select id="remote-quality" aria-label="Video quality"></select>
+        </label>
+      </div>
+
+      <div class="remote-row remote-actions">
+        <button id="remote-unpin" class="remote-action" type="button" title="Put the video back into the mini player window">Back to mini player</button>
+        <button id="remote-stop" class="remote-action" type="button" title="Close the floating video">Stop</button>
+      </div>
+    </section>
+
     <div id="trash-actions" class="trash-actions">
       <button id="empty-trash" class="text-btn" type="button">Empty trash</button>
     </div>
