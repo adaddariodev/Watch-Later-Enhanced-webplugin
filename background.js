@@ -19,8 +19,9 @@
 // All of that needs chrome.windows, chrome.tabs and chrome.offscreen, and
 // content scripts have none of them. The tab to act on is not passed in: it
 // is read from sender.tab, which the browser fills in for a content script's
-// message. Nothing here trusts the message for anything but its type, the
-// video it names and the focus flag.
+// message. Nothing here trusts the message beyond its type, a video id
+// checked against VIDEO_ID, and numbers (a time, a volume, a speed) that are
+// bounded before use.
 // ============================================
 
 // Kept in step with WINDOW_MESSAGES in detach.js — a service worker and a
@@ -31,6 +32,7 @@ const MESSAGES = {
   OPEN: 'wle-mini-window-open',
   FLOAT_PREPARE: 'wle-float-prepare',
   FLOAT_PIN: 'wle-float-pin',
+  FLOAT_UNPIN: 'wle-float-unpin',
   FLOAT_RELEASE: 'wle-float-release'
 };
 
@@ -53,9 +55,9 @@ const VIDEO_ID = /^[\w-]{11}$/;
 /** Where the one open mini player is remembered, across worker restarts. */
 const OPEN_KEY = 'wleMiniWindow';
 
-/** By its tab: a tab id is what chrome.tabs.onRemoved reports. */
-async function rememberMiniPlayer(tabId, videoId) {
-  await chrome.storage.session.set({ [OPEN_KEY]: { tabId, videoId } });
+/** By its tab and its window: the window is what chrome.windows.onRemoved reports. */
+async function rememberMiniPlayer(tabId, videoId, windowId) {
+  await chrome.storage.session.set({ [OPEN_KEY]: { tabId, videoId, windowId } });
 }
 
 /** The mini player that is open, if one still is: it may have been closed by hand since. */
@@ -101,8 +103,8 @@ function startSeconds(startAt) {
  *
  * A second window is a second soundtrack playing from somewhere you cannot
  * see, and another window to hunt down and close. Asking for the video that is
- * already in there brings that window forward; asking for another one puts it
- * in the same window.
+ * already in there brings that window forward; asking for another one opens
+ * it in a new window that takes the old one's place.
  *
  * @param {string} videoId
  * @param {number} [startAt] seconds to resume from — where the page that asked
@@ -152,7 +154,6 @@ async function serveMiniWindow(videoId, startAt) {
       await announce();
       return;
     }
-    await chrome.tabs.remove(open.tabId).catch(() => {});
   }
 
   const data = await chrome.storage.local.get({ [MINI_WINDOW.SIZE_KEY]: null });
@@ -172,11 +173,21 @@ async function serveMiniWindow(videoId, startAt) {
   });
 
   const tabId = win?.tabs?.[0]?.id;
-  if (typeof tabId === 'number') await rememberMiniPlayer(tabId, videoId);
+  if (typeof tabId === 'number') await rememberMiniPlayer(tabId, videoId, win.id);
+
+  // The old one goes once the new one is up: were it the last window, Chrome
+  // would quit in between.
+  if (open) await forgetMiniPlayer(open.tabId);
 
   // After the window exists, so that a create that failed does not leave a
   // tab paused for a mini player that never opened.
   await announce();
+}
+
+/** A mini player replaced by another: its window, and what was kept about it. */
+async function forgetMiniPlayer(tabId) {
+  await chrome.storage.session.remove(stateKey(tabId));
+  await chrome.tabs.remove(tabId).catch(() => {});
 }
 
 /**
@@ -207,7 +218,9 @@ async function minimizedState(tabId) {
 async function hideMiniPlayer(tabId, { retired = false } = {}) {
   const tab = await chrome.tabs.get(tabId);
   const win = await chrome.windows.get(tab.windowId);
-  if (win.type !== 'popup') return;
+  // Already down: what it was before is already kept, and "minimized" is not
+  // a state to come back to.
+  if (win.type !== 'popup' || win.state === 'minimized') return;
 
   // A window the user had maximized must not come back merely "normal".
   await chrome.storage.session.set({
@@ -331,8 +344,6 @@ async function hasFloatDocument() {
   return contexts.length > 0;
 }
 
-let creatingFloatDocument = null;
-
 /**
  * IFRAME_SCRIPTING is what this page truthfully does, and it matters which
  * reasons are given: with AUDIO_PLAYBACK alone, Chrome closes the document
@@ -340,15 +351,13 @@ let creatingFloatDocument = null;
  * vanish.
  */
 async function ensureFloatDocument() {
+  // Only ever called in line (inTurn), so two can never race to create it.
   if (await hasFloatDocument()) return;
-  creatingFloatDocument ??= chrome.offscreen.createDocument({
+  await chrome.offscreen.createDocument({
     url: FLOAT.DOC,
     reasons: ['IFRAME_SCRIPTING', 'AUDIO_PLAYBACK'],
     justification: 'Plays the pinned video in the browser\'s picture-in-picture window without keeping a tab or a window open for it.'
-  }).finally(() => {
-    creatingFloatDocument = null;
   });
-  await creatingFloatDocument;
 }
 
 async function closeFloatDocument() {
@@ -383,9 +392,11 @@ async function releaseFloating() {
 }
 
 /**
- * The floating window closed. Its × pauses the video: done with it, so it
- * goes. Its button back to the tab does not: the video goes back into a mini
- * player window, at the second it had reached.
+ * The floating window closed. Only "Back to mini player" — the remote's, or
+ * the note in a mini player window kept behind it — sets report.reopen: the
+ * video goes back into a mini player window, at the second it had reached.
+ * The window's own buttons, its × and its way back to a tab it does not have,
+ * mean the video is done.
  */
 async function leftFloating(report) {
   // A window that opened too late, once the mini player had pinned the old
@@ -397,16 +408,23 @@ async function leftFloating(report) {
   const time = report.state?.time || 0;
 
   await stopFloating();
-  if (!report.reopen || !VIDEO_ID.test(String(videoId || ''))) return;
-
-  // A mini player window kept minimized behind the floating one (it was the
-  // last window, see retireMiniWindow) is replaced by a fresh one at the
-  // second the video had reached — the new one first, so that Chrome never
-  // finds itself with no window to stay open for.
   const old = await currentMiniPlayer();
+  const kept = old && (await minimizedState(old.tabId))?.retired;
+
+  if (!report.reopen || !VIDEO_ID.test(String(videoId || ''))) {
+    // A mini player window kept minimized only so that Chrome would not quit
+    // (see retireMiniWindow) has nothing left to do once another window
+    // keeps Chrome open.
+    if (kept && (await otherWindows(old.tabId))) await forgetMiniPlayer(old.tabId);
+    return;
+  }
+
+  // That window is replaced by a fresh one at the second the video had
+  // reached — the new one first, so that Chrome never finds itself with no
+  // window to stay open for.
   await chrome.storage.session.remove(OPEN_KEY);
   await serveMiniWindow(videoId, time);
-  if (old) await chrome.tabs.remove(old.tabId).catch(() => {});
+  if (old) await forgetMiniPlayer(old.tabId);
 }
 
 /** The floating video goes, with the page that holds it. */
@@ -430,10 +448,24 @@ async function floatingLoadFailed(report) {
 }
 
 /**
+ * Whether a window other than this tab's is open — one that keeps Chrome
+ * running if this one closes. A picture-in-picture window does not: it
+ * closes with the page that opened it.
+ */
+async function otherWindows(tabId) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab) return false;
+  return (await chrome.windows.getAll()).some((win) => win.id !== tab.windowId && !win.alwaysOnTop);
+}
+
+/**
  * Once the video floats the mini player window has nothing left to do, and
  * goes — unless it is the last window open. Chrome quits with its last
- * window, taking the floating video along, unless "Keep playing when the
- * browser closes" is on; without that, the window is minimized instead.
+ * window, taking the floating video along, so that one is minimized instead.
+ * Even with "Keep playing when the browser closes" on: whether Chrome really
+ * stays running is also Chrome's own setting ("Continue running background
+ * apps"), which an extension cannot read. Closing the minimized window is the
+ * user's call; with both on, the video keeps floating when they do.
  */
 async function retireMiniWindow(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
@@ -443,11 +475,8 @@ async function retireMiniWindow(tabId) {
   const own = await chrome.windows.get(tab.windowId).catch(() => null);
   if (own?.type !== 'popup') return;
 
-  const others = (await chrome.windows.getAll()).filter((win) => win.id !== tab.windowId && !win.alwaysOnTop);
-  const keepsRunning = await chrome.permissions.contains({ permissions: ['background'] });
-
-  if (others.length || keepsRunning) {
-    await chrome.tabs.remove(tabId).catch(() => {});
+  if (await otherWindows(tabId)) {
+    await forgetMiniPlayer(tabId);
     return;
   }
   await hideMiniPlayer(tabId, { retired: true }).catch(() => {});
@@ -579,9 +608,9 @@ function onRemoteMessage(message) {
 
 /**
  * Only the content script on a YouTube page has any business moving a window
- * about. Nothing outside this extension can reach the message listener —
- * there is no externally_connectable — but an extension page of our own
- * could, and moving whatever tab happens to ask is not a behaviour worth
+ * about. Other extensions' messages arrive at onMessageExternal, which this
+ * worker does not listen to — but an extension page of our own reaches this
+ * listener, and moving whatever tab happens to ask is not a behaviour worth
  * leaving lying around.
  */
 function isFromYouTubeTab(sender) {
@@ -603,8 +632,18 @@ function pinFloating(message, sender, sendResponse) {
   }
 
   const status = Floating.status;
-  const ready = Floating.port && status?.ready &&
-    (status.state?.videoId || status.embedId) === message.videoId;
+  const embedVideo = status?.state?.videoId || status?.embedId;
+
+  // Already floating — asked again from a mini player window kept minimized
+  // behind it and brought back up. A second 'pin' would seek the floating
+  // video back to where this page stopped: there is nothing to hand over.
+  if (Floating.port && status?.pinned === true && embedVideo === message.videoId) {
+    sendResponse({ ok: true });
+    inTurn(() => retireMiniWindow(sender.tab.id)).catch(() => {});
+    return false;
+  }
+
+  const ready = Floating.port && status?.ready && embedVideo === message.videoId;
 
   if (!ready) {
     console.info('WLE: the floating player is not ready, pinning the old way');
@@ -687,6 +726,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // "Bring the video back" from a mini player window kept behind a floating
+  // video: the same as the remote's "Back to mini player". The answer says
+  // whether anything was floating, so a page whose video has already gone
+  // just comes back as it was.
+  if (type === MESSAGES.FLOAT_UNPIN) {
+    if (!isFromYouTubeTab(sender)) return false;
+    inTurn(async () => {
+      if ((await currentMiniPlayer())?.tabId !== sender.tab.id) return false;
+      if (!(await floatingVideo())) return false;
+      const port = await embedPort();
+      if (port) {
+        port.postMessage({ type: 'command', cmd: 'unpin' });
+        return true;
+      }
+      // Recorded as floating, but nothing answers: it is gone.
+      await stopFloating();
+      return false;
+    }).then(
+      (floating) => sendResponse({ floating }),
+      () => sendResponse({ floating: false })
+    );
+    return true;
+  }
+
   // Opening a mini player is the one thing the popup asks for too, and the
   // popup is an extension page with no sender.tab — so it is answered before
   // the window checks below, which are about moving an existing window.
@@ -728,19 +791,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // the response goes out after the promise settles
 });
 
-// A tab closed by hand leaves notes behind saying it is open, or minimized.
-// Clearing them is what lets the next click open a window instead of trying
-// to focus one that is not there.
-chrome.tabs.onRemoved.addListener(async (tabId) => {
-  await chrome.storage.session.remove(stateKey(tabId));
+// A mini player window closed by hand leaves notes behind saying it is open,
+// or minimized. Clearing them is what lets the next click open a window
+// instead of trying to focus one that is not there. Popup windows only: the
+// mini player is one, and closing an ordinary tab or window does not wake
+// this worker.
+chrome.windows.onRemoved.addListener(async (windowId) => {
   const data = await chrome.storage.session.get(OPEN_KEY);
-  if (data?.[OPEN_KEY]?.tabId === tabId) {
-    await chrome.storage.session.remove(OPEN_KEY);
-    // The floating player was being kept ready for this mini player. Unless
-    // it is the one floating now, nothing needs it.
-    inTurn(() => releaseFloating());
-  }
-});
+  const open = data?.[OPEN_KEY];
+  if (open?.windowId !== windowId) return;
+  await chrome.storage.session.remove([OPEN_KEY, stateKey(open.tabId)]);
+  // The floating player was being kept ready for this mini player. Unless
+  // it is the one floating now, nothing needs it.
+  inTurn(() => releaseFloating());
+}, { windowTypes: ['popup'] });
 
 // The mini player switched off in Settings: a video floating with no window
 // behind it has no page left that would hear about it, so it is stopped here.

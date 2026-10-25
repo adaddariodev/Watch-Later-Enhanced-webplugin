@@ -519,7 +519,7 @@
             </tr>
             <tr>
               <td>Windows on screen</td>
-              <td>None but the floating video. The mini player window closes once it floats</td>
+              <td>None but the floating video. The mini player window closes once it floats — or is minimized, when it is the only window you have open</td>
               <td>Two. The mini player window stays open behind the floating one</td>
             </tr>
             <tr>
@@ -562,6 +562,16 @@
           on, under <strong>Settings → Pinned player</strong>. Then Chrome stays
           running in the background, with its icon by the clock, and the video keeps
           floating with no window at all. Quit Chrome from that icon to stop it.
+        </p>
+        <p>
+          If the mini player is the only window you have open when you pin, it is
+          minimized rather than closed, even with that switch on: whether Chrome
+          really stays running is also up to Chrome's own <em>Continue running
+          background apps when Google Chrome is closed</em>, which the extension
+          cannot see. Close the minimized window yourself when you like — with both
+          on, the video keeps floating. Brought back up, that window says where the
+          video went, and <strong>Bring the video back</strong> puts it back into a
+          mini player.
         </p>
         <p class="wiki-note">
           How it works: a floating player belongs to the page that opened it, and
@@ -1337,9 +1347,9 @@
           The floating player was not ready yet — it takes a few seconds after the mini
           player opens — or YouTube would not play the video in it, so the click pinned
           the older way. Unpin and pin again after a moment. The window is also kept,
-          minimized, when it is the only window you have open and <strong>Keep playing
-          when the browser closes</strong> is off: closing it would close Chrome, and the
-          video with it. If it happens every time,
+          minimized, when it is the only window you have open: closing it could close
+          Chrome, and the video with it (see <a href="#pinning">Pinning it on top</a>).
+          If it happens every time,
           the extension's service worker console (<em>chrome://extensions</em> →
           Watch Later Enhanced → service worker) says why.
         </p>

@@ -24,7 +24,6 @@
     MINI_MARKER: 'wle-mini',     // hash the popup puts on the mini player window
     DEFAULT_WIDTH: 480,
     MIN_SIZE: { width: 300, height: 180 },
-    BAR_IDLE_DELAY: 2600,        // hide the mini player bar after this much idle time
     INJECTION_RETRY_INTERVAL: 500,
     INJECTION_MAX_TIMEOUT: 15000,
     SEEK_STEP: 5,
@@ -46,6 +45,7 @@
     OPEN: 'wle-mini-window-open',
     FLOAT_PREPARE: 'wle-float-prepare',
     FLOAT_PIN: 'wle-float-pin',
+    FLOAT_UNPIN: 'wle-float-unpin',
     FLOAT_RELEASE: 'wle-float-release'
   };
 
@@ -303,7 +303,7 @@
     placeholder: null,  // stand-in left in the page
     stage: null,
     bar: null,
-    idleTimer: null,
+    opening: false,     // a window has been asked for and not yet given
     resizeTimer: null,
 
     findPlayer() {
@@ -337,7 +337,22 @@
       await this.open();
     },
 
+    /**
+     * One window at a time. A double click on Pin on top used to ask for two:
+     * the second took the player, the first one's closing then handed it back
+     * into a document that was going away, and the video was lost.
+     */
     async open() {
+      if (this.pipWindow || this.opening) return;
+      this.opening = true;
+      try {
+        await this.openOnce();
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    async openOnce() {
       const player = this.findPlayer();
       const video = player?.querySelector('video');
 
@@ -490,8 +505,11 @@
 
     attachWindowHandlers(pipWindow) {
       // Fired both when the user closes the window and when Chrome's own
-      // "back to tab" button is used.
-      pipWindow.addEventListener('pagehide', () => this.handleWindowClosed(), { once: true });
+      // "back to tab" button is used. Only for the window still in use: an
+      // older one closing must not take the player out of the current one.
+      pipWindow.addEventListener('pagehide', () => {
+        if (this.pipWindow === pipWindow) this.handleWindowClosed();
+      }, { once: true });
 
       pipWindow.addEventListener('resize', () => {
         clearTimeout(this.resizeTimer);
@@ -499,10 +517,8 @@
       });
 
       pipWindow.document.addEventListener('keydown', (event) => this.handleKey(event));
-      pipWindow.document.addEventListener('pointermove', () => this.wakeBar());
 
       this.relayDrags(pipWindow);
-      this.wakeBar();
     },
 
     /**
@@ -624,19 +640,6 @@
         default:
           break;
       }
-
-      this.wakeBar();
-    },
-
-    wakeBar() {
-      if (!this.bar) return;
-      clearTimeout(this.idleTimer);
-      this.bar.classList.remove('idle');
-      // Paused, YouTube keeps its controls up, and the title stays with them.
-      this.idleTimer = setTimeout(() => {
-        if (this.findVideo()?.paused) return;
-        this.bar?.classList.add('idle');
-      }, DETACH.BAR_IDLE_DELAY);
     },
 
     /**
@@ -775,7 +778,6 @@
       this.stage = null;
       this.bar = null;
       this.videoId = null;
-      clearTimeout(this.idleTimer);
       clearTimeout(this.resizeTimer);
 
       if (!player) return;
@@ -1437,10 +1439,11 @@
   };
 
   /**
-   * Called inside the click on Pin on top, and nothing is awaited before the
-   * request: the browser only opens either window in answer to that click, and
-   * an await in between may spend it. A mode this browser cannot do falls to
-   * the one it can.
+   * Called inside the click on Pin on top. The browser opens either window
+   * only for a few seconds after that click, so everything before the request
+   * is kept short: a stylesheet already loaded and a stored size for the
+   * Complete pin, one round trip to the worker for the Minimal one. A mode
+   * this browser cannot do falls to the one it can.
    */
   function pinPlayer() {
     if (DetachState.pinMode === 'controls' && Support.documentPip()) {
@@ -1463,7 +1466,8 @@
   // document — no window, no tab, nothing the user closes by closing the
   // browser. This page only asks for it to be made ready, and hands over the
   // click that opens it: see THE FLOATING PLAYER WITH NO WINDOW in
-  // background.js. Once it floats, this window closes.
+  // background.js. Once it floats, this window closes — or, when it is the
+  // last window open, is minimized, and says where the video went.
   //
   // If the floating player is not ready — still loading, or YouTube would not
   // play the embed — the same click pins the old way: picture-in-picture from
@@ -1498,6 +1502,24 @@
           () => void chrome.runtime.lastError);
       } catch (error) {
         console.info('WLE: could not reach the background worker —', error?.message);
+      }
+    },
+
+    /**
+     * "Bring the video back" from this window, kept minimized behind the
+     * floating video: the worker puts it into a fresh mini player window. If
+     * nothing floats any more (closed with its ×), this window just comes
+     * back as it was.
+     */
+    unpin() {
+      try {
+        chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.FLOAT_UNPIN }, (response) => {
+          void chrome.runtime.lastError;
+          if (!response?.floating) MiniWindow.setPinned(false, { focus: true });
+        });
+      } catch (error) {
+        console.info('WLE: could not reach the background worker —', error?.message);
+        MiniWindow.setPinned(false, { focus: true });
       }
     },
 
@@ -1567,9 +1589,12 @@
               this.prepare({ again: true });
               return;
             }
-            // Floating now; the worker closes this window. Silence it first,
-            // so the hand-over is one soundtrack throughout.
+            // Floating now. Silence this page first, so the hand-over is one
+            // soundtrack throughout. The worker closes this window, or keeps
+            // it minimized when it is the last one: brought back up, it must
+            // say where the video went, not offer to pin it again.
             video.pause();
+            MiniWindow.setPinned(true);
           }
         );
       } catch (error) {
@@ -1632,7 +1657,8 @@
   /** The way back, from the page the pinned video left behind. */
   function unpinPlayer() {
     if (DetachedPlayer.pipWindow) DetachedPlayer.close({ focus: true });
-    else VideoPin.close();
+    else if (document.pictureInPictureElement) VideoPin.close();
+    else FloatingPin.unpin();
   }
 
   const MiniWindow = {
@@ -2000,7 +2026,9 @@
     DetachedPlayer.close();
     // The browser's own floating window goes too, and the window that stepped
     // aside for it comes back now: once the stage is down, nothing would ask.
-    VideoPin.close();
+    // Only in the mini player: a YouTube tab's own picture-in-picture is the
+    // user's, and every YouTube tab hears this switch.
+    if (MiniWindow.active) VideoPin.close();
     MiniWindow.setPinned(false);
     // The worker has closed the floating player; switched back on, this page
     // must ask for it again.
@@ -2041,8 +2069,7 @@
       // feature's business.
       //
       // Through storage because that is the one thing a worker and every
-      // content script already share; reaching tabs directly would mean host
-      // permissions this extension does not ask for.
+      // content script already share, with no list of tabs to keep or walk.
       const opened = changes[DETACH.KEYS.OPENED]?.newValue;
       if (opened && !MiniWindow.wanted &&
           opened.videoId === WLEUrl.extractVideoId(window.location.href)) {

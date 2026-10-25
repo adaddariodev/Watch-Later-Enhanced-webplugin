@@ -3525,7 +3525,8 @@ const Remote = {
   fill(select, values, label, current) {
     if (!values.map(String).includes(String(current))) values = [...values, current];
     const key = values.join('|');
-    if (select.dataset.key !== key) {
+    const rebuilt = select.dataset.key !== key;
+    if (rebuilt) {
       select.dataset.key = key;
       select.replaceChildren(...values.map((value) => {
         const option = document.createElement('option');
@@ -3535,7 +3536,10 @@ const Remote = {
       }));
     }
     select.disabled = values.length < 2;
-    if (document.activeElement !== select) select.value = String(current);
+    // Left alone while it has the focus, so a report does not undo a choice
+    // being made — but new options start on the first one, so after a rebuild
+    // the value is always set.
+    if (rebuilt || document.activeElement !== select) select.value = String(current);
   },
 
   render(message) {
@@ -3594,30 +3598,42 @@ const Remote = {
     this.el('remote-stop').addEventListener('click', () => this.send('stop'));
 
     const seek = this.el('remote-seek');
+    const volume = this.el('remote-volume');
+
+    // A drag fires input for every pixel; one level per frame is all the
+    // player can show anyway.
+    let volumeFrame = 0;
+    const sendVolume = () => {
+      cancelAnimationFrame(volumeFrame);
+      volumeFrame = 0;
+      this.send('volume', Number(volume.value));
+    };
+
+    // The slider is the user's until they let go: then the last level goes
+    // out at once, before a report can move the slider under it, and reports
+    // move the sliders again. Letting go is a pointerup too, because a drag
+    // that ends where it began fires no change event at all.
+    const release = () => {
+      if (volumeFrame) sendVolume();
+      this.setting = false;
+      this.seeking = false;
+    };
+
     seek.addEventListener('input', () => {
       this.seeking = true;
       this.el('remote-time').textContent = this.time(seek.value);
     });
     seek.addEventListener('change', () => {
       this.send('seek', Number(seek.value));
-      this.seeking = false;
+      release();
     });
 
-    // A drag fires input for every pixel; one level per frame is all the
-    // player can show anyway, and the last one always goes.
-    const volume = this.el('remote-volume');
-    let volumeFrame = 0;
     volume.addEventListener('input', () => {
       this.setting = true;
-      if (volumeFrame) return;
-      volumeFrame = requestAnimationFrame(() => {
-        volumeFrame = 0;
-        this.send('volume', Number(volume.value));
-      });
+      volumeFrame ||= requestAnimationFrame(sendVolume);
     });
-    volume.addEventListener('change', () => {
-      this.setting = false;
-    });
+    volume.addEventListener('change', release);
+    window.addEventListener('pointerup', release);
 
     this.el('remote-rate').addEventListener('change', (e) => this.send('rate', Number(e.target.value)));
     this.el('remote-quality').addEventListener('change', (e) => this.send('quality', e.target.value));

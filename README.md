@@ -88,7 +88,9 @@ browser, move to another app, drag the window anywhere — it keeps playing.
     position, volume and mute, speed, quality, the next video in To Watch,
     back to the mini player, stop. Captions do not show in it. With **Keep
     playing when the browser closes** on, Chrome stays running after its
-    last window, and the video with it.
+    last window, and the video with it. A mini player that is the only window
+    open when you pin is minimized rather than closed, since the extension
+    cannot tell whether Chrome will keep running.
   * **Complete**: YouTube's whole player — volume, captions, quality —
     in a floating window shaped like the video. The browser draws its own
     title bar on it, and the mini player window stays open behind it.

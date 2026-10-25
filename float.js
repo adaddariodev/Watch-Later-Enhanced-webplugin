@@ -6,9 +6,10 @@
 // closes their browser window. Opened from here it does not: an offscreen
 // document is no window and no tab, so nothing the user closes reaches it.
 //
-// This page only loads and unloads the embed. The content scripts inside the
-// embed (float-embed.js, float-embed-main.js) talk to the service worker and
-// drive the player; the worker decides when this page exists at all.
+// This page only loads the embed. The content scripts inside the embed
+// (float-embed.js, float-embed-main.js) talk to the service worker and drive
+// the player; the worker decides when this page exists at all, and closing it
+// is how the embed goes.
 // ============================================
 
 const FLOAT_TARGET = 'wle-float';
@@ -45,8 +46,6 @@ chrome.runtime.onMessage.addListener((message) => {
 
   if (message.type === 'load' && VIDEO_ID.test(String(message.videoId || ''))) {
     frame.src = embedUrl(message.videoId, message.start);
-  } else if (message.type === 'unload') {
-    frame.src = 'about:blank';
   }
   return false;
 });

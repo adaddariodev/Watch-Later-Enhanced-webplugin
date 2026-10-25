@@ -33,6 +33,10 @@
   const num = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
   const list = (value) => (Array.isArray(value) ? value.slice(0, 20) : []);
 
+  // The quality asked for. The player only says what it is playing — 720p,
+  // never "auto" — so a menu set to Auto would otherwise show a fixed level.
+  let qualityWanted = 'auto';
+
   const COMMANDS = {
     play: () => call('playVideo'),
     pause: () => call('pauseVideo'),
@@ -59,11 +63,13 @@
       const levels = list(call('getAvailableQualityLevels'));
       let wanted = String(level || '');
       if (wanted === 'auto') {
+        qualityWanted = 'auto';
         call('setPlaybackQualityRange', 'auto', 'auto');
         return;
       }
       if (wanted === 'lowest') wanted = levels.filter((q) => q !== 'auto').at(-1) || '';
       if (!levels.includes(wanted)) return;
+      qualityWanted = wanted;
       call('setPlaybackQualityRange', wanted, wanted);
       call('setPlaybackQuality', wanted);
     },
@@ -113,7 +119,7 @@
       muted: Boolean(call('isMuted')),
       rate: num(call('getPlaybackRate'), 1),
       rates: list(call('getAvailablePlaybackRates')).filter((r) => Number.isFinite(r)),
-      quality: String(call('getPlaybackQuality') || 'auto'),
+      quality: qualityWanted === 'auto' ? 'auto' : String(call('getPlaybackQuality') || 'auto'),
       qualities: list(call('getAvailableQualityLevels')).filter((q) => typeof q === 'string')
     };
   }

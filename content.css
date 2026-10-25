@@ -336,8 +336,8 @@ html.wle-mini-window:hover .wle-mini-bar {
 }
 
 /* The stage is empty while the player floats in the pinned window, so this
-   stands in for it rather than leaving a black rectangle — in the tab this
-   page becomes while it is pinned. */
+   stands in for it rather than leaving a black rectangle — in the window this
+   page stays in while it is pinned, minimized or not. */
 .wle-mini-note {
   position: fixed;
   inset: 0;

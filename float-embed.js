@@ -41,6 +41,18 @@
   let nextId = 1;
   const answers = new Map();
 
+  /**
+   * The page world's state, if it looks like one. These events cross a DOM
+   * the page's own scripts share, so anything can dispatch one; what the
+   * remote control and the worker build on has to be the right shape.
+   */
+  function plausible(state) {
+    return Boolean(state) && typeof state === 'object' &&
+      Array.isArray(state.rates) && Array.isArray(state.qualities) &&
+      Number.isFinite(state.time) && Number.isFinite(state.duration) &&
+      (state.videoId === null || /^[\w-]{11}$/.test(String(state.videoId)));
+  }
+
   document.addEventListener('wle-float-answer', (event) => {
     let answer;
     try {
@@ -48,7 +60,7 @@
     } catch {
       return;
     }
-    answers.get(answer?.id)?.(answer.state ?? null);
+    answers.get(answer?.id)?.(plausible(answer?.state) ? answer.state : null);
     answers.delete(answer?.id);
   });
 
@@ -97,8 +109,9 @@
   // ---- The worker ----
   // The port is down for a moment every time the worker idles. A report that
   // only says how things are can wait for the next one; these say that
-  // something happened, and the worker must not miss them.
-  const MUST_ARRIVE = new Set(['left', 'pin-result', 'load-failed']);
+  // something happened, and the worker must not miss them. (Not a pin's
+  // result: what waited for it lived in the worker that went.)
+  const MUST_ARRIVE = new Set(['left', 'load-failed']);
   const outbox = [];
 
   function send(message) {
@@ -121,7 +134,7 @@
     send({
       type,
       embedId,
-      ready: primed && Boolean(v) && v.readyState >= 1,
+      ready: primed && !adShowing() && Boolean(v) && v.readyState >= 1,
       pinned: Boolean(document.pictureInPictureElement),
       // On the way back to the mini player: not floating any more, but the
       // report of that is still to come.
@@ -182,11 +195,16 @@
   const PRIME_GIVE_UP = 20000;
   let primeWaited = 0;
 
+  // A pre-roll ad plays in the same element, on its own clock: pinned then,
+  // the floating window would open on the ad. Not ready until the video
+  // itself is in — its 'playing' event comes once the ad is over.
+  const adShowing = () => Boolean(document.querySelector('#movie_player.ad-showing, #movie_player.ad-interrupting'));
+
   function prime() {
     if (primed) return;
     const v = video();
 
-    if (v && v.readyState >= 1 && stateNow()) {
+    if (v && v.readyState >= 1 && !adShowing() && stateNow()) {
       primed = true;
       if (!document.pictureInPictureElement && !pinning) {
         hush();
@@ -315,7 +333,19 @@
   }
 
   document.addEventListener('playing', () => loadSettled(), true);
-  document.addEventListener('wle-float-error', () => loadFailed());
+  // The codes the player gives for a video it will not play here. The event
+  // comes through the same shared DOM as the answers above: nothing else is
+  // taken for one.
+  const LOAD_ERRORS = new Set([2, 5, 100, 101, 150, 152, 153]);
+  document.addEventListener('wle-float-error', (event) => {
+    let code;
+    try {
+      code = JSON.parse(String(event.detail))?.code;
+    } catch {
+      return;
+    }
+    if (LOAD_ERRORS.has(code)) loadFailed();
+  });
 
   const COMMANDS = new Set(['play', 'pause', 'seek', 'seekBy', 'volume', 'mute', 'rate', 'quality', 'load']);
 

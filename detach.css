@@ -119,9 +119,7 @@ body.wle-pip-body {
 /* The title comes and goes with YouTube's own controls, so at rest there is
    nothing over the picture at all. Closing and going back to the tab live in
    the browser's own title bar above this window, so there is no control down
-   here that has to stay reachable. The idle timer is the fallback for the day
-   YouTube stops saying when its controls are hidden. */
-.wle-pip-bar.idle,
+   here that has to stay reachable. */
 .wle-pip-root:has(.html5-video-player.ytp-autohide) .wle-pip-bar {
   opacity: 0;
 }
