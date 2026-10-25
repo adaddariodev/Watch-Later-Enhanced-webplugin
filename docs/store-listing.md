@@ -155,7 +155,6 @@ SHORTCUTS
   Space or K                Play / pause              (in the mini player)
   Left / Right              Skip 5 seconds            (in the mini player)
   M                         Mute                      (in the mini player)
-  Esc                       Close the mini player
 
 
 Source code and issue tracker:

@@ -134,8 +134,8 @@
   </div>
 
   <main>
-    <!-- The remote control for a video pinned with Minimal. That video floats in
-         the browser's own picture-in-picture window, which only carries the
+    <!-- The remote control for a pinned video. It floats in the browser's own
+         picture-in-picture window, which only carries the
          browser's play button — so the rest of YouTube's controls are here.
          Shown only while one floats; popup.js fills it from the service worker.
          Inside <main>, at the top of the list, so it scrolls away with it: fixed
@@ -411,7 +411,7 @@
           <div id="mini-player-row" class="settings-options">
             <div class="settings-option-text">
               <span id="mini-player-label">Detached mini player</span>
-              <p class="settings-hint">A floating window that stays on top, even with the browser minimized. Alt+Shift+left click any video to open it there.</p>
+              <p class="settings-hint">A small window for one video. Pin on top floats it above every other window, and it keeps playing after you close the browser. Alt+Shift+left click any video to open it there.</p>
             </div>
             <button
               id="toggle-mini-player"
@@ -420,39 +420,6 @@
               role="switch"
               aria-checked="true"
               aria-labelledby="mini-player-label"
-            >
-              <span class="wle-switch-thumb"></span>
-            </button>
-          </div>
-
-          <!-- What Pin on top gives. Two, because the browser will not hand
-               out one window with everything in it: the list under the chips
-               is what the chosen one gives and costs, and the guide says why. -->
-          <p class="settings-subhead">Pinned player</p>
-
-          <div id="pin-mode" class="mode-chips" role="radiogroup" aria-label="Pinned player">
-            <button class="mode-chip" type="button" role="radio" data-pin-mode="video" aria-checked="true" tabindex="0" title="The video alone, in your browser's own floating window">Minimal</button>
-            <button class="mode-chip" type="button" role="radio" data-pin-mode="controls" aria-checked="false" tabindex="-1" title="YouTube's whole player, in a floating window with your browser's title bar">Complete</button>
-          </div>
-          <ul id="pin-mode-points" class="pin-mode-points" aria-label="Pros and cons of this choice"></ul>
-          <p class="settings-hint pin-mode-more">
-            More details in the <button id="pin-mode-guide" class="pin-mode-guide" type="button">user guide</button>.
-          </p>
-
-          <!-- Minimal only. Asked for as an optional permission, here, so
-               nobody gets a browser that stays running unless they chose it. -->
-          <div id="keep-playing-row" class="settings-options">
-            <div class="settings-option-text">
-              <span id="keep-playing-label">Keep playing when the browser closes</span>
-              <p class="settings-hint">Chrome stays running in the background, with an icon by the clock, so a Minimal floating video outlives your last window.</p>
-            </div>
-            <button
-              id="toggle-keep-playing"
-              class="wle-switch"
-              type="button"
-              role="switch"
-              aria-checked="false"
-              aria-labelledby="keep-playing-label"
             >
               <span class="wle-switch-thumb"></span>
             </button>

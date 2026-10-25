@@ -75,37 +75,25 @@ browser, move to another app, drag the window anywhere — it keeps playing.
 * **From the popup:** the mini-player button on a saved video plays it
   immediately in a dedicated window — no tab, nothing to confirm. **Pin on
   top** in its corner promotes it to the floating kind.
-* **Pinned, Complete:** `Space`/`K` play and pause, `←` `→` seek
-  five seconds, `M` mutes, `Esc` closes. Closing and returning to the tab also
-  sit in the browser's own title bar on that window, so the overlay does not
-  repeat them — it shows the video's title, and only while the player's
-  controls are up.
-* **Pinned, two ways** — chosen under **Settings → Pinned player**:
-  * **Minimal** (default): the browser's own picture-in-picture, with no
-    window or tab left behind it — the mini player window closes once the
-    video floats, and closing your browser windows does not touch it. Its
-    controls live in the extension's popup while it floats: play/pause,
-    position, volume and mute, speed, quality, the next video in To Watch,
-    back to the mini player, stop. Captions do not show in it. With **Keep
-    playing when the browser closes** on, Chrome stays running after its
-    last window, and the video with it. A mini player that is the only window
-    open when you pin is minimized rather than closed, since the extension
-    cannot tell whether Chrome will keep running.
-  * **Complete**: YouTube's whole player — volume, captions, quality —
-    in a floating window shaped like the video. The browser draws its own
-    title bar on it, and the mini player window stays open behind it.
-
-  Unpinning puts the video back in the mini player window, where it stood.
+* **Pinned:** the browser's own picture-in-picture, with no bar and no
+  window or tab left behind it — the mini player window closes once the
+  video floats. It keeps playing after you close the browser: the extension
+  holds the `background` permission, so Chrome stays running after its last
+  window, with an icon by the clock. Its controls live in the extension's
+  popup while it floats: play/pause, position, volume and mute, speed,
+  quality, the next video in To Watch, back to the mini player, stop.
+  Captions do not show in it. A mini player that is the only window open
+  when you pin is minimized rather than closed, since the extension cannot
+  tell whether Chrome's own background setting will keep it running.
 
 There is only ever one mini player: asking for the video already in it brings
 that window forward (or, while it is pinned, leaves it floating where it is),
-and asking for another puts it in the same window. It is a window of its own,
+and asking for another opens it in a window that takes the old one's place. It is a window of its own,
 so closing the page it came from leaves it playing.
 
 > The pin itself is a button because it has to be: a browser only grants an
 > always-on-top window in response to a click inside the page, so no
-> preference can ask for one on your behalf. The setting only picks which kind
-> of window that click asks for.
+> preference can ask for one on your behalf.
 
 ### Organise it the way you think
 
@@ -184,7 +172,6 @@ what you have installed.
 | `Space` or `K` | Mini player | Play / pause |
 | `←` / `→` | Mini player | Back / forward 5 seconds |
 | `M` | Mini player | Mute / unmute |
-| `Esc` | Mini player | Close and return the video to the tab |
 | `Enter` / `Esc` | Tag box | Add the tag / close without adding |
 | `←` / `→`, `Home` / `End` | Tag bar | Move along the tags; `Enter` filters by the one focused |
 
@@ -201,6 +188,7 @@ Every outbound request the extension makes, in full:
 | `youtube.com/oembed` | Saving a video whose title the page did not provide, or naming one added by its link | The video URL |
 | `youtube.com/shorts/<id>` | Saving, to tell a Short from a video | The video ID |
 | `i.ytimg.com/vi/<id>/default.jpg` | Showing a card's thumbnail, while thumbnails are on | The video ID; no referrer |
+| `youtube.com/embed/<id>` | While a mini player is open, so Pin on top can float it | The video ID; the embed is loaded in the extension's own offscreen page |
 
 That is the complete list. The first two go to YouTube, only from a YouTube tab,
 and carry nothing about you beyond the video in question — which is why a video
@@ -216,8 +204,18 @@ The page's own Content Security Policy enforces it — `style-src 'self';
 font-src 'self';` — so a remote stylesheet or font could not load even if one
 were added by mistake.
 
-Permissions requested: **`storage`**. That is the whole list — no host
-permissions, no tabs, no scripting.
+Permissions requested:
+
+* **`storage`** — your list and settings.
+* **`offscreen`** — the page with no window that the pinned video floats from.
+* **`declarativeNetRequestWithHostAccess`** and the **`youtube.com`** host
+  permission — one session rule that gives that page's YouTube embed the
+  Referer YouTube requires, for requests made outside any tab only.
+* **`background`** — keeps Chrome running after its last window closes, so a
+  pinned video keeps playing. It also has Chrome start with your computer on
+  Windows.
+
+No tabs, no scripting, no access to any other site.
 
 ## Install
 
@@ -233,8 +231,8 @@ git clone https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin.git
 Then open `chrome://extensions/`, turn on **Developer mode**, click
 **Load unpacked**, and select the cloned directory.
 
-Requires Chrome 116+ for the detached mini player (older versions fall back to
-the classic Picture-in-Picture). Firefox 109+ is supported.
+Requires Chrome 116+ for the pinned player. Firefox 109+ is supported, with the
+mini player window but without the pin.
 
 **Packaging for the Chrome Web Store**
 
@@ -304,35 +302,27 @@ it runs.
   starts at the second the page had reached rather than receiving the frame
   itself.
 * **Picture-in-picture for the pin, and only for it** — **Pin on top** is the
-  one place a floating always-on-top player earns its ownership problem, and
-  the page it came from stays open so there is something for it to belong to.
-  It is a button rather than something automatic because a browser only grants
-  that window in answer to a click inside the page.
-* **Two pins, because neither has everything** — measured in Chromium, not
-  guessed. A document picture-in-picture window (the **Complete** pin)
-  carries the browser's title bar, which no page can remove, and shows only the
-  frames its opener draws: with the opener in a background tab or a minimized
-  window that is ~4 fps against 30, so that pin leaves the mini player window
-  where it is. The browser's own video picture-in-picture (**Minimal**) has
-  no bar and stays at full frame rate with its page hidden.
-* **Minimal floats from an offscreen document** — a picture-in-picture
+  one place a floating always-on-top player earns its ownership problem (see
+  the next point for who owns it). It is a button rather than something
+  automatic because a browser only grants that window in answer to a click
+  inside the page.
+* **The pin floats from an offscreen document** — a picture-in-picture
   window closes with the page that opened it, and every page in a tab or a
   window closes with the browser. An offscreen document is neither, so the
-  Minimal pin is opened from one (`float.html`) holding a YouTube embed of the
-  same video, prepared while the mini player is open. The click on **Pin on
+  pin is opened from one (`float.html`) holding a YouTube embed of the same
+  video, prepared while the mini player is open. It is the browser's video
+  picture-in-picture rather than a Document Picture-in-Picture window, which
+  carries a title bar no page can remove and cannot be opened from an
+  offscreen document at all. The click on **Pin on
   top** happens in the mini player's page; its message carries the gesture to
   the worker, which hands it on synchronously over a port to a content script
   inside the embed (`float-embed.js`), which opens the window. The player's
   own API is reached from the page world (`float-embed-main.js`), and a
   `declarativeNetRequest` session rule gives the embed the Referer YouTube
-  requires, for requests outside any tab only. The optional `background`
-  permission keeps Chrome running after its last window. If the floating
+  requires, for requests outside any tab only. The `background` permission
+  keeps Chrome running after its last window. If the floating
   player is not ready, the same click pins the old way: picture-in-picture
   from the mini player's page, whose window is then minimized.
-* **Drags relayed into the pinned player** — YouTube's volume slider follows a
-  drag by listening to the document the player was built in, which is not the
-  floating window's; while a slider is being dragged, moves and releases are
-  copied across, so it tracks the pointer there too.
 * **One mini player, serialised in the worker** — requests queue behind each
   other there, so a double-click cannot race two windows into existence; the
   second either focuses the window already showing that video or replaces what
@@ -351,8 +341,10 @@ it runs.
 ├── background.js       # Service worker: opens and serialises the mini player window
 ├── content.js          # Saving, title extraction, type detection, backfill, HUD
 ├── content.css         # In-page HUD and injected button styles
-├── detach.js           # Detached mini player (Document Picture-in-Picture)
-├── detach.css          # Mini player window styling
+├── detach.js           # Mini player window, its ways in, and the pin
+├── float.html/.js      # Offscreen page the pinned video floats from
+├── float-embed.js      # Inside its YouTube embed: priming, the pin, reports
+├── float-embed-main.js # The embed player's own API, from the page world
 ├── popup.html/.css/.js # The list: thumbnails, tags, search, filters, drag reorder,
 │                       # add by link, import/export, settings
 ├── wiki.html/.css/.js  # Built-in user guide, opened from Settings

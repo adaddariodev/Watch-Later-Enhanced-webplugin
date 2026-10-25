@@ -6,15 +6,12 @@
 // was afterwards.
 //
 // A picture-in-picture window belongs to the document that asked for it —
-// close that document and the floating player goes with it. The Minimal pin
+// close that document and the floating player goes with it. The pin
 // sidesteps that: it floats from a page of the extension's own that has no
 // window at all (THE FLOATING PLAYER WITH NO WINDOW, below), and the mini
 // player window closes. When that player is not ready, the pin falls back to
 // the browser's picture-in-picture from the mini player's page, which then
 // has to stay — so its window is minimized, and comes back with the video.
-// (The other pin, a document picture-in-picture window with YouTube's
-// controls, leaves the window where it is: see THE PIN, IN TWO FORMS in
-// detach.js.)
 //
 // All of that needs chrome.windows, chrome.tabs and chrome.offscreen, and
 // content scripts have none of them. The tab to act on is not passed in: it
@@ -230,9 +227,8 @@ async function hideMiniPlayer(tabId, { retired = false } = {}) {
 }
 
 /**
- * The video is back: the window comes back up, the way it was. A pin with
- * YouTube's controls never minimized it, and then there is nothing to undo.
- * focused: false is never sent: it does not mean "leave the focus alone", it
+ * The video is back: the window comes back up, the way it was, if it went
+ * down at all. focused: false is never sent: it does not mean "leave the focus alone", it
  * hands the focus to whatever window is next.
  *
  * @param {boolean} focused whether to raise it — only when a person asked for
@@ -252,16 +248,15 @@ async function showMiniPlayer(tabId, focused) {
 }
 
 // ============================================
-// THE FLOATING PLAYER WITH NO WINDOW (the Minimal pin)
+// THE FLOATING PLAYER WITH NO WINDOW
 //
 // The browser's own picture-in-picture closes with the document that opened
 // it. Opened from the mini player's page, that page must stay somewhere — a
 // window, or a tab in the user's browser window — and closing the browser
-// closes it. So the Minimal pin opens it from somewhere the user cannot close:
-// an offscreen document (float.html) holding a YouTube embed of the same
-// video. No window, no tab, nothing in the taskbar. With the optional
-// "background" permission Chrome keeps running when its last window closes,
-// and the video with it.
+// closes it. So the pin opens it from somewhere the user cannot close: an
+// offscreen document (float.html) holding a YouTube embed of the same video.
+// No window, no tab, nothing in the taskbar. The "background" permission
+// keeps Chrome running when its last window closes, and the video with it.
 //
 // The catch is that picture-in-picture is only granted in answer to a click,
 // and an offscreen document never gets one. The click on Pin on top happens
@@ -460,12 +455,11 @@ async function otherWindows(tabId) {
 
 /**
  * Once the video floats the mini player window has nothing left to do, and
- * goes — unless it is the last window open. Chrome quits with its last
- * window, taking the floating video along, so that one is minimized instead.
- * Even with "Keep playing when the browser closes" on: whether Chrome really
- * stays running is also Chrome's own setting ("Continue running background
- * apps"), which an extension cannot read. Closing the minimized window is the
- * user's call; with both on, the video keeps floating when they do.
+ * goes — unless it is the last window open. The "background" permission keeps
+ * Chrome running after its last window only while Chrome's own "Continue
+ * running background apps" setting is on, which an extension cannot read; with
+ * it off, closing that window would quit Chrome and the floating video with
+ * it. So the last one is minimized instead, and closing it is the user's call.
  */
 async function retireMiniWindow(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
