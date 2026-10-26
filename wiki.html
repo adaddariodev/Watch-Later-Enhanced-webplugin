@@ -460,9 +460,8 @@
             inside the tab: ours is <strong>two windows with a play symbol</strong>,
             YouTube's is a single screen with a small block in its corner.</li>
           <li><strong><kbd>Alt</kbd> + <kbd>Shift</kbd> + left click the player itself</strong>. Same
-            gesture as everywhere else: on a video you have open it hands the
-            live player over, so your position, the captions and the quality
-            you picked all come with it. Doing it again puts the video back.</li>
+            gesture as everywhere else: the video opens in the mini player window at the
+            second the page had reached, and the page stops playing.</li>
           <li>The same two-window button on any row in the extension popup. The
             video starts playing right away in a small window of its own — no
             tab, nothing to confirm.</li>
@@ -560,7 +559,7 @@
         <h3>What your browser needs</h3>
         <ul>
           <li><strong>Chrome, Edge and other Chromium browsers, version 116 or newer:</strong> everything above.</li>
-          <li><strong>Browsers without picture-in-picture for pages, Firefox among them:</strong> the mini player window works as described, without the <strong>Pin on top</strong> button.</li>
+          <li><strong>Firefox:</strong> saving and the list work; the mini player does not, since Firefox does not run the extension's background service worker.</li>
         </ul>
 
         <div class="wiki-note">
@@ -1076,7 +1075,7 @@
         <ul>
           <li>Your list lives in your own browser, in the extension's local storage. There is no account, no sign-in and no server holding your data.</li>
           <li>Nothing you save is sent anywhere. The extension makes two kinds of request from a YouTube tab: one to read a video's title and channel when the page does not give them — or when the video was added by its link — and one to tell a Short from an ordinary video. Each carries the video and nothing about you. The popup never asks for these, which is why a video added there by its link waits for a YouTube tab to name it.</li>
-          <li>While the mini player is open, the extension also loads the same video in YouTube's embedded player, in a page of its own with no window, so that <strong>Pin on top</strong> can float it. That request goes to YouTube and names the video; it is the same one any site embedding the video makes.</li>
+          <li>While the mini player is open, the extension also loads the same video in YouTube's embedded player, in a page of its own with no window, so that <strong>Pin on top</strong> can float it. That request goes to YouTube and names the video; the player then loads what YouTube's embedded player always loads — the video, and any ads YouTube serves before it — as on any site that embeds one.</li>
           <li>With <strong>thumbnails</strong> on, the popup loads each video's picture from YouTube's image server (<code>i.ytimg.com</code>). The request names the video and nothing else — no page it came from, nothing about your list. Switch thumbnails off in Settings and the popup makes no request at all.</li>
           <li>The extension only runs on YouTube pages. It cannot see any other site you visit.</li>
           <li>Because the list is stored in this browser profile, it does not follow you to another computer on its own — and removing the extension removes the list with it.</li>

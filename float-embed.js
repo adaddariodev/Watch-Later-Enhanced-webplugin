@@ -200,8 +200,14 @@
   // itself is in — its 'playing' event comes once the ad is over.
   const adShowing = () => Boolean(document.querySelector('#movie_player.ad-showing, #movie_player.ad-interrupting'));
 
+  // One chain of checks, however many 'playing' events call in while it
+  // waits: an ad pod or a rebuffer fires several, and each used to start a
+  // chain of its own, all spending the same budget.
+  let primeTimer = 0;
+
   function prime() {
     if (primed) return;
+    clearTimeout(primeTimer);
     const v = video();
 
     if (v && v.readyState >= 1 && !adShowing() && stateNow()) {
@@ -214,12 +220,15 @@
       return;
     }
 
-    primeWaited += PRIME_STEP;
-    if (primeWaited === PRIME_KICK) {
-      player('play');
-      v?.play().catch(() => {});
+    // An ad's length is not a slow load: only time without one counts.
+    if (!adShowing()) {
+      primeWaited += PRIME_STEP;
+      if (primeWaited === PRIME_KICK) {
+        player('play');
+        v?.play().catch(() => {});
+      }
     }
-    if (primeWaited < PRIME_GIVE_UP) setTimeout(prime, PRIME_STEP);
+    if (primeWaited < PRIME_GIVE_UP) primeTimer = setTimeout(prime, PRIME_STEP);
   }
 
   document.addEventListener('playing', () => prime(), true);

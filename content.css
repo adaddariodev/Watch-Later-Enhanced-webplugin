@@ -249,12 +249,12 @@ html.wle-mini-window body {
   /* The bar is only a place to put things; clicks pass through to the player
      underneath except where a control actually sits. */
   pointer-events: none;
-  /* Transparent at rest, like the floating player's own bar: a permanent dark
-     strip across the top of the video is exactly what that one avoids. */
+  /* Transparent at rest: a permanent dark strip across the top of the video
+     is what a mini player is meant to avoid. */
   background: transparent;
 }
 
-/* The same line the floating player shows, so the two windows read alike. */
+/* The video's title, beside the pin. */
 .wle-mini-title {
   flex: 1 1 auto;
   min-width: 0;
@@ -310,9 +310,9 @@ html.wle-mini-window:hover .wle-mini-bar {
   flex-shrink: 0;
 }
 
-/* The stage is empty while the player floats in the pinned window, so this
-   stands in for it rather than leaving a black rectangle — in the window this
-   page stays in while it is pinned, minimized or not. */
+/* While the video floats, this window would show a player paused at the
+   second it was pinned, under a button offering to pin it again. This stands
+   in for it instead, with the way back. */
 .wle-mini-note {
   position: fixed;
   inset: 0;

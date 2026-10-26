@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Watch Later Enhanced: Save YouTube Videos & Mini Player",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Save any YouTube video with Alt + left click or its link. Tag it, sort it, back it up, and watch in a floating mini player.",
   "permissions": ["storage", "offscreen", "declarativeNetRequestWithHostAccess", "background"],
   "host_permissions": ["https://www.youtube.com/*"],

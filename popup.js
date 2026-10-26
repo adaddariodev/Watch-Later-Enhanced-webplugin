@@ -15,7 +15,7 @@ const CONFIG = {
     VIDEOS: 'savedVideos',
     DELETED: 'deletedVideos',
     SOUND: 'soundEnabled',
-    SUPPORTER: 'supporter', // set by the thank-you code this popup used to take; read only now
+    SUPPORTER: 'supporter', // Ko-fi opened from the popup (or, before 3.2, a thank-you code): no more asking
     LAST_PROMPT: 'lastDonatePrompt',
     DETACH: 'detachEnabled',
     MINI_WINDOW_SIZE: 'miniWindowSize',
@@ -3945,7 +3945,7 @@ function maybeShowDonateCallout() {
   chrome.storage.local.get(
     { [CONFIG.STORAGE_KEYS.SUPPORTER]: false, [CONFIG.STORAGE_KEYS.LAST_PROMPT]: 0 },
     (data) => {
-      // Someone who already sent a tip is not asked again.
+      // Someone who has already gone to the Ko-fi page is not asked again.
       if (data[CONFIG.STORAGE_KEYS.SUPPORTER]) return;
       const last = data[CONFIG.STORAGE_KEYS.LAST_PROMPT] || 0;
       if (Date.now() - last < CONFIG.DONATE_PROMPT_COOLDOWN) return;
@@ -3959,8 +3959,18 @@ function setupDonateCallout() {
   const closeBtn = document.getElementById('donate-callout-close');
   const cta = document.getElementById('donate-callout-cta');
 
+  // Going to the Ko-fi page, from the callout or the button in the header,
+  // is the answer to the question: it is not asked again.
+  const answered = () => chrome.storage.local.set({ [CONFIG.STORAGE_KEYS.SUPPORTER]: true });
+
   if (closeBtn) closeBtn.addEventListener('click', hideDonateCallout);
-  if (cta) cta.addEventListener('click', hideDonateCallout);
+  if (cta) {
+    cta.addEventListener('click', () => {
+      hideDonateCallout();
+      answered();
+    });
+  }
+  DOMCache.donateBtn?.addEventListener('click', answered);
 
   window.addEventListener('resize', () => {
     if (DOMCache.donateCallout && DOMCache.donateCallout.classList.contains('visible')) {

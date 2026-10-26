@@ -314,6 +314,15 @@ li.video-item {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+}
+
+/* A card is its own stacking context whenever the glass is on
+   (backdrop-filter) or it is hovered (transform), and the next card, coming
+   later, then paints over anything that hangs out of this one — the tag
+   suggestions, most of all. The card being worked in goes on top. */
+li.video-item:focus-within {
+  z-index: 2;
 }
 
 li.video-item:hover {
@@ -1238,10 +1247,6 @@ a.icon-btn {
   font-weight: 400;
   line-height: 1.35;
   color: var(--text-dim);
-}
-
-.settings-hint.hidden {
-  display: none;
 }
 
 /* Every row in the panel behaves the same way: the row lights up so you can

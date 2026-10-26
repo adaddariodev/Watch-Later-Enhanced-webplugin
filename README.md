@@ -9,7 +9,7 @@
   <a href="https://chromewebstore.google.com/detail/watch-later-enhanced/pkepecmnomlcbmemeochebfonchhdpfb">
     <img src="https://img.shields.io/badge/Available_on-Chrome_Web_Store-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Chrome Web Store" />
   </a>
-  <img src="https://img.shields.io/badge/Version-3.1.0-FF5A50?style=for-the-badge" alt="Version 3.1.0" />
+  <img src="https://img.shields.io/badge/Version-3.2.0-FF5A50?style=for-the-badge" alt="Version 3.2.0" />
   <img src="https://img.shields.io/badge/Manifest-V3-34A853?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/Dependencies-0-8FA6C4?style=for-the-badge" alt="Zero dependencies" />
   <img src="https://img.shields.io/badge/License-MIT-34A853?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License" />
@@ -181,7 +181,7 @@ There is no server behind this extension. No account, no sign-in, no telemetry,
 no analytics, no sync. Your list is held in `chrome.storage.local` on your own
 machine and is never transmitted anywhere.
 
-Every outbound request the extension makes, in full:
+Every outbound request the extension itself makes:
 
 | To | When | What it carries |
 | --- | --- | --- |
@@ -190,13 +190,16 @@ Every outbound request the extension makes, in full:
 | `i.ytimg.com/vi/<id>/default.jpg` | Showing a card's thumbnail, while thumbnails are on | The video ID; no referrer |
 | `youtube.com/embed/<id>` | While a mini player is open, so Pin on top can float it | The video ID; the embed is loaded in the extension's own offscreen page |
 
-That is the complete list. The first two go to YouTube, only from a YouTube tab,
+That is the complete list of what the extension asks for. The embedded player
+in the last row is YouTube's own, and loads what it always loads — its scripts,
+the video, and any ads YouTube serves before it — exactly as on any site that
+embeds a video. The first two go to YouTube, only from a YouTube tab,
 and carry nothing about you beyond the video in question — which is why a video
 added in the popup by its link waits for a YouTube tab to name it rather than
 the popup asking. The third is YouTube's image server, asked by the popup for the
 pictures of the cards near the screen; the browser caches them, and the extension
 stores none. Export and Import write and read a file on your own machine; nothing
-is uploaded. Nothing reaches any other party: the Inter typeface is
+is uploaded. The extension sends nothing to any other party: the Inter typeface is
 [bundled with the extension](fonts/) rather than fetched from Google, so with
 thumbnails switched off, opening the popup makes no request at all.
 
@@ -212,8 +215,9 @@ Permissions requested:
   permission — one session rule that gives that page's YouTube embed the
   Referer YouTube requires, for requests made outside any tab only.
 * **`background`** — keeps Chrome running after its last window closes, so a
-  pinned video keeps playing. It also has Chrome start with your computer on
-  Windows.
+  pinned video keeps playing. Chrome then runs in the background whenever the
+  extension is installed, not only while a video floats, and on Windows it
+  starts with your computer.
 
 No tabs, no scripting, no access to any other site.
 
@@ -231,8 +235,8 @@ git clone https://github.com/adaddariodev/Watch-Later-Enhanced-webplugin.git
 Then open `chrome://extensions/`, turn on **Developer mode**, click
 **Load unpacked**, and select the cloned directory.
 
-Requires Chrome 116+ for the pinned player. Firefox 109+ is supported, with the
-mini player window but without the pin.
+Requires Chrome 116+. In Firefox 109+ saving and the list work; the mini player
+does not, since Firefox does not run the extension's background service worker.
 
 **Packaging for the Chrome Web Store**
 
@@ -250,7 +254,8 @@ uncommitted edit can never ship by accident.
 Vanilla JavaScript, no build step, no dependencies, no framework. Clone it and
 it runs.
 
-* **Manifest V3**, with `storage` as the only permission.
+* **Manifest V3**, with the permissions listed under [Privacy](#privacy) and
+  nothing more.
 * **One delegated listener** on `document` handles every thumbnail on the page,
   rather than binding to each of the hundreds YouTube creates and destroys as
   you scroll. Nothing to clean up, nothing to leak.

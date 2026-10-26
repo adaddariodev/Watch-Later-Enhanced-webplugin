@@ -127,13 +127,17 @@ WHY THIS ONE
 ▸ TRULY PRIVATE
   No account. No sign-in. No tracking. No cloud. Your list is stored on your
   own machine and never sent anywhere. The extension talks to nobody but
-  YouTube — not even for a font. Thumbnails come from YouTube's own image
-  server and are cached by your browser; switch them off in Settings and the
-  popup makes no request at all.
+  YouTube — not even for a font. The pinned player is YouTube's own embedded
+  player, which loads the video, and any ads YouTube serves, as it does on any
+  site. Thumbnails come from YouTube's own image server and are cached by your
+  browser; switch them off in Settings and the popup makes no request at all.
 
-▸ ONE PERMISSION
-  The extension asks for "storage" and nothing else. It cannot read your tabs
-  or your browsing history, because it never asks to.
+▸ FEW PERMISSIONS, ONE SITE
+  "storage" for your list. "offscreen" and access to youtube.com for the
+  pinned player, which floats from a page of the extension's own. "background"
+  so a pinned video keeps playing after you close the browser: Chrome keeps
+  running in the background, and on Windows starts with your computer. It
+  cannot read your tabs or your browsing history, because it never asks to.
 
 ▸ GENUINELY LIGHTWEIGHT
   Zero dependencies, no frameworks, no background polling. Thumbnails are the
@@ -171,14 +175,18 @@ behind it.
 
 * The store strips Markdown. Keep the plain-text layout above — the `▸` marks
   and indentation are what give it structure there.
-* Keep the permissions claim accurate: if a future version adds a permission,
-  the "one permission" line has to change with it.
+* Keep the permissions claim accurate: if a version adds or drops a
+  permission, the "few permissions, one site" paragraph changes with it. Each
+  one also needs its justification in the dashboard — "background" above all,
+  since it keeps Chrome running for every user.
 * The feature list is kept in the order the popup shows things, so a reader
   comparing the two is never hunting. If a section moves in the UI, move it
   here too.
-* "Talks to nobody but YouTube" is true as of 3.1.0: the only hosts are
-  youtube.com (from YouTube tabs) and i.ytimg.com, YouTube's image server, for
-  thumbnails — which can be switched off, and the copy says so. Fonts and
+* "Talks to nobody but YouTube" is true as of 3.2.0: the hosts the extension
+  asks for are youtube.com (from YouTube tabs, and the embed of the pinned
+  player) and i.ytimg.com, YouTube's image server, for thumbnails — which can
+  be switched off, and the copy says so. What the embedded player loads after
+  that is YouTube's, ads included, and the copy says that too. Fonts and
   styles are kept local by the extension's own CSP (`style-src 'self';
   font-src 'self'`). Anything that later adds a CDN, an analytics snippet or a
   remote webfont has to come out of this copy at the same time.

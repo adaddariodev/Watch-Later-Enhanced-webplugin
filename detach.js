@@ -40,7 +40,7 @@
     FLOAT_PREPARE: 'wle-float-prepare',
     FLOAT_PIN: 'wle-float-pin',
     FLOAT_UNPIN: 'wle-float-unpin',
-    FLOAT_RELEASE: 'wle-float-release'
+    FLOAT_ENDED: 'wle-float-ended'   // worker → page: the floating video stopped
   };
 
   // Set once the page is on its way out, so teardown does not ask the worker
@@ -55,9 +55,9 @@
    * pinning.
    *
    * @param {boolean} focus whether restoring should also raise the window.
-   *   Only true when the user asked for the video back — a player that closes
-   *   itself (autoplay moving on, the feature switched off) must not yank the
-   *   user out of whatever they were doing.
+   *   Only true when the user asked for the video back — a pin that ends by
+   *   itself (the feature switched off) must not yank the user out of
+   *   whatever they were doing.
    */
   function askWindow(type, { focus = false } = {}) {
     if (pageClosing) return;
@@ -302,7 +302,6 @@
     },
 
     start() {
-      if (!Support.pip()) return;
       this.stop();
 
       if (this.inject()) return;
@@ -568,19 +567,15 @@
   };
 
   // ============================================
-  // ALT + SHIFT + CLICK — the one way into the mini player
+  // ALT + SHIFT + CLICK — the way into the mini player a redesign cannot take
   //
   // It mirrors Alt + click, which saves: on a thumbnail it acts on that video,
   // on the player it acts on the one you are watching. Adding Shift plays
   // instead of saving. One gesture, the same everywhere, and it asks nothing
   // of YouTube's markup beyond a link being a link — which is what makes it
-  // the way in a redesign cannot take away.
-  //
-  // What it does differs by where you are, because the better answer differs.
-  // On a video you have open, the live player is handed over to a floating
-  // window: the position, the captions, the quality you picked all come along.
-  // Off one, there is no player to hand over, so a window is opened on the
-  // video instead.
+  // the way in a redesign cannot take away. Either way the video opens in the
+  // mini player window; from the player, at the second the page had reached,
+  // and the page stops playing.
   // ============================================
   const ModifierClick = {
     wired: false,
@@ -847,6 +842,16 @@
       document.addEventListener('leavepictureinpicture', () => {
         MiniWindow.setPinned(false, { focus: true });
       }, true);
+
+      // While the video floats from the extension's own page, this one only
+      // waits, paused, behind its note — and YouTube's own keys (K, Space),
+      // or Chrome's media controls, would start it again out of sight: a
+      // second soundtrack. Media events do not bubble; the capture phase
+      // still passes the document. Pinned the fallback way (parked), this
+      // page's video is the one floating, and it plays.
+      document.addEventListener('play', (event) => {
+        if (MiniWindow.pinned && !MiniWindow.parked) event.target.pause?.();
+      }, true);
     }
   };
 
@@ -906,17 +911,6 @@
       } catch (error) {
         console.info('WLE: could not reach the background worker —', error?.message);
         MiniWindow.setPinned(false, { focus: true });
-      }
-    },
-
-    /** The mini player was switched off: what was loaded for it can go. */
-    release() {
-      if (!this.prepared) return;
-      this.prepared = null;
-      try {
-        chrome.runtime.sendMessage({ type: WINDOW_MESSAGES.FLOAT_RELEASE }, () => void chrome.runtime.lastError);
-      } catch {
-        // Nothing to release with no worker to ask.
       }
     },
 
@@ -1004,7 +998,7 @@
     parked: false,     // pinned, and the window was asked to step aside for it
     stage: null,
     bar: null,
-    pinBtn: null,
+    sizeWired: false,
     titleEl: null,
     titleTimer: null,
     note: null,
@@ -1134,7 +1128,6 @@
       document.body.append(bar, note);
 
       this.bar = bar;
-      this.pinBtn = pinBtn;
       this.titleEl = title;
       this.note = note;
       this.refreshTitle();
@@ -1171,8 +1164,10 @@
      *   the fallback way, the video floats from this page, which therefore
      *   has to stay, and the worker minimizes its window. It comes back, the
      *   way it stood, the moment the video does.
+     * @param {boolean} [stay] unpinned, leave the window where it is: the
+     *   video stopped floating by itself, and nobody asked for it back.
      */
-    setPinned(pinned, { focus = false, park = false } = {}) {
+    setPinned(pinned, { focus = false, park = false, stay = false } = {}) {
       if (!this.active || this.pinned === Boolean(pinned)) return;
       this.pinned = Boolean(pinned);
       this.parked = this.pinned && park;
@@ -1181,7 +1176,7 @@
       if (this.note) this.note.hidden = !this.pinned;
 
       if (this.parked) askWindow(WINDOW_MESSAGES.HIDE);
-      else if (!this.pinned) askWindow(WINDOW_MESSAGES.SHOW, { focus });
+      else if (!this.pinned && !stay) askWindow(WINDOW_MESSAGES.SHOW, { focus });
     },
 
     /**
@@ -1220,14 +1215,19 @@
       this.teardown();
     },
 
-    /** Remember this window's size, so it opens the same way next time. */
+    /**
+     * Remember this window's size, so it opens the same way next time. Wired
+     * once: the stage is built again on every switch back on.
+     */
     watchSize() {
+      if (this.sizeWired) return;
+      this.sizeWired = true;
       window.addEventListener('resize', () => {
         clearTimeout(this.sizeTimer);
         this.sizeTimer = setTimeout(() => {
           // Parked, the window is minimized, and that is not a size to open
-          // at next time.
-          if (this.parked) return;
+          // at next time; torn down, it is not a mini player any more.
+          if (!this.active || this.parked) return;
 
           const width = window.outerWidth;
           const height = window.outerHeight;
@@ -1253,7 +1253,6 @@
       this.bar?.remove();
       this.note?.remove();
       this.bar = null;
-      this.pinBtn = null;
       this.titleEl = null;
       this.titleTimer = null;
       this.note = null;
@@ -1332,9 +1331,9 @@
     // user's, and every YouTube tab hears this switch.
     if (MiniWindow.active) VideoPin.close();
     MiniWindow.setPinned(false);
-    // The worker has closed the floating player; switched back on, this page
-    // must ask for it again.
-    FloatingPin.release();
+    // The worker has closed the floating player itself; switched back on,
+    // this page must ask for it again.
+    FloatingPin.prepared = null;
     // Leaving the stage up would strip the page with no way back out of it.
     MiniWindow.teardown();
   }
@@ -1373,6 +1372,16 @@
       if (!changes[DETACH.KEYS.ENABLED]) return;
       DetachState.enabled = changes[DETACH.KEYS.ENABLED].newValue !== false;
       applyEnabledState();
+    });
+
+    // The video stopped floating while this window waited behind it, kept
+    // minimized: its note is no longer true. Only the worker reaches a
+    // content script this way.
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message?.type === WINDOW_MESSAGES.FLOAT_ENDED && MiniWindow.pinned && !MiniWindow.parked) {
+        MiniWindow.setPinned(false, { stay: true });
+      }
+      return false;
     });
 
     document.addEventListener('yt-navigate-finish', onPageReady);

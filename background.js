@@ -18,7 +18,7 @@
 // is read from sender.tab, which the browser fills in for a content script's
 // message. Nothing here trusts the message beyond its type, a video id
 // checked against VIDEO_ID, and numbers (a time, a volume, a speed) that are
-// bounded before use.
+// bounded here before they go anywhere.
 // ============================================
 
 // Kept in step with WINDOW_MESSAGES in detach.js — a service worker and a
@@ -29,9 +29,11 @@ const MESSAGES = {
   OPEN: 'wle-mini-window-open',
   FLOAT_PREPARE: 'wle-float-prepare',
   FLOAT_PIN: 'wle-float-pin',
-  FLOAT_UNPIN: 'wle-float-unpin',
-  FLOAT_RELEASE: 'wle-float-release'
+  FLOAT_UNPIN: 'wle-float-unpin'
 };
+
+// Sent to a mini player page, which is not a message the worker listens for.
+const FLOAT_ENDED = 'wle-float-ended';
 
 const MINI_WINDOW = {
   MARKER: 'wle-mini',        // detach.js recognises the window by this hash
@@ -90,9 +92,15 @@ function inTurn(task) {
   return run;
 }
 
+/** A number from a page, kept between min and max; fallback when it is not one. */
+function bounded(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+
 /** Whole seconds, bounded: it goes into a URL, and it arrived from a page. */
 function startSeconds(startAt) {
-  return Math.min(MINI_WINDOW.MAX_START, Math.max(0, Math.floor(Number(startAt) || 0)));
+  return Math.floor(bounded(startAt, 0, MINI_WINDOW.MAX_START, 0));
 }
 
 /**
@@ -140,14 +148,16 @@ async function serveMiniWindow(videoId, startAt) {
   }
 
   const open = await currentMiniPlayer();
-  if (open) {
-    if (open.videoId === videoId) {
-      // Pinned the fallback way, it is already floating above everything:
-      // raising its window would only cover what you were doing. Otherwise —
-      // including a window only kept minimized so that Chrome would not quit,
-      // see retireMiniWindow — it comes forward, the way it was.
-      const minimized = await minimizedState(open.tabId);
-      if (!minimized || minimized.retired) await showMiniPlayer(open.tabId, true);
+  if (open?.videoId === videoId) {
+    const minimized = await minimizedState(open.tabId);
+    // A window kept minimized only so that Chrome would not quit (see
+    // retireMiniWindow) held a video that has since stopped floating — past
+    // the branch above nothing floats — and is replaced like any other.
+    // Pinned the fallback way, it is already floating above everything:
+    // raising its window would only cover what you were doing. Otherwise it
+    // comes forward, the way it was.
+    if (!minimized?.retired) {
+      if (!minimized) await showMiniPlayer(open.tabId, true);
       await announce();
       return;
     }
@@ -256,7 +266,8 @@ async function showMiniPlayer(tabId, focused) {
 // closes it. So the pin opens it from somewhere the user cannot close: an
 // offscreen document (float.html) holding a YouTube embed of the same video.
 // No window, no tab, nothing in the taskbar. The "background" permission
-// keeps Chrome running when its last window closes, and the video with it.
+// keeps Chrome running when its last window closes, and the video with it —
+// while Chrome's own "Continue running background apps" setting is on.
 //
 // The catch is that picture-in-picture is only granted in answer to a click,
 // and an offscreen document never gets one. The click on Pin on top happens
@@ -427,6 +438,10 @@ async function stopFloating() {
   await chrome.storage.session.remove(FLOAT.KEY);
   await closeFloatDocument();
   relayToRemotes({ type: 'state', floating: false });
+  // A mini player window kept behind the floating video says the video is
+  // there: it is not any more.
+  const open = await currentMiniPlayer();
+  if (open) chrome.tabs.sendMessage(open.tabId, { type: FLOAT_ENDED }).catch(() => {});
 }
 
 /**
@@ -626,18 +641,8 @@ function pinFloating(message, sender, sendResponse) {
   }
 
   const status = Floating.status;
-  const embedVideo = status?.state?.videoId || status?.embedId;
-
-  // Already floating — asked again from a mini player window kept minimized
-  // behind it and brought back up. A second 'pin' would seek the floating
-  // video back to where this page stopped: there is nothing to hand over.
-  if (Floating.port && status?.pinned === true && embedVideo === message.videoId) {
-    sendResponse({ ok: true });
-    inTurn(() => retireMiniWindow(sender.tab.id)).catch(() => {});
-    return false;
-  }
-
-  const ready = Floating.port && status?.ready && embedVideo === message.videoId;
+  const ready = Floating.port && status?.ready &&
+    (status.state?.videoId || status.embedId) === message.videoId;
 
   if (!ready) {
     console.info('WLE: the floating player is not ready, pinning the old way');
@@ -650,10 +655,10 @@ function pinFloating(message, sender, sendResponse) {
   const sound = message.sound || {};
   Floating.port.postMessage({
     type: 'pin',
-    time: Number(message.time) || 0,
+    time: bounded(message.time, 0, MINI_WINDOW.MAX_START, 0),
     muted: sound.muted === true,
-    volume: Number.isFinite(Number(sound.volume)) ? Number(sound.volume) : 100,
-    rate: Number.isFinite(Number(sound.rate)) ? Number(sound.rate) : 1,
+    volume: bounded(sound.volume, 0, 100, 100),
+    rate: bounded(sound.rate, 0.0625, 16, 1),
     paused: sound.paused === true
   });
 
@@ -705,15 +710,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return pinFloating(message, sender, sendResponse);
   }
 
-  if (type === MESSAGES.FLOAT_PREPARE || type === MESSAGES.FLOAT_RELEASE) {
+  if (type === MESSAGES.FLOAT_PREPARE) {
     if (!isFromYouTubeTab(sender)) return false;
     inTurn(async () => {
       // Only the mini player this worker opened: any other page carrying its
       // marker would take the one floating player over from it.
       if ((await currentMiniPlayer())?.tabId !== sender.tab.id) return;
-      await (type === MESSAGES.FLOAT_PREPARE
-        ? prepareFloating(String(message.videoId || ''), Number(message.time) || 0)
-        : releaseFloating());
+      await prepareFloating(String(message.videoId || ''), startSeconds(message.time));
     }).catch((error) => {
       console.info('WLE: the floating player could not be prepared —', error?.message);
     });
