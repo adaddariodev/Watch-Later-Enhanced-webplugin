@@ -8,8 +8,7 @@
   --accent: #ffd000;
   --text-main: #ffffff;
   --text-dim: #aaaaaa;
-  --jm-teal: #57C785;
-  --jm-dark: #003D4D;
+  --teal: #57C785;
 
   /* The one recipe for a pane of glass: a translucent fill, a lit edge and a
      blur of whatever passes behind it. A video card and a filter chip are
@@ -171,84 +170,6 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* =========================================
-   JOBSMATCH BANNER (first-party cross-promo)
-   ========================================= */
-.jm-banner {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 14px;
-  text-decoration: none;
-  color: inherit;
-  background: linear-gradient(90deg, var(--jm-dark) 0%, var(--jm-teal) 100%);
-  border-bottom: none;
-  transition: filter 0.2s;
-}
-
-.jm-banner:hover {
-  filter: brightness(1.08);
-}
-
-.jm-banner:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: -2px;
-}
-
-.jm-banner.hidden {
-  display: none;
-}
-
-/* The spare width goes to the copy's left, not the arrow's, so the sentence
-   sits beside the chevron it points at rather than trailing the JobsMatch
-   mark across an empty strip. */
-.jm-banner::after {
-  content: "›";
-  color: var(--jm-dark);
-  font-size: 16px;
-  line-height: 1;
-  opacity: 0.9;
-  flex-shrink: 0;
-}
-
-.jm-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.jm-jobs {
-  background: var(--jm-teal);
-  color: var(--jm-dark);
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.02em;
-  line-height: 1.3;
-}
-
-.jm-match {
-  color: var(--jm-teal);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.jm-copy {
-  margin-left: auto;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /* Still allowed to shrink and clip when the popup cannot fit the sentence,
-     which auto margins alone would not permit. */
-  min-width: 0;
 }
 
 main {
@@ -1628,18 +1549,7 @@ a.icon-btn {
 }
 
 .wle-switch[aria-checked="true"] {
-  background: var(--jm-teal);
-}
-
-/* Locked, not dead: it reads as disabled and refuses to flip, but it is still
-   a button, so it can point at the Ko-fi code that unlocks it. */
-.wle-switch:disabled,
-.wle-switch[aria-disabled="true"] {
-  opacity: 0.4;
-}
-
-.wle-switch:disabled {
-  cursor: not-allowed;
+  background: var(--teal);
 }
 
 .wle-switch-thumb {
@@ -1781,18 +1691,13 @@ a.icon-btn {
 }
 
 /* The field and its button first, the explanation under them in hint type:
-   the card is one action, so it takes the room of one. The section heading
-   above it already says what the code is. */
+   the card is one action, so it takes the room of one. */
 .settings-unlock {
   background: rgba(255, 255, 255, 0.03);
   padding: 10px 14px;
   margin-bottom: 10px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-#supporter-section.hidden {
-  display: none;
 }
 
 .settings-unlock-row {
@@ -1803,11 +1708,6 @@ a.icon-btn {
 
 .settings-unlock .settings-hint {
   margin-top: 7px;
-}
-
-/* The section already carries the group's bottom margin. */
-#supporter-section .settings-unlock {
-  margin-bottom: 0;
 }
 
 .settings-unlock-row input {
@@ -1939,7 +1839,7 @@ a.icon-btn {
 }
 
 .settings-unlock-status.is-ok {
-  color: var(--jm-teal);
+  color: var(--teal);
 }
 
 /* Two lines, no line breaks inside them: who wrote it, and where to find it
@@ -2532,7 +2432,6 @@ li.video-item.drop-target {
     animation: none;
   }
 
-  .jm-banner,
   .wle-switch,
   .wle-switch-thumb {
     transition: none;

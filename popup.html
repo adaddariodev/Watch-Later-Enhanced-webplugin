@@ -25,20 +25,6 @@
     </div>
   </header>
 
-  <a
-    id="jobsmatch-banner"
-    class="jm-banner"
-    href="https://www.jobsmatch.app/?utm_source=watch_later_enhanced&utm_medium=extension_banner&utm_campaign=cross_promo&utm_content=popup_header_strip&utm_id=wle-banner-v2&utm_term=next_best_eu_tech_job"
-    target="_blank"
-    rel="noopener noreferrer"
-    aria-label="JobsMatch — find your next best EU tech job (opens in a new tab)"
-  >
-    <span class="jm-mark" aria-hidden="true">
-      <span class="jm-jobs">Jobs</span><span class="jm-match">Match</span>
-    </span>
-    <span class="jm-copy">Find your next best EU tech job</span>
-  </a>
-
   <!-- Outside <main>, which is the scrolling half: the tabs and the filters
        are the popup's fixed chrome, so nothing ever passes underneath them.
        They used to be sticky inside the list, which pinned them in the same
@@ -506,48 +492,6 @@
             />
           </div>
           <p class="settings-hint slider-hint">Frosted panels over a tinted backdrop. A browser popup sits on its own window, so this is the panel that goes see-through, not the page behind it.</p>
-
-          <p class="settings-subhead">JobsMatch banner</p>
-
-          <div id="hide-banner-row" class="settings-options">
-            <div class="settings-option-text">
-              <span id="hide-banner-label">Hide JobsMatch banner</span>
-              <p id="hide-banner-hint" class="settings-hint">Unlocked after you paste the Ko-fi thank-you code</p>
-            </div>
-            <button
-              id="toggle-hide-banner"
-              class="wle-switch"
-              type="button"
-              role="switch"
-              aria-checked="false"
-              aria-labelledby="hide-banner-label"
-              aria-disabled="true"
-            >
-              <span class="wle-switch-thumb"></span>
-            </button>
-          </div>
-
-          <div id="supporter-section">
-            <p class="settings-subhead">Supporter code</p>
-
-            <div id="supporter-unlock" class="settings-unlock">
-              <div class="settings-unlock-row">
-                <input
-                  id="supporter-code"
-                  type="text"
-                  autocomplete="off"
-                  spellcheck="false"
-                  maxlength="80"
-                  placeholder="Paste your Ko-fi code"
-                  aria-label="Supporter code"
-                  aria-describedby="supporter-unlock-status"
-                />
-                <button id="supporter-unlock-btn" class="text-btn" type="button">Unlock</button>
-              </div>
-              <p class="settings-hint">It comes with the Ko-fi thank-you message.</p>
-              <p id="supporter-unlock-status" class="settings-unlock-status" role="status"></p>
-            </div>
-          </div>
         </details>
 
         <div class="credits-box">
@@ -572,7 +516,7 @@
     <span class="donate-callout-arrow"></span>
     <button id="donate-callout-close" class="donate-callout-close" type="button" aria-label="Dismiss">×</button>
     <p class="donate-callout-title">Enjoying it? ☕</p>
-    <p class="donate-callout-text">Watch Later Enhanced is free and private — forever. After a Ko-fi tip, paste the thank-you code in Settings to hide the JobsMatch note.</p>
+    <p class="donate-callout-text">Watch Later Enhanced is free and private — forever. If it has been useful to you, you can say thanks on Ko-fi.</p>
     <div class="donate-callout-actions">
       <a id="donate-callout-cta" class="donate-callout-btn" href="https://ko-fi.com/adaddariodev" target="_blank" rel="noopener noreferrer">Support on Ko-fi</a>
     </div>
